@@ -22,8 +22,6 @@
             --anfeer-border: #E2E8F0;
             --anfeer-text-main: #2D3748;
             --anfeer-text-muted: #718096;
-            --success-green: #10B981;
-            --warning-yellow: #F59E0B;
         }
 
         * {
@@ -99,7 +97,6 @@
             flex: 1;
         }
 
-        /* NAVEGAÇÃO DOS PAINÉIS */
         .panel-selector {
             display: flex;
             gap: 12px;
@@ -135,7 +132,6 @@
             box-shadow: 0 4px 10px rgba(217, 35, 29, 0.25);
         }
 
-        /* CARDS E GRIDS */
         .data-card {
             background: var(--anfeer-card-bg);
             border-radius: 8px;
@@ -163,7 +159,6 @@
             gap: 10px;
         }
 
-        /* DASHBOARD METRICS CARDS (PLR) */
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -232,7 +227,6 @@
         tbody tr:nth-child(even) { background-color: #F9FAFB; }
         tbody tr:hover { background-color: #FEF2F2; }
 
-        /* BADGES */
         .badge {
             padding: 4px 10px;
             border-radius: 12px;
@@ -298,13 +292,12 @@
         <div class="hero-container">
             <div class="hero-text">
                 <h1>Painel Operacional de Produção & PLR</h1>
-                <p>Monitoramento de erros de apontamento e índice de produtividade para cálculo de PLR CLT.</p>
+                <p>Monitoramento de erros de apontamento e cálculo de produtividade para PLR.</p>
             </div>
         </div>
     </section>
 
     <main>
-        <!-- BOTÕES DE SELEÇÃO DE PAINEL -->
         <div class="panel-selector">
             <button class="panel-btn active" id="btn-erros" onclick="alternarPainel('ERROS')">
                 <i class="fa-solid fa-triangle-exclamation"></i> 1. Erros de Apontamento
@@ -317,7 +310,7 @@
         <!-- PAINEL 1: ERROS DE APONTAMENTO -->
         <div id="secao-erros" class="data-card">
             <div class="card-header">
-                <h2><i class="fa-solid fa-list-check" style="color: var(--anfeer-red);"></i> Apontamentos Incorretos para Correção</h2>
+                <h2><i class="fa-solid fa-list-check" style="color: var(--anfeer-red);"></i> Apontamentos Incorretos (Ordenado do mais recente ao mais antigo)</h2>
                 <span class="badge badge-danger" id="total-erros-count">Carregando...</span>
             </div>
             
@@ -331,9 +324,8 @@
                             <th>OS Completa</th>
                             <th>Cód. Barras</th>
                             <th>Funcionário</th>
-                            <th>Data</th>
-                            <th>Início</th>
-                            <th>Fim</th>
+                            <th>Início (Data - Hora)</th>
+                            <th>Fim (Data - Hora)</th>
                             <th>Total Horas</th>
                         </tr>
                     </thead>
@@ -345,35 +337,34 @@
         <!-- PAINEL 2: INDICADORES DE PLR -->
         <div id="secao-plr" style="display: none;">
             
-            <!-- CARDS DE RESUMO GERAL -->
             <div class="metrics-grid">
                 <div class="metric-card" style="border-left-color: #3B82F6;">
                     <h3>Carga CLT Padrão</h3>
-                    <div class="value">176h /mês</div>
-                    <div class="sub" style="color: #6B7280;">Meta individual de 8h/dia útil</div>
+                    <div class="value">8.0h /dia</div>
+                    <div class="sub" style="color: #6B7280;">Meta base de 176h/mês</div>
                 </div>
                 <div class="metric-card" style="border-left-color: #10B981;">
-                    <h3>Eficiência Média Global</h3>
+                    <h3>Eficiência Média Produção</h3>
                     <div class="value" id="metric-eficiencia-global">--%</div>
-                    <div class="sub" id="metric-eficiencia-status">Previsto vs. Realizado</div>
+                    <div class="sub" id="metric-eficiencia-status">Previsto vs Realizado</div>
                 </div>
             </div>
 
-            <!-- TABELA 1 DO PLR: APONTAMENTO POR FUNCIONÁRIO -->
+            <!-- TABELA 1: ASSIDUIDADE E HORAS TRABALHADAS -->
             <div class="data-card">
                 <div class="card-header">
-                    <h2><i class="fa-solid fa-user-clock" style="color: var(--anfeer-red);"></i> Indicador 1: Cumprimento de Horas por Funcionário (CLT)</h2>
+                    <h2><i class="fa-solid fa-user-clock" style="color: var(--anfeer-red);"></i> Indicador 1: Horas Apontadas por Dia Útil</h2>
                 </div>
-                <div id="loading-plr-func" class="loading-container"><div class="spinner"></div>Calculando horas apontadas por funcionário...</div>
+                <div id="loading-plr-func" class="loading-container"><div class="spinner"></div>Calculando horas apontadas...</div>
                 <div id="wrapper-plr-func" class="table-wrapper" style="display:none;">
                     <table>
                         <thead>
                             <tr>
+                                <th>Data Apontamento</th>
                                 <th>Funcionário</th>
                                 <th>Tipo Máquina</th>
                                 <th>Horas Apontadas</th>
-                                <th>Desvio / Meta Diária (8h)</th>
-                                <th>Status Assiduidade</th>
+                                <th>Status Meta (8h/dia)</th>
                             </tr>
                         </thead>
                         <tbody id="tbody-plr-func"></tbody>
@@ -381,12 +372,12 @@
                 </div>
             </div>
 
-            <!-- TABELA 2 DO PLR: PREVISTO VS REALIZADO POR TIPO DE SERVIÇO -->
+            <!-- TABELA 2: PREVISTO VS REALIZADO -->
             <div class="data-card">
                 <div class="card-header">
-                    <h2><i class="fa-solid fa-chart-pie" style="color: var(--anfeer-red);"></i> Indicador 2: Comparativo Previsto x Realizado por Serviço</h2>
+                    <h2><i class="fa-solid fa-chart-pie" style="color: var(--anfeer-red);"></i> Indicador 2: Eficiência Previsto x Realizado por Serviço</h2>
                 </div>
-                <div id="loading-plr-servico" class="loading-container"><div class="spinner"></div>Calculando desempenho por tipo de serviço...</div>
+                <div id="loading-plr-servico" class="loading-container"><div class="spinner"></div>Calculando desempenho por serviço...</div>
                 <div id="wrapper-plr-servico" class="table-wrapper" style="display:none;">
                     <table>
                         <thead>
@@ -395,8 +386,8 @@
                                 <th>Data Finalização</th>
                                 <th>Horas Previstas</th>
                                 <th>Horas Realizadas</th>
-                                <th>Dentro do Previsto?</th>
-                                <th>Índice Desempenho</th>
+                                <th>Desempenho</th>
+                                <th>Índice Eficiência</th>
                             </tr>
                         </thead>
                         <tbody id="tbody-plr-servico"></tbody>
@@ -420,6 +411,24 @@
     <script>
         const API_URL = "https://relieve-erased-projector.ngrok-free.dev";
 
+        // Função para formatar Data e Hora ISO para formato PT-BR (DD/MM/AAAA - HH:MM:SS)
+        function formatarDataHoraPtBr(dataIso, horaIso) {
+            if (!dataIso) return '-';
+            
+            // Extrai ano, mês, dia
+            const dataObj = new Date(dataIso);
+            const dia = String(dataObj.getDate()).padStart(2, '0');
+            const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
+            const ano = dataObj.getFullYear();
+            
+            let horaFormatada = "00:00:00";
+            if (horaIso) {
+                horaFormatada = horaIso.split('T')[1].substring(0, 8);
+            }
+
+            return `${dia}/${mes}/${ano} - ${horaFormatada}`;
+        }
+
         function alternarPainel(painel) {
             if (painel === 'ERROS') {
                 document.getElementById('secao-erros').style.display = 'block';
@@ -431,8 +440,6 @@
                 document.getElementById('secao-plr').style.display = 'block';
                 document.getElementById('btn-erros').classList.remove('active');
                 document.getElementById('btn-plr').classList.add('active');
-                
-                // Carrega dados de PLR se ainda não foram buscados
                 carregarPLR();
             }
         }
@@ -443,7 +450,14 @@
                 const response = await fetch(`${API_URL}/ERRO_APONTAMENTO?ngrok-skip-browser-warning=1`, {
                     headers: { "ngrok-skip-browser-warning": "true" }
                 });
-                const dados = await response.json();
+                let dados = await response.json();
+
+                // Ordenar da DATA_FIM + FIM mais nova para a mais antiga
+                dados.sort((a, b) => {
+                    const dataA = new Date(a.DATA_FIM || 0);
+                    const dataB = new Date(b.DATA_FIM || 0);
+                    return dataB - dataA;
+                });
 
                 const tbody = document.getElementById('tbody-erros');
                 tbody.innerHTML = "";
@@ -451,17 +465,18 @@
                 document.getElementById('total-erros-count').innerText = `${dados.length} Erros Encontrados`;
 
                 dados.forEach(item => {
-                    const dataFormatada = item.DATA ? item.DATA.split('T')[0] : '-';
+                    const inicioFormatado = formatarDataHoraPtBr(item.DATA, item.INICIO);
+                    const fimFormatado = formatarDataHoraPtBr(item.DATA_FIM, item.FIM);
+
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td>${item.COD_EMPRESA || '-'}</td>
                         <td><strong>${item.COD_OS_COMPLETO || '-'}</strong></td>
                         <td>${item.COD_BARR || '-'}</td>
                         <td>${item.FUNCIONARIO || '-'}</td>
-                        <td>${dataFormatada}</td>
-                        <td>${item.INICIO ? item.INICIO.split('T')[1].substring(0, 8) : '-'}</td>
-                        <td>${item.FIM ? item.FIM.split('T')[1].substring(0, 8) : '-'}</td>
-                        <td><span class="badge badge-danger">${parseFloat(item.TOTAL_HS).toFixed(2)}h</span></td>
+                        <td>${inicioFormatado}</td>
+                        <td>${fimFormatado}</td>
+                        <td><span class="badge badge-danger">${parseFloat(item.TOTAL_HS || 0).toFixed(2)}h</span></td>
                     `;
                     tbody.appendChild(tr);
                 });
@@ -471,13 +486,12 @@
 
             } catch (err) {
                 console.error("Erro em /ERRO_APONTAMENTO:", err);
-                document.getElementById('loading-erros').innerText = "Erro ao carregar os dados do endpoint /ERRO_APONTAMENTO.";
+                document.getElementById('loading-erros').innerText = "Erro ao carregar dados do Ngrok.";
             }
         }
 
-        // 2. CARREGAR DADOS DO PLR (HORAS DIA + PREV REAL)
+        // 2. CARREGAR DADOS DO PLR
         async function carregarPLR() {
-            // Busca dados de HORAS_DIA
             try {
                 const resHoras = await fetch(`${API_URL}/HORAS_DIA?ngrok-skip-browser-warning=1`, {
                     headers: { "ngrok-skip-browser-warning": "true" }
@@ -489,25 +503,26 @@
 
                 dadosHoras.forEach(item => {
                     const hrs = parseFloat(item.horas || 0);
-                    // Meta diária CLT base = 8h
                     const metaDiaria = 8.0; 
                     const diferenca = hrs - metaDiaria;
                     
                     let statusBadge = '';
                     if (hrs >= metaDiaria) {
-                        statusBadge = `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Meta Cumprida (+${diferenca.toFixed(1)}h)</span>`;
+                        statusBadge = `<span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Meta Atingida (${hrs.toFixed(1)}h / 8.0h)</span>`;
                     } else if (hrs >= 6.0) {
-                        statusBadge = `<span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> Abaixo da Meta (${diferenca.toFixed(1)}h)</span>`;
+                        statusBadge = `<span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> Apontou Pouco (${hrs.toFixed(1)}h / 8.0h)</span>`;
                     } else {
-                        statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-xmark"></i> Apontamento Insuficiente</span>`;
+                        statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-circle-xmark"></i> Crítico (${hrs.toFixed(1)}h / 8.0h)</span>`;
                     }
+
+                    const dataFormatada = item.data_fim ? item.data_fim.split('T')[0].split('-').reverse().join('/') : '-';
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
+                        <td>${dataFormatada}</td>
                         <td><strong>${item.funcionario || '-'}</strong></td>
                         <td>${item.TP_MAQUINA || '-'}</td>
                         <td><strong>${hrs.toFixed(2)}h</strong></td>
-                        <td>${diferenca >= 0 ? '+' : ''}${diferenca.toFixed(2)}h vs 8h/dia</td>
                         <td>${statusBadge}</td>
                     `;
                     tbodyFunc.appendChild(tr);
@@ -521,7 +536,6 @@
                 document.getElementById('loading-plr-func').innerText = "Erro ao carregar /HORAS_DIA.";
             }
 
-            // Busca dados de PREV_REAL
             try {
                 const resPrev = await fetch(`${API_URL}/PREV_REAL?ngrok-skip-browser-warning=1`, {
                     headers: { "ngrok-skip-browser-warning": "true" }
@@ -541,15 +555,13 @@
                     totalPrevistoSum += prev;
                     totalRealizadoSum += real;
 
-                    // Eficiência: quanto menor o tempo gasto em relação ao previsto, melhor
-                    let eficiencia = prev > 0 ? ((prev / real) * 100) : 0;
-                    
-                    const dtFinal = item.DT_FINALIZACAO ? item.DT_FINALIZACAO.split('T')[0] : '-';
+                    let eficiencia = real > 0 ? ((prev / real) * 100) : 0;
+                    const dtFinal = item.DT_FINALIZACAO ? item.DT_FINALIZACAO.split('T')[0].split('-').reverse().join('/') : '-';
                     const maiorQuePrev = item.REALIZADO_MAIOR_QUE_PREVISTO === 'SIM';
 
                     const badgeComp = !maiorQuePrev 
-                        ? `<span class="badge badge-success"><i class="fa-solid fa-thumbs-up"></i> SIM (Eficiente)</span>`
-                        : `<span class="badge badge-danger"><i class="fa-solid fa-thumbs-down"></i> NÃO (Estourou Tempo)</span>`;
+                        ? `<span class="badge badge-success"><i class="fa-solid fa-thumbs-up"></i> No Prazo (Economizou)</span>`
+                        : `<span class="badge badge-danger"><i class="fa-solid fa-thumbs-down"></i> Atrasado (Estourou)</span>`;
 
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
@@ -563,11 +575,10 @@
                     tbodyServ.appendChild(tr);
                 });
 
-                // Calcula indicador global
                 if (totalRealizadoSum > 0) {
                     const efGeral = (totalPrevistoSum / totalRealizadoSum) * 100;
                     document.getElementById('metric-eficiencia-global').innerText = `${efGeral.toFixed(1)}%`;
-                    document.getElementById('metric-eficiencia-status').innerText = efGeral >= 100 ? "Excelente Desempenho PLR" : "Atenção nos Prazos de Serviço";
+                    document.getElementById('metric-eficiencia-status').innerText = efGeral >= 100 ? "Produção Rápida e Eficiente" : "Estouro de Horas na Produção";
                 }
 
                 document.getElementById('loading-plr-servico').style.display = 'none';
@@ -579,7 +590,6 @@
             }
         }
 
-        // Executa inicialização
         carregarErros();
     </script>
 </body>
