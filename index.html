@@ -3,114 +3,507 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel ANFEER - Consultoria RF</title>
+    <title>Painel Gestão & Business Intelligence - ANFEER</title>
+    
+    <!-- Favicon (Logo Minimalista) -->
+    <link rel="icon" type="image/png" href="LOGO MINIMALISTA.png">
+    
+    <!-- Google Fonts & FontAwesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
+        :root {
+            --anfeer-red: #D9231D;
+            --anfeer-red-hover: #b51a15;
+            --anfeer-dark: #1E1E1E;
+            --anfeer-gray-bg: #4F5254;
+            --anfeer-light-bg: #F8F9FA;
+            --anfeer-card-bg: #FFFFFF;
+            --anfeer-border: #E2E8F0;
+            --anfeer-text-main: #2D3748;
+            --anfeer-text-muted: #718096;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background-color: #f4f6f9;
-            color: #333;
+            background-color: #F4F6F8;
+            color: var(--anfeer-text-main);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
         }
-        h1 { color: #0056b3; }
-        .card {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+        /* HEADER SUPERIOR (FUNDO CLARO) */
+        header {
+            background-color: #FFFFFF;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .brand-logo {
+            height: 52px;
+            object-fit: contain;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--anfeer-text-main);
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--anfeer-red);
+        }
+
+        .btn-contact {
+            background-color: var(--anfeer-red);
+            color: white !important;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 600 !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .btn-contact:hover {
+            background-color: var(--anfeer-red-hover);
+            transform: translateY(-1px);
+        }
+
+        /* HERO SECTION (FUNDO ESCURO - CINZA TÉCNICO ANFEER) */
+        .hero {
+            background-color: var(--anfeer-gray-bg);
+            color: white;
+            padding: 40px 24px;
+            border-bottom: 4px solid var(--anfeer-red);
+        }
+
+        .hero-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+
+        .hero-text h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            line-height: 1.2;
+        }
+
+        .hero-text p {
+            color: #E2E8F0;
+            font-size: 0.95rem;
+            max-width: 650px;
+        }
+
+        .hero-logo-dark {
+            height: 48px;
+            object-fit: contain;
+            opacity: 0.9;
+        }
+
+        /* CONTEÚDO PRINCIPAL E NAVEGAÇÃO DE DADOS */
+        main {
+            max-width: 1280px;
+            margin: 30px auto;
+            padding: 0 24px;
+            width: 100%;
+            flex: 1;
+        }
+
+        /* TABS DE SELEÇÃO DE DADOS */
+        .tabs-container {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 12px;
             margin-bottom: 20px;
+            border-bottom: 2px solid var(--anfeer-border);
         }
+
+        .tab-btn {
+            background: #FFFFFF;
+            border: 1px solid var(--anfeer-border);
+            padding: 10px 18px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--anfeer-text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            border-color: var(--anfeer-red);
+            color: var(--anfeer-red);
+        }
+
+        .tab-btn.active {
+            background-color: var(--anfeer-red);
+            color: white;
+            border-color: var(--anfeer-red);
+            box-shadow: 0 2px 6px rgba(217, 35, 29, 0.25);
+        }
+
+        /* CARDS E TABELAS */
+        .data-card {
+            background: var(--anfeer-card-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid var(--anfeer-border);
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            background-color: #FFFFFF;
+            border-bottom: 1px solid var(--anfeer-border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-header h2 {
+            font-size: 1.15rem;
+            color: var(--anfeer-dark);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background-color: #E2E8F0;
+            color: var(--anfeer-text-muted);
+            font-weight: 600;
+        }
+
+        .status-badge.online {
+            background-color: #DEF7EC;
+            color: #03543F;
+        }
+
+        .table-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            max-height: 550px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 10px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
             text-align: left;
+            font-size: 0.88rem;
         }
+
         th {
-            background-color: #0056b3;
-            color: white;
+            background-color: #F8FAFC;
+            color: var(--anfeer-dark);
+            font-weight: 700;
+            padding: 12px 16px;
+            border-bottom: 2px solid var(--anfeer-border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            text-transform: uppercase;
+            font-size: 0.78rem;
+            letter-spacing: 0.5px;
         }
-        .status-loading { color: #888; font-style: italic; }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--anfeer-border);
+            color: var(--anfeer-text-main);
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #F9FAFB;
+        }
+
+        tbody tr:hover {
+            background-color: #FEF2F2;
+        }
+
+        /* ESTADOS DE CARREGAMENTO / ERRO */
+        .loading-container, .error-container {
+            padding: 40px 20px;
+            text-align: center;
+            color: var(--anfeer-text-muted);
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--anfeer-red);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 12px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* FOOTER (FUNDO ESCURO) */
+        footer {
+            background-color: var(--anfeer-dark);
+            color: white;
+            padding: 24px;
+            margin-top: auto;
+        }
+
+        .footer-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            font-size: 0.85rem;
+            color: #A0AEC0;
+        }
+
+        .footer-logo {
+            height: 36px;
+            object-fit: contain;
+        }
+
+        /* RESPONSIVIDADE */
+        @media (max-width: 768px) {
+            .header-container {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .hero-text h1 {
+                font-size: 1.4rem;
+            }
+            .hero-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .footer-container {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+        }
     </style>
 </head>
 <body>
 
-    <h1>Painel de Dados - ANFEER</h1>
+    <!-- HEADER SUPERIOR (Aplica Logo para Fundo Branco) -->
+    <header>
+        <div class="header-container">
+            <img src="LOGO_APLICACAO_FUNDO_BRANCO.png" alt="ANFEER Brochas e Ferramentas" class="brand-logo">
+            
+            <ul class="nav-links">
+                <li><a href="#" class="btn-contact"><i class="fa-brands fa-whatsapp"></i> Entre em contato</a></li>
+            </ul>
+        </div>
+    </header>
 
-    <div class="card">
-        <h2>Faturamento</h2>
-        <div id="loading-faturamento" class="status-loading">Carregando dados...</div>
-        <table id="tabela-faturamento" style="display: none;">
-            <thead>
-                <tr id="headers-faturamento"></tr>
-            </thead>
-            <tbody id="corpo-faturamento"></tbody>
-        </table>
-    </div>
+    <!-- HERO SECTION (Aplica Logo para Fundo Escuro) -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-text">
+                <h1>Painel de Controle e Business Intelligence</h1>
+                <p>Acompanhamento analítico e relatórios estratégicos integrados em tempo real.</p>
+            </div>
+            <img src="LOGO_APLICACAO_FUNDO_PRETO.png" alt="ANFEER Logo Dark" class="hero-logo-dark">
+        </div>
+    </section>
 
+    <!-- ÁREA DE DADOS INTEGRADA COM A API SQL -->
+    <main>
+        <!-- NAVEGAÇÃO ENTRE OS ENDPOINTS DA SUA API -->
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="carregarDados('FATURAMENTO', this)">
+                <i class="fa-solid fa-chart-line"></i> Faturamento
+            </button>
+            <button class="tab-btn" onclick="carregarDados('GASTOS', this)">
+                <i class="fa-solid fa-wallet"></i> Gastos
+            </button>
+            <button class="tab-btn" onclick="carregarDados('INVESTIMENTOS', this)">
+                <i class="fa-solid fa-piggy-bank"></i> Investimentos
+            </button>
+            <button class="tab-btn" onclick="carregarDados('CUSTO_HORA', this)">
+                <i class="fa-solid fa-clock"></i> Custo Hora
+            </button>
+            <button class="tab-btn" onclick="carregarDados('FUNC_MAQ', this)">
+                <i class="fa-solid fa-gears"></i> Func. Máquinas
+            </button>
+        </div>
+
+        <!-- CONTAINER DA TABELA -->
+        <div class="data-card">
+            <div class="card-header">
+                <h2 id="titulo-tabela"><i class="fa-solid fa-table"></i> Dados do Faturamento</h2>
+                <span id="badge-status" class="status-badge online"><i class="fa-solid fa-wifi"></i> Conectado à API</span>
+            </div>
+
+            <div id="loading-state" class="loading-container">
+                <div class="spinner"></div>
+                <p>Consultando banco de dados SQL via API...</p>
+            </div>
+
+            <div id="error-state" class="error-container" style="display: none;">
+                <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem; color: var(--anfeer-red); margin-bottom: 10px;"></i>
+                <p id="erro-mensagem">Erro ao se conectar com o servidor. Verifique a execução do Ngrok.</p>
+            </div>
+
+            <div id="table-wrapper" class="table-wrapper" style="display: none;">
+                <table>
+                    <thead>
+                        <tr id="headers-tabela"></tr>
+                    </thead>
+                    <tbody id="corpo-tabela"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- FOOTER (Aplica Logo para Fundo Preto) -->
+    <footer>
+        <div class="footer-container">
+            <img src="LOGO_APLICACAO_FUNDO_PRETO.png" alt="ANFEER Brochas" class="footer-logo">
+            <p>&copy; 2026 ANFEER - Fabricação de Brochas e Afiação. Todos os direitos reservados.</p>
+            <p>Desenvolvido por <strong>Consultoria RF</strong></p>
+        </div>
+    </footer>
+
+    <!-- SCRIPT DE CONSUMO DA API -->
     <script>
-        // URL do Ngrok configurada com HTTPS
+        // URL base do seu Ngrok
         const API_URL = "https://relieve-erased-projector.ngrok-free.dev"; 
 
-        async function carregarFaturamento() {
+        async function carregarDados(endpoint, elementoBotao) {
+            // Atualiza botões da interface (Tabs)
+            if (elementoBotao) {
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                elementoBotao.classList.add('active');
+            }
+
+            // Atualiza o título da tabela
+            document.getElementById('titulo-tabela').innerHTML = `<i class="fa-solid fa-table"></i> Relatório de ${endpoint.replace('_', ' ')}`;
+
+            // Exibe o Estado de Carregamento
+            document.getElementById('loading-state').style.display = 'block';
+            document.getElementById('error-state').style.display = 'none';
+            document.getElementById('table-wrapper').style.display = 'none';
+
             try {
-                // Adicionamos os headers que pulam a tela de aviso do Ngrok
-                const response = await fetch(`${API_URL}/FATURAMENTO`, {
+                // Consulta a API SQL via Ngrok com bypass
+                const response = await fetch(`${API_URL}/${endpoint}?ngrok-skip-browser-warning=1`, {
                     headers: {
-                        "ngrok-skip-browser-warning": "69420",
-                        "User-Agent": "CustomApp"
+                        "ngrok-skip-browser-warning": "true"
                     }
                 });
+
+                if (!response.ok) {
+                    throw new Error(`Erro de resposta: ${response.status}`);
+                }
 
                 const dados = await response.json();
 
                 if (!dados || dados.length === 0) {
-                    document.getElementById('loading-faturamento').innerText = "Nenhum dado encontrado.";
-                    return;
+                    throw new Error("Nenhum dado retornado do banco SQL.");
                 }
 
-                // Pega as colunas retornadas pelo SQL
+                // Obtém cabeçalhos a partir das chaves do objeto JSON
                 const colunas = Object.keys(dados[0]);
-                const thead = document.getElementById('headers-faturamento');
-                const tbody = document.getElementById('corpo-faturamento');
+                const thead = document.getElementById('headers-tabela');
+                const tbody = document.getElementById('corpo-tabela');
 
-                // Limpa conteúdos anteriores se houver
                 thead.innerHTML = "";
                 tbody.innerHTML = "";
 
-                // Renderiza os cabeçalhos
+                // Renderiza os cabeçalhos da Tabela
                 colunas.forEach(col => {
                     const th = document.createElement('th');
-                    th.innerText = col;
+                    th.innerText = col.replace(/_/g, ' ');
                     thead.appendChild(th);
                 });
 
-                // Renderiza as linhas
+                // Renderiza as linhas de dados
                 dados.forEach(linha => {
                     const tr = document.createElement('tr');
                     colunas.forEach(col => {
                         const td = document.createElement('td');
-                        td.innerText = linha[col] !== null ? linha[col] : '-';
+                        let valor = linha[col];
+
+                        // Formatação simples para valores numéricos ou nulos
+                        if (valor === null || valor === undefined) {
+                            td.innerText = '-';
+                            td.style.color = '#A0AEC0';
+                        } else {
+                            td.innerText = valor;
+                        }
+
                         tr.appendChild(td);
                     });
                     tbody.appendChild(tr);
                 });
 
-                // Esconde mensagem de carregamento e exibe tabela
-                document.getElementById('loading-faturamento').style.display = 'none';
-                document.getElementById('tabela-faturamento').style.display = 'table';
+                // Esconde carregamento e mostra a tabela preenchida
+                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('table-wrapper').style.display = 'block';
 
             } catch (erro) {
-                console.error("Erro ao buscar dados:", erro);
-                document.getElementById('loading-faturamento').innerText = "Erro ao carregar os dados. Verifique a conexao da API.";
+                console.error("Erro na consulta API:", erro);
+                document.getElementById('loading-state').style.display = 'none';
+                document.getElementById('error-state').style.display = 'block';
+                document.getElementById('erro-mensagem').innerText = `Não foi possível carregar ${endpoint}. Verifique a API/Ngrok. (${erro.message})`;
             }
         }
 
-        // Executa a busca ao abrir a página
-        carregarFaturamento();
+        // Inicializa a página carregando os dados de Faturamento
+        carregarDados('FATURAMENTO');
     </script>
 </body>
 </html>
