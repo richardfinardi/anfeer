@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Painel Operacional & PLR - ANFEER V1.2</title>
+    <title>Painel Operacional & PLR - ANFEER V1.3</title>
     
     <link rel="icon" type="image/png" href="LOGO MINIMALISTA.png">
     
@@ -137,6 +137,40 @@
             box-shadow: 0 4px 10px rgba(217, 35, 29, 0.25);
         }
 
+        /* ABAS DINÂMICAS DE SETORES */
+        .sector-tabs {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 16px;
+            border-bottom: 2px solid var(--anfeer-border);
+        }
+
+        .sector-tab-btn {
+            background: #FFFFFF;
+            border: 1px solid var(--anfeer-border);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--anfeer-text-muted);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .sector-tab-btn:hover {
+            border-color: var(--anfeer-red);
+            color: var(--anfeer-red);
+        }
+
+        .sector-tab-btn.active {
+            background-color: var(--anfeer-dark);
+            color: white;
+            border-color: var(--anfeer-dark);
+        }
+
         /* BARRA DE FILTROS RESPONSIVA */
         .filter-bar {
             background: #FFFFFF;
@@ -240,7 +274,6 @@
             margin-top: 4px;
         }
 
-        /* TABELA RESPONSIVA COM SCROLL LATERAL SUAVE */
         .table-wrapper {
             width: 100%;
             overflow-x: auto;
@@ -334,32 +367,14 @@
             border-radius: 4px;
         }
 
-        /* AJUSTES EXCLUSIVOS PARA DISPOSITIVOS MÓVEIS (CELULARES) */
         @media (max-width: 600px) {
-            .header-container {
-                justify-content: center;
-            }
-            .brand-logo-main {
-                height: 38px;
-            }
-            .hero-text h1 {
-                font-size: 1.15rem;
-            }
-            .panel-selector {
-                flex-direction: column;
-            }
-            .panel-btn {
-                width: 100%;
-                padding: 12px;
-                font-size: 0.88rem;
-            }
-            .filter-bar {
-                grid-template-columns: 1fr;
-            }
-            .footer-container {
-                flex-direction: column;
-                text-align: center;
-            }
+            .header-container { justify-content: center; }
+            .brand-logo-main { height: 38px; }
+            .hero-text h1 { font-size: 1.15rem; }
+            .panel-selector { flex-direction: column; }
+            .panel-btn { width: 100%; padding: 12px; font-size: 0.88rem; }
+            .filter-bar { grid-template-columns: 1fr; }
+            .footer-container { flex-direction: column; text-align: center; }
         }
     </style>
 </head>
@@ -374,7 +389,7 @@
     <section class="hero">
         <div class="hero-container">
             <div class="hero-text">
-                <h1>Painel Operacional de Produção & PLR V1.2</h1>
+                <h1>Painel Operacional de Produção & PLR V1.3</h1>
                 <p>Gestão de apontamentos e indicadores por setor, serviço e colaborador.</p>
             </div>
         </div>
@@ -389,28 +404,6 @@
             <button class="panel-btn" id="btn-plr" onclick="alternarPainel('PLR')">
                 <i class="fa-solid fa-calculator"></i> 2. Indicadores PLR
             </button>
-        </div>
-
-        <!-- BARRA GLOBAL DE FILTROS -->
-        <div class="filter-bar">
-            <div class="filter-group">
-                <label for="filtro-setor"><i class="fa-solid fa-industry"></i> Setor</label>
-                <select id="filtro-setor" onchange="aplicarFiltros()">
-                    <option value="">TODOS OS SETORES</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="filtro-servico"><i class="fa-solid fa-gears"></i> Tipo de Serviço</label>
-                <select id="filtro-servico" onchange="aplicarFiltros()">
-                    <option value="">TODOS OS SERVIÇOS</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="filtro-funcionario"><i class="fa-solid fa-user"></i> Funcionário</label>
-                <select id="filtro-funcionario" onchange="aplicarFiltros()">
-                    <option value="">TODOS OS FUNCIONÁRIOS</option>
-                </select>
-            </div>
         </div>
 
         <!-- PAINEL 1: ERROS DE APONTAMENTO -->
@@ -443,11 +436,34 @@
         <!-- PAINEL 2: INDICADORES DE PLR -->
         <div id="secao-plr" style="display: none;">
             
+            <!-- ABAS DINÂMICAS POR SETOR -->
+            <div class="sector-tabs" id="container-abas-setor">
+                <button class="sector-tab-btn active" onclick="selecionarAbaSetor('', this)">
+                    <i class="fa-solid fa-layer-group"></i> Eficiência Total
+                </button>
+            </div>
+
+            <!-- BARRA DE FILTROS -->
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label for="filtro-servico"><i class="fa-solid fa-gears"></i> Tipo de Serviço</label>
+                    <select id="filtro-servico" onchange="aplicarFiltros()">
+                        <option value="">TODOS OS SERVIÇOS</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filtro-funcionario"><i class="fa-solid fa-user"></i> Funcionário</label>
+                    <select id="filtro-funcionario" onchange="aplicarFiltros()">
+                        <option value="">TODOS OS FUNCIONÁRIOS</option>
+                    </select>
+                </div>
+            </div>
+
             <div class="metrics-grid">
                 <div class="metric-card" style="border-left-color: #10B981;">
                     <h3>Fator de Eficiência do Setor Selecionado</h3>
                     <div class="value" id="metric-eficiencia-setor">--%</div>
-                    <div class="sub" id="metric-eficiencia-status">Média real individual dos serviços (Máx 100%)</div>
+                    <div class="sub" id="metric-eficiencia-status">Descontando apontamentos errados</div>
                 </div>
             </div>
 
@@ -463,7 +479,7 @@
                             <tr>
                                 <th>Funcionário</th>
                                 <th>Setor</th>
-                                <th>Média Horas Apontadas</th>
+                                <th>Média Horas Válidas</th>
                                 <th>Fator Eficiência do Setor</th>
                                 <th>Aproveitamento Final PLR</th>
                             </tr>
@@ -476,7 +492,7 @@
             <!-- INDICADOR 1: DETALHAMENTO DE APONTAMENTO -->
             <div class="data-card">
                 <div class="card-header">
-                    <h2><i class="fa-solid fa-user-clock" style="color: var(--anfeer-red);"></i> Indicador 1: Apontamentos Diários</h2>
+                    <h2><i class="fa-solid fa-user-clock" style="color: var(--anfeer-red);"></i> Indicador 1: Apontamentos Diários Válidos</h2>
                 </div>
                 <div id="loading-plr-func" class="loading-container"><div class="spinner"></div>Calculando apontamentos...</div>
                 <div id="wrapper-plr-func" class="table-wrapper" style="display:none;">
@@ -534,6 +550,10 @@
         let rawErros = [];
         let rawHoras = [];
         let rawPrevReal = [];
+        let setorAtivo = ""; // Guarda o setor selecionado pelas abas
+
+        // Conjunto contendo os nomes de funcionários que cometeram erros
+        const funcionariosComErroSet = new Set();
 
         function formatarDataHoraPtBr(dataIso, horaIso) {
             if (!dataIso) return '-';
@@ -573,6 +593,12 @@
                 rawErros = await resErros.json();
                 rawErros.sort((a, b) => new Date(b.DATA_FIM || 0) - new Date(a.DATA_FIM || 0));
 
+                // Guardar funcionários que possuem erros de apontamento
+                funcionariosComErroSet.clear();
+                rawErros.forEach(e => {
+                    if (e.FUNCIONARIO) funcionariosComErroSet.add(e.FUNCIONARIO.trim());
+                });
+
                 // Fetch Horas
                 const resHoras = await fetch(`${API_URL}/HORAS_DIA?ngrok-skip-browser-warning=1`, {
                     headers: { "ngrok-skip-browser-warning": "true" }
@@ -585,7 +611,7 @@
                 });
                 rawPrevReal = await resPrev.json();
 
-                preencherOpcoesFiltros();
+                montarAbasSetoresEDropdowns();
                 renderizarErros();
 
             } catch (err) {
@@ -594,24 +620,46 @@
             }
         }
 
-        function preencherOpcoesFiltros() {
-            const setores = new Set();
-            const servicos = new Set();
-            const funcionarios = new Set();
+        function montarAbasSetoresEDropdowns() {
+            const setoresSet = new Set();
+            const servicosSet = new Set();
+            const funcionariosSet = new Set();
 
             rawHoras.forEach(i => {
-                if (i.SETOR) setores.add(i.SETOR);
-                if (i.TP_MAQUINA) servicos.add(i.TP_MAQUINA);
-                if (i.funcionario) funcionarios.add(i.funcionario);
+                if (i.SETOR) setoresSet.add(i.SETOR.trim());
+                if (i.TP_MAQUINA) servicosSet.add(i.TP_MAQUINA.trim());
+                if (i.funcionario) funcionariosSet.add(i.funcionario.trim());
             });
 
             rawPrevReal.forEach(i => {
-                if (i.TIPOSERVICO) servicos.add(i.TIPOSERVICO);
+                if (i.TIPOSERVICO) servicosSet.add(i.TIPOSERVICO.trim());
             });
 
-            populaSelect('filtro-setor', Array.from(setores).sort());
-            populaSelect('filtro-servico', Array.from(servicos).sort());
-            populaSelect('filtro-funcionario', Array.from(funcionarios).sort());
+            // Criar abas dinâmicas de Setores
+            const containerAbas = document.getElementById('container-abas-setor');
+            containerAbas.innerHTML = `
+                <button class="sector-tab-btn active" onclick="selecionarAbaSetor('', this)">
+                    <i class="fa-solid fa-layer-group"></i> Eficiência Total
+                </button>
+            `;
+
+            Array.from(setoresSet).sort().forEach(setor => {
+                const btn = document.createElement('button');
+                btn.className = 'sector-tab-btn';
+                btn.innerHTML = `<i class="fa-solid fa-industry"></i> ${setor}`;
+                btn.onclick = () => selecionarAbaSetor(setor, btn);
+                containerAbas.appendChild(btn);
+            });
+
+            populaSelect('filtro-servico', Array.from(servicosSet).sort());
+            populaSelect('filtro-funcionario', Array.from(funcionariosSet).sort());
+        }
+
+        function selecionarAbaSetor(setor, elementoBotao) {
+            setorAtivo = setor;
+            document.querySelectorAll('.sector-tab-btn').forEach(b => b.classList.remove('active'));
+            elementoBotao.classList.add('active');
+            renderizarPLR();
         }
 
         function populaSelect(idSelect, listaValores) {
@@ -631,7 +679,6 @@
 
         function obterFiltrosAtivos() {
             return {
-                setor: document.getElementById('filtro-setor').value,
                 servico: document.getElementById('filtro-servico').value,
                 func: document.getElementById('filtro-funcionario').value
             };
@@ -672,55 +719,29 @@
         function renderizarPLR() {
             const f = obterFiltrosAtivos();
 
-            // Filtrar Horas
+            // Filtrar Horas Dia (SE HOUVER ERRO DE APONTAMENTO, AS HORAS SÃO IGNORADAS DA PERFORMANCE)
             let horasFiltradas = rawHoras.filter(i => {
-                const matchSetor = !f.setor || i.SETOR === f.setor;
+                const matchSetor = !setorAtivo || (i.SETOR && i.SETOR.trim() === setorAtivo);
                 const matchServ = !f.servico || i.TP_MAQUINA === f.servico;
                 const matchFunc = !f.func || i.funcionario === f.func;
-                return matchSetor && matchServ && matchFunc;
+                
+                // DESCONTA HORAS SE ESTIVER NOS ERROS DE APONTAMENTO
+                const ehErro = funcionariosComErroSet.has((i.funcionario || '').trim());
+                return matchSetor && matchServ && matchFunc && !ehErro;
             });
 
             // Filtrar Prev Real
             let prevRealFiltrados = rawPrevReal.filter(i => {
+                const matchSetor = !setorAtivo || (i.TIPOSERVICO && i.TIPOSERVICO.trim().includes(setorAtivo));
                 const matchServ = !f.servico || i.TIPOSERVICO === f.servico;
-                return matchServ;
+                return matchSetor && matchServ;
             });
 
-            // --- CÁLCULO INDIVIDUAL DE EFICIÊNCIA POR SERVIÇO/SETOR ---
-            const eficienciasServicoMap = {};
-            const eficienciasSetorArrayMap = {};
-
-            prevRealFiltrados.forEach(item => {
-                const prev = parseFloat(item.PREVISTO || 0);
-                const real = parseFloat(item.REALIZADO || 0);
-                const servico = item.TIPOSERVICO || 'GERAL';
-
-                // Cálculo individual com teto de 100%
-                let efItem = 100.0;
-                if (real > prev && prev > 0) {
-                    efItem = (prev / real) * 100;
-                } else if (prev === 0 && real > 0) {
-                    efItem = 0;
-                }
-
-                if (!eficienciasSetorArrayMap[servico]) {
-                    eficienciasSetorArrayMap[servico] = [];
-                }
-                eficienciasSetorArrayMap[servico].push(efItem);
-            });
-
-            // Calcula média de cada serviço/setor
-            Object.keys(eficienciasSetorArrayMap).forEach(s => {
-                const arr = eficienciasSetorArrayMap[s];
-                const soma = arr.reduce((acc, curr) => acc + curr, 0);
-                eficienciasServicoMap[s] = arr.length > 0 ? (soma / arr.length) : 100.0;
-            });
-
-            // --- 1. INDICADOR 2: PREV X REAL ENXUTO ---
+            // --- 1. INDICADOR 2: PREV X REAL ENXUTO (LIMITADO A 100%) ---
             const tbodyServ = document.getElementById('tbody-plr-servico');
             tbodyServ.innerHTML = "";
 
-            let somaEficienciasGlobais = 0;
+            let somaEficiencias = 0;
             let totalItensServico = 0;
 
             prevRealFiltrados.forEach(item => {
@@ -734,7 +755,7 @@
                     efCalculada = 0;
                 }
 
-                somaEficienciasGlobais += efCalculada;
+                somaEficiencias += efCalculada;
                 totalItensServico++;
 
                 const estourou = item.REALIZADO_MAIOR_QUE_PREVISTO === 'SIM';
@@ -751,14 +772,13 @@
                 tbodyServ.appendChild(tr);
             });
 
-            // Média real da Eficiência do Setor Selecionado
-            const efSetorGeral = totalItensServico > 0 ? (somaEficienciasGlobais / totalItensServico) : 100.0;
+            const efSetorGeral = totalItensServico > 0 ? (somaEficiencias / totalItensServico) : 100.0;
             document.getElementById('metric-eficiencia-setor').innerText = `${efSetorGeral.toFixed(1)}%`;
 
             document.getElementById('loading-plr-servico').style.display = 'none';
             document.getElementById('wrapper-plr-servico').style.display = 'block';
 
-            // --- 2. RESUMO POR FUNCIONÁRIO (COM PENALIZAÇÃO REAL) ---
+            // --- 2. RESUMO POR FUNCIONÁRIO ---
             const tbodyResumo = document.getElementById('tbody-plr-resumo-func');
             tbodyResumo.innerHTML = "";
 
@@ -780,12 +800,7 @@
                 const dadosF = agrupadoFunc[funcName];
                 const mediaHoras = dadosF.horasTotais / (dadosF.qtdRegistros || 1);
                 
-                // Busca o Fator do Setor Específico do Colaborador (se não houver, usa a média global)
-                const efSetorFuncional = eficienciasServicoMap[dadosF.setor] !== undefined 
-                    ? eficienciasServicoMap[dadosF.setor] 
-                    : efSetorGeral;
-
-                let fatorPrevReal = efSetorFuncional / 100;
+                let fatorPrevReal = efSetorGeral / 100;
                 let aproveitamentoFinal = (mediaHoras >= 8.0 ? 100 : (mediaHoras / 8.0) * 100) * fatorPrevReal;
                 if (aproveitamentoFinal > 100) aproveitamentoFinal = 100;
 
@@ -803,7 +818,7 @@
                     <td><strong>${funcName}</strong></td>
                     <td>${dadosF.setor}</td>
                     <td>${mediaHoras.toFixed(2)}h /dia</td>
-                    <td>Fator Setor: <strong>${efSetorFuncional.toFixed(1)}%</strong></td>
+                    <td>Fator Setor: <strong>${efSetorGeral.toFixed(1)}%</strong></td>
                     <td>${badgeAproveitamento}</td>
                 `;
                 tbodyResumo.appendChild(tr);
