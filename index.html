@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel ANFEER - Consultoria RF</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        h1 { color: #0056b3; }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #0056b3;
+            color: white;
+        }
+        .status-loading { color: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <h1>Painel de Dados - ANFEER</h1>
+
+    <div class="card">
+        <h2>Faturamento</h2>
+        <div id="loading-faturamento" class="status-loading">Carregando dados...</div>
+        <table id="tabela-faturamento" style="display: none;">
+            <thead>
+                <tr id="headers-faturamento"></tr>
+            </thead>
+            <tbody id="corpo-faturamento"></tbody>
+        </table>
+    </div>
+
+    <script>
+        // ⚠️ ALERTA: Cole abaixo a sua URL atual do NGROK
+        // Exemplo: "https://a1b2-189-10-20-30.ngrok-free.app"
+        const API_URL = "SUA_URL_DO_NGROK_AQUI"; 
+
+        async function carregarFaturamento() {
+            try {
+                // Chama a sua API no endpoint /FATURAMENTO
+                const response = await fetch(`${API_URL}/FATURAMENTO`);
+                const dados = await response.json();
+
+                if (!dados || dados.length === 0) {
+                    document.getElementById('loading-faturamento').innerText = "Nenhum dado encontrado.";
+                    return;
+                }
+
+                // Pega as colunas retornadas pelo SQL
+                const colunas = Object.keys(dados[0]);
+                const thead = document.getElementById('headers-faturamento');
+                const tbody = document.getElementById('corpo-faturamento');
+
+                // Renderiza os cabeçalhos
+                colunas.forEach(col => {
+                    const th = document.createElement('th');
+                    th.innerText = col;
+                    thead.appendChild(th);
+                });
+
+                // Renderiza as linhas
+                dados.forEach(linha => {
+                    const tr = document.createElement('tr');
+                    colunas.forEach(col => {
+                        const td = document.createElement('td');
+                        td.innerText = linha[col] !== null ? linha[col] : '-';
+                        tr.appendChild(td);
+                    });
+                    tbody.appendChild(tr);
+                });
+
+                // Esconde mensagem de carregamento e exibe tabela
+                document.getElementById('loading-faturamento').style.display = 'none';
+                document.getElementById('tabela-faturamento').style.display = 'table';
+
+            } catch (erro) {
+                console.error("Erro ao buscar dados:", erro);
+                document.getElementById('loading-faturamento').innerText = "Erro ao carregar os dados. Verifique o Ngrok.";
+            }
+        }
+
+        // Executa a busca ao abrir a página
+        carregarFaturamento();
+    </script>
+</body>
+</html>
