@@ -386,8 +386,8 @@
     <section class="hero">
         <div class="hero-container">
             <div class="hero-text">
-                <h1>Painel Operacional de Produção & PLR V1.5</h1>
-                <p>Gestão de apontamentos e indicadores por setor, serviço e colaborador.</p>
+                <h1>Painel Operacional de Produção & PLR V1.6</h1>
+                <p>Gestão de apontamentos e indicadores.</p>
             </div>
         </div>
     </section>
@@ -489,7 +489,7 @@
             <!-- INDICADOR 1: DETALHAMENTO DE APONTAMENTO DIÁRIO COMPLETO -->
             <div class="data-card">
                 <div class="card-header">
-                    <h2><i class="fa-solid fa-user-clock" style="color: var(--anfeer-red);"></i> Indicador 1: Apontamentos Diários Válidos (Cruzamento Completo por Dia)</h2>
+                    <h2><i class="fa-solid fa-user-clock" style="color: var(--anfeer-red);"></i> Indicador 1: Apontamentos Diários Válidos</h2>
                 </div>
                 <div id="loading-plr-func" class="loading-container"><div class="spinner"></div>Calculando apontamentos...</div>
                 <div id="wrapper-plr-func" class="table-wrapper" style="display:none;">
@@ -549,7 +549,8 @@
         let rawPrevReal = [];
         let setorAtivo = "";
 
-        const funcionariosComErroSet = new Set();
+        // Conjunto contendo pares no formato "NOMEFUNC_DATAFIM" para descontar apenas a data do erro
+        const mapaErrosPorDataEFunc = new Set();
         const mapaFuncionarioSetor = {};
 
         function formatarDataHoraPtBr(dataIso, horaIso) {
@@ -589,9 +590,12 @@
                 rawErros = await resErros.json();
                 rawErros.sort((a, b) => new Date(b.DATA_FIM || 0) - new Date(a.DATA_FIM || 0));
 
-                funcionariosComErroSet.clear();
+                mapaErrosPorDataEFunc.clear();
                 rawErros.forEach(e => {
-                    if (e.FUNCIONARIO) funcionariosComErroSet.add(e.FUNCIONARIO.trim());
+                    if (e.FUNCIONARIO && e.DATA_FIM) {
+                        const chave = `${e.FUNCIONARIO.trim()}_${e.DATA_FIM.split('T')[0]}`;
+                        mapaErrosPorDataEFunc.add(chave);
+                    }
                 });
 
                 const resHoras = await fetch(`${API_URL}/HORAS_DIA?ngrok-skip-browser-warning=1`, {
@@ -717,7 +721,7 @@
         function renderizarPLR() {
             const f = obterFiltrosAtivos();
 
-            // Mapeia todas as datas únicas que existem no sistema
+            // Mapeia todas as datas únicas que existem nos dados
             const todasDatasSet = new Set();
             rawHoras.forEach(i => {
                 if (i.data_fim) {
@@ -743,19 +747,20 @@
                     if (!f.func || funcName === f.func) {
                         agrupadoFunc[funcName] = {
                             setor: setorDoFunc,
-                            horasPorData: {} // Guarda horas válidas por dia ISO
+                            horasPorData: {}
                         };
                     }
                 }
             });
 
-            // Preenche apontamentos válidos (Se estiver no ERRO_APONTAMENTO, é ignorado)
+            // Preenche apontamentos (Desconta APENAS a data exata do erro do funcionário)
             rawHoras.forEach(i => {
                 const func = i.funcionario ? i.funcionario.trim() : '';
                 const dataIso = i.data_fim ? i.data_fim.split('T')[0] : '';
-                const ehErro = funcionariosComErroSet.has(func);
+                const chaveErro = `${func}_${dataIso}`;
+                const ehApontamentoErro = mapaErrosPorDataEFunc.has(chaveErro);
 
-                if (agrupadoFunc[func] && dataIso && !ehErro) {
+                if (agrupadoFunc[func] && dataIso && !ehApontamentoErro) {
                     if (!agrupadoFunc[func].horasPorData[dataIso]) {
                         agrupadoFunc[func].horasPorData[dataIso] = 0;
                     }
@@ -788,7 +793,7 @@
                 });
             });
 
-            // Fator de Eficiência do Setor (Média exata da equipe do setor)
+            // Média Global do Setor
             const efSetorGeral = totalFuncionariosConsiderados > 0 
                 ? (somaEficienciasIndividuais / totalFuncionariosConsiderados) 
                 : 0.0;
@@ -823,7 +828,7 @@
             document.getElementById('loading-plr-resumo-func').style.display = 'none';
             document.getElementById('wrapper-plr-resumo-func').style.display = 'block';
 
-            // 2. INDICADOR 1: CRUZAMENTO COMPLETO DE TODOS OS DIAS x TODOS OS FUNCIONÁRIOS
+            // 2. INDICADOR 1: DETALHAMENTO DIÁRIO COMPLETO
             const tbodyFunc = document.getElementById('tbody-plr-func');
             tbodyFunc.innerHTML = "";
 
@@ -858,7 +863,7 @@
             document.getElementById('loading-plr-func').style.display = 'none';
             document.getElementById('wrapper-plr-func').style.display = 'block';
 
-            // 3. INDICADOR 2: PREV X REAL CONSOLIDADO POR TIPO DE SERVIÇO
+            // 3. INDICADOR 2: PREV X REAL CONSOLIDADO
             let prevRealFiltrados = rawPrevReal.filter(i => {
                 const matchServ = !f.servico || i.TIPOSERVICO === f.servico;
                 return matchServ;
