@@ -52,14 +52,19 @@
     </div>
 
     <script>
-        // ⚠️ ALERTA: Cole abaixo a sua URL atual do NGROK
-        // Exemplo: "https://a1b2-189-10-20-30.ngrok-free.app"
-        const API_URL = "https://relieve-erased-projector.ngrok-free.dev "; 
+        // URL do Ngrok configurada com HTTPS
+        const API_URL = "https://relieve-erased-projector.ngrok-free.dev"; 
 
         async function carregarFaturamento() {
             try {
-                // Chama a sua API no endpoint /FATURAMENTO
-                const response = await fetch(`${API_URL}/FATURAMENTO`);
+                // Adicionamos os headers que pulam a tela de aviso do Ngrok
+                const response = await fetch(`${API_URL}/FATURAMENTO`, {
+                    headers: {
+                        "ngrok-skip-browser-warning": "69420",
+                        "User-Agent": "CustomApp"
+                    }
+                });
+
                 const dados = await response.json();
 
                 if (!dados || dados.length === 0) {
@@ -71,6 +76,10 @@
                 const colunas = Object.keys(dados[0]);
                 const thead = document.getElementById('headers-faturamento');
                 const tbody = document.getElementById('corpo-faturamento');
+
+                // Limpa conteúdos anteriores se houver
+                thead.innerHTML = "";
+                tbody.innerHTML = "";
 
                 // Renderiza os cabeçalhos
                 colunas.forEach(col => {
@@ -96,7 +105,7 @@
 
             } catch (erro) {
                 console.error("Erro ao buscar dados:", erro);
-                document.getElementById('loading-faturamento').innerText = "Erro ao carregar os dados. Verifique o Ngrok.";
+                document.getElementById('loading-faturamento').innerText = "Erro ao carregar os dados. Verifique a conexao da API.";
             }
         }
 
