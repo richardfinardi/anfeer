@@ -3,12 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Gestão & Business Intelligence - ANFEER</title>
+    <title>Painel Operacional & PLR - ANFEER</title>
     
-    <!-- Favicon (Logo Minimalista) -->
     <link rel="icon" type="image/png" href="LOGO MINIMALISTA.png">
     
-    <!-- Google Fonts & FontAwesome Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -20,11 +18,12 @@
             --anfeer-red-hover: #b51a15;
             --anfeer-dark: #1E1E1E;
             --anfeer-gray-bg: #2B2D2F;
-            --anfeer-light-bg: #F8F9FA;
             --anfeer-card-bg: #FFFFFF;
             --anfeer-border: #E2E8F0;
             --anfeer-text-main: #2D3748;
             --anfeer-text-muted: #718096;
+            --success-green: #10B981;
+            --warning-yellow: #F59E0B;
         }
 
         * {
@@ -42,7 +41,6 @@
             min-height: 100vh;
         }
 
-        /* HEADER SUPERIOR (Destaque Logo ANFEER BR) */
         header {
             background-color: #FFFFFF;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
@@ -61,15 +59,14 @@
         }
 
         .brand-logo-main {
-            height: 60px;
+            height: 55px;
             object-fit: contain;
         }
 
-        /* HERO SECTION (FUNDO ESCURO - DESTAQUE TÉCNICO) */
         .hero {
             background-color: var(--anfeer-gray-bg);
             color: white;
-            padding: 35px 24px;
+            padding: 30px 24px;
             border-bottom: 4px solid var(--anfeer-red);
         }
 
@@ -84,77 +81,68 @@
         }
 
         .hero-text h1 {
-            font-size: 1.8rem;
+            font-size: 1.6rem;
             font-weight: 700;
-            margin-bottom: 8px;
-            line-height: 1.2;
+            margin-bottom: 6px;
         }
 
         .hero-text p {
             color: #E2E8F0;
-            font-size: 0.95rem;
-            max-width: 650px;
+            font-size: 0.9rem;
         }
 
-        .hero-logo-large {
-            height: 65px;
-            object-fit: contain;
-            opacity: 0.95;
-        }
-
-        /* CONTEÚDO PRINCIPAL E TABS */
         main {
             max-width: 1280px;
-            margin: 30px auto;
+            margin: 25px auto;
             padding: 0 24px;
             width: 100%;
             flex: 1;
         }
 
-        .tabs-container {
+        /* NAVEGAÇÃO DOS PAINÉIS */
+        .panel-selector {
             display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding-bottom: 12px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid var(--anfeer-border);
+            gap: 12px;
+            margin-bottom: 24px;
         }
 
-        .tab-btn {
+        .panel-btn {
             background: #FFFFFF;
-            border: 1px solid var(--anfeer-border);
-            padding: 10px 18px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 0.9rem;
+            border: 2px solid var(--anfeer-border);
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.95rem;
             color: var(--anfeer-text-muted);
             cursor: pointer;
-            white-space: nowrap;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
             transition: all 0.2s;
+            flex: 1;
+            justify-content: center;
         }
 
-        .tab-btn:hover {
+        .panel-btn:hover {
             border-color: var(--anfeer-red);
             color: var(--anfeer-red);
         }
 
-        .tab-btn.active {
+        .panel-btn.active {
             background-color: var(--anfeer-red);
             color: white;
             border-color: var(--anfeer-red);
-            box-shadow: 0 2px 6px rgba(217, 35, 29, 0.25);
+            box-shadow: 0 4px 10px rgba(217, 35, 29, 0.25);
         }
 
-        /* CARDS E TABELAS */
+        /* CARDS E GRIDS */
         .data-card {
             background: var(--anfeer-card-bg);
             border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
             border: 1px solid var(--anfeer-border);
             overflow: hidden;
+            margin-bottom: 24px;
         }
 
         .card-header {
@@ -167,7 +155,7 @@
         }
 
         .card-header h2 {
-            font-size: 1.15rem;
+            font-size: 1.1rem;
             color: var(--anfeer-dark);
             font-weight: 700;
             display: flex;
@@ -175,19 +163,44 @@
             gap: 10px;
         }
 
-        .status-badge {
-            font-size: 0.75rem;
-            padding: 4px 10px;
-            border-radius: 20px;
-            background-color: #DEF7EC;
-            color: #03543F;
-            font-weight: 600;
+        /* DASHBOARD METRICS CARDS (PLR) */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid var(--anfeer-border);
+            border-left: 5px solid var(--anfeer-red);
+        }
+
+        .metric-card h3 {
+            font-size: 0.85rem;
+            color: var(--anfeer-text-muted);
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .metric-card .value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--anfeer-dark);
+        }
+
+        .metric-card .sub {
+            font-size: 0.8rem;
+            margin-top: 4px;
         }
 
         .table-wrapper {
             width: 100%;
             overflow-x: auto;
-            max-height: 550px;
+            max-height: 500px;
         }
 
         table {
@@ -208,7 +221,6 @@
             z-index: 10;
             text-transform: uppercase;
             font-size: 0.78rem;
-            letter-spacing: 0.5px;
         }
 
         td {
@@ -217,17 +229,22 @@
             color: var(--anfeer-text-main);
         }
 
-        tbody tr:nth-child(even) {
-            background-color: #F9FAFB;
-        }
+        tbody tr:nth-child(even) { background-color: #F9FAFB; }
+        tbody tr:hover { background-color: #FEF2F2; }
 
-        tbody tr:hover {
-            background-color: #FEF2F2;
+        /* BADGES */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
         }
+        .badge-danger { background-color: #FEE2E2; color: #991B1B; }
+        .badge-success { background-color: #D1FAE5; color: #065F46; }
+        .badge-warning { background-color: #FEF3C7; color: #92400E; }
 
-        /* ESTADOS DE CARREGAMENTO / ERRO */
-        .loading-container, .error-container {
-            padding: 40px 20px;
+        .loading-container {
+            padding: 40px;
             text-align: center;
             color: var(--anfeer-text-muted);
         }
@@ -236,22 +253,18 @@
             border: 3px solid #f3f3f3;
             border-top: 3px solid var(--anfeer-red);
             border-radius: 50%;
-            width: 32px;
-            height: 32px;
+            width: 30px;
+            height: 30px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 12px auto;
+            margin: 0 auto 10px auto;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* FOOTER (Sua Logo Mantida Aqui) */
         footer {
             background-color: var(--anfeer-dark);
             color: white;
-            padding: 24px;
+            padding: 20px;
             margin-top: auto;
         }
 
@@ -261,110 +274,139 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 16px;
             font-size: 0.85rem;
             color: #A0AEC0;
         }
 
         .footer-rf-logo {
-            height: 38px;
-            object-fit: contain;
+            height: 35px;
             background: white;
-            padding: 4px 10px;
-            border-radius: 6px;
-        }
-
-        /* RESPONSIVIDADE */
-        @media (max-width: 768px) {
-            .header-container {
-                justify-content: center;
-            }
-            .hero-text h1 {
-                font-size: 1.4rem;
-            }
-            .hero-container {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-            .footer-container {
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-            }
+            padding: 4px 8px;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
 
-    <!-- HEADER SUPERIOR (Apenas Logo ANFEER em Destaque) -->
     <header>
         <div class="header-container">
-            <img src="ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER & BR Brochas" class="brand-logo-main">
+            <img src="ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER BR" class="brand-logo-main">
         </div>
     </header>
 
-    <!-- HERO SECTION -->
     <section class="hero">
         <div class="hero-container">
             <div class="hero-text">
-                <h1>Painel de Controle e Business Intelligence</h1>
-                <p>Acompanhamento analítico e relatórios estratégicos integrados em tempo real.</p>
+                <h1>Painel Operacional de Produção & PLR</h1>
+                <p>Monitoramento de erros de apontamento e índice de produtividade para cálculo de PLR CLT.</p>
             </div>
-            <img src="ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER BR Brochas" class="hero-logo-large">
         </div>
     </section>
 
-    <!-- ÁREA DE DADOS INTEGRADA COM A API SQL -->
     <main>
-        <!-- TABS DE NAVEGAÇÃO -->
-        <div class="tabs-container">
-            <button class="tab-btn active" onclick="carregarDados('FATURAMENTO', this)">
-                <i class="fa-solid fa-chart-line"></i> Faturamento
+        <!-- BOTÕES DE SELEÇÃO DE PAINEL -->
+        <div class="panel-selector">
+            <button class="panel-btn active" id="btn-erros" onclick="alternarPainel('ERROS')">
+                <i class="fa-solid fa-triangle-exclamation"></i> 1. Erros de Apontamento
             </button>
-            <button class="tab-btn" onclick="carregarDados('GASTOS', this)">
-                <i class="fa-solid fa-wallet"></i> Gastos
-            </button>
-            <button class="tab-btn" onclick="carregarDados('INVESTIMENTOS', this)">
-                <i class="fa-solid fa-piggy-bank"></i> Investimentos
-            </button>
-            <button class="tab-btn" onclick="carregarDados('CUSTO_HORA', this)">
-                <i class="fa-solid fa-clock"></i> Custo Hora
-            </button>
-            <button class="tab-btn" onclick="carregarDados('FUNC_MAQ', this)">
-                <i class="fa-solid fa-gears"></i> Func. Máquinas
+            <button class="panel-btn" id="btn-plr" onclick="alternarPainel('PLR')">
+                <i class="fa-solid fa-calculator"></i> 2. Indicadores de PLR
             </button>
         </div>
 
-        <!-- CONTAINER DA TABELA -->
-        <div class="data-card">
+        <!-- PAINEL 1: ERROS DE APONTAMENTO -->
+        <div id="secao-erros" class="data-card">
             <div class="card-header">
-                <h2 id="titulo-tabela"><i class="fa-solid fa-table"></i> Dados do Faturamento</h2>
-                <span id="badge-status" class="status-badge"><i class="fa-solid fa-wifi"></i> Conectado à API</span>
+                <h2><i class="fa-solid fa-list-check" style="color: var(--anfeer-red);"></i> Apontamentos Incorretos para Correção</h2>
+                <span class="badge badge-danger" id="total-erros-count">Carregando...</span>
             </div>
-
-            <div id="loading-state" class="loading-container">
-                <div class="spinner"></div>
-                <p>Consultando banco de dados SQL via API...</p>
-            </div>
-
-            <div id="error-state" class="error-container" style="display: none;">
-                <i class="fa-solid fa-triangle-exclamation" style="font-size: 2rem; color: var(--anfeer-red); margin-bottom: 10px;"></i>
-                <p id="erro-mensagem">Erro ao se conectar com o servidor. Verifique a execução do Ngrok.</p>
-            </div>
-
-            <div id="table-wrapper" class="table-wrapper" style="display: none;">
+            
+            <div id="loading-erros" class="loading-container"><div class="spinner"></div>Buscando erros de apontamento no banco...</div>
+            
+            <div id="wrapper-erros" class="table-wrapper" style="display:none;">
                 <table>
                     <thead>
-                        <tr id="headers-tabela"></tr>
+                        <tr>
+                            <th>Empresa</th>
+                            <th>OS Completa</th>
+                            <th>Cód. Barras</th>
+                            <th>Funcionário</th>
+                            <th>Data</th>
+                            <th>Início</th>
+                            <th>Fim</th>
+                            <th>Total Horas</th>
+                        </tr>
                     </thead>
-                    <tbody id="corpo-tabela"></tbody>
+                    <tbody id="tbody-erros"></tbody>
                 </table>
             </div>
         </div>
+
+        <!-- PAINEL 2: INDICADORES DE PLR -->
+        <div id="secao-plr" style="display: none;">
+            
+            <!-- CARDS DE RESUMO GERAL -->
+            <div class="metrics-grid">
+                <div class="metric-card" style="border-left-color: #3B82F6;">
+                    <h3>Carga CLT Padrão</h3>
+                    <div class="value">176h /mês</div>
+                    <div class="sub" style="color: #6B7280;">Meta individual de 8h/dia útil</div>
+                </div>
+                <div class="metric-card" style="border-left-color: #10B981;">
+                    <h3>Eficiência Média Global</h3>
+                    <div class="value" id="metric-eficiencia-global">--%</div>
+                    <div class="sub" id="metric-eficiencia-status">Previsto vs. Realizado</div>
+                </div>
+            </div>
+
+            <!-- TABELA 1 DO PLR: APONTAMENTO POR FUNCIONÁRIO -->
+            <div class="data-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-user-clock" style="color: var(--anfeer-red);"></i> Indicador 1: Cumprimento de Horas por Funcionário (CLT)</h2>
+                </div>
+                <div id="loading-plr-func" class="loading-container"><div class="spinner"></div>Calculando horas apontadas por funcionário...</div>
+                <div id="wrapper-plr-func" class="table-wrapper" style="display:none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Funcionário</th>
+                                <th>Tipo Máquina</th>
+                                <th>Horas Apontadas</th>
+                                <th>Desvio / Meta Diária (8h)</th>
+                                <th>Status Assiduidade</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-plr-func"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- TABELA 2 DO PLR: PREVISTO VS REALIZADO POR TIPO DE SERVIÇO -->
+            <div class="data-card">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-chart-pie" style="color: var(--anfeer-red);"></i> Indicador 2: Comparativo Previsto x Realizado por Serviço</h2>
+                </div>
+                <div id="loading-plr-servico" class="loading-container"><div class="spinner"></div>Calculando desempenho por tipo de serviço...</div>
+                <div id="wrapper-plr-servico" class="table-wrapper" style="display:none;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tipo de Serviço</th>
+                                <th>Data Finalização</th>
+                                <th>Horas Previstas</th>
+                                <th>Horas Realizadas</th>
+                                <th>Dentro do Previsto?</th>
+                                <th>Índice Desempenho</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-plr-servico"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
     </main>
 
-    <!-- FOOTER (Sua Consultoria Mantida com Crédito) -->
     <footer>
         <div class="footer-container">
             <p>&copy; 2026 ANFEER - Fabricação de Brochas e Afiação. Todos os direitos reservados.</p>
@@ -375,83 +417,170 @@
         </div>
     </footer>
 
-    <!-- SCRIPT DE CONSUMO DA API -->
     <script>
-        // URL base do seu Ngrok
-        const API_URL = "https://relieve-erased-projector.ngrok-free.dev"; 
+        const API_URL = "https://relieve-erased-projector.ngrok-free.dev";
 
-        async function carregarDados(endpoint, elementoBotao) {
-            if (elementoBotao) {
-                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-                elementoBotao.classList.add('active');
-            }
-
-            document.getElementById('titulo-tabela').innerHTML = `<i class="fa-solid fa-table"></i> Relatório de ${endpoint.replace('_', ' ')}`;
-
-            document.getElementById('loading-state').style.display = 'block';
-            document.getElementById('error-state').style.display = 'none';
-            document.getElementById('table-wrapper').style.display = 'none';
-
-            try {
-                const response = await fetch(`${API_URL}/${endpoint}?ngrok-skip-browser-warning=1`, {
-                    headers: {
-                        "ngrok-skip-browser-warning": "true"
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`Erro de resposta: ${response.status}`);
-                }
-
-                const dados = await response.json();
-
-                if (!dados || dados.length === 0) {
-                    throw new Error("Nenhum dado retornado do banco SQL.");
-                }
-
-                const colunas = Object.keys(dados[0]);
-                const thead = document.getElementById('headers-tabela');
-                const tbody = document.getElementById('corpo-tabela');
-
-                thead.innerHTML = "";
-                tbody.innerHTML = "";
-
-                colunas.forEach(col => {
-                    const th = document.createElement('th');
-                    th.innerText = col.replace(/_/g, ' ');
-                    thead.appendChild(th);
-                });
-
-                dados.forEach(linha => {
-                    const tr = document.createElement('tr');
-                    colunas.forEach(col => {
-                        const td = document.createElement('td');
-                        let valor = linha[col];
-
-                        if (valor === null || valor === undefined) {
-                            td.innerText = '-';
-                            td.style.color = '#A0AEC0';
-                        } else {
-                            td.innerText = valor;
-                        }
-
-                        tr.appendChild(td);
-                    });
-                    tbody.appendChild(tr);
-                });
-
-                document.getElementById('loading-state').style.display = 'none';
-                document.getElementById('table-wrapper').style.display = 'block';
-
-            } catch (erro) {
-                console.error("Erro na consulta API:", erro);
-                document.getElementById('loading-state').style.display = 'none';
-                document.getElementById('error-state').style.display = 'block';
-                document.getElementById('erro-mensagem').innerText = `Não foi possível carregar ${endpoint}. Verifique a API/Ngrok. (${erro.message})`;
+        function alternarPainel(painel) {
+            if (painel === 'ERROS') {
+                document.getElementById('secao-erros').style.display = 'block';
+                document.getElementById('secao-plr').style.display = 'none';
+                document.getElementById('btn-erros').classList.add('active');
+                document.getElementById('btn-plr').classList.remove('active');
+            } else {
+                document.getElementById('secao-erros').style.display = 'none';
+                document.getElementById('secao-plr').style.display = 'block';
+                document.getElementById('btn-erros').classList.remove('active');
+                document.getElementById('btn-plr').classList.add('active');
+                
+                // Carrega dados de PLR se ainda não foram buscados
+                carregarPLR();
             }
         }
 
-        carregarDados('FATURAMENTO');
+        // 1. CARREGAR PAINEL DE ERROS DE APONTAMENTO
+        async function carregarErros() {
+            try {
+                const response = await fetch(`${API_URL}/ERRO_APONTAMENTO?ngrok-skip-browser-warning=1`, {
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                });
+                const dados = await response.json();
+
+                const tbody = document.getElementById('tbody-erros');
+                tbody.innerHTML = "";
+
+                document.getElementById('total-erros-count').innerText = `${dados.length} Erros Encontrados`;
+
+                dados.forEach(item => {
+                    const dataFormatada = item.DATA ? item.DATA.split('T')[0] : '-';
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${item.COD_EMPRESA || '-'}</td>
+                        <td><strong>${item.COD_OS_COMPLETO || '-'}</strong></td>
+                        <td>${item.COD_BARR || '-'}</td>
+                        <td>${item.FUNCIONARIO || '-'}</td>
+                        <td>${dataFormatada}</td>
+                        <td>${item.INICIO ? item.INICIO.split('T')[1].substring(0, 8) : '-'}</td>
+                        <td>${item.FIM ? item.FIM.split('T')[1].substring(0, 8) : '-'}</td>
+                        <td><span class="badge badge-danger">${parseFloat(item.TOTAL_HS).toFixed(2)}h</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById('loading-erros').style.display = 'none';
+                document.getElementById('wrapper-erros').style.display = 'block';
+
+            } catch (err) {
+                console.error("Erro em /ERRO_APONTAMENTO:", err);
+                document.getElementById('loading-erros').innerText = "Erro ao carregar os dados do endpoint /ERRO_APONTAMENTO.";
+            }
+        }
+
+        // 2. CARREGAR DADOS DO PLR (HORAS DIA + PREV REAL)
+        async function carregarPLR() {
+            // Busca dados de HORAS_DIA
+            try {
+                const resHoras = await fetch(`${API_URL}/HORAS_DIA?ngrok-skip-browser-warning=1`, {
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                });
+                const dadosHoras = await resHoras.json();
+
+                const tbodyFunc = document.getElementById('tbody-plr-func');
+                tbodyFunc.innerHTML = "";
+
+                dadosHoras.forEach(item => {
+                    const hrs = parseFloat(item.horas || 0);
+                    // Meta diária CLT base = 8h
+                    const metaDiaria = 8.0; 
+                    const diferenca = hrs - metaDiaria;
+                    
+                    let statusBadge = '';
+                    if (hrs >= metaDiaria) {
+                        statusBadge = `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Meta Cumprida (+${diferenca.toFixed(1)}h)</span>`;
+                    } else if (hrs >= 6.0) {
+                        statusBadge = `<span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> Abaixo da Meta (${diferenca.toFixed(1)}h)</span>`;
+                    } else {
+                        statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-xmark"></i> Apontamento Insuficiente</span>`;
+                    }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${item.funcionario || '-'}</strong></td>
+                        <td>${item.TP_MAQUINA || '-'}</td>
+                        <td><strong>${hrs.toFixed(2)}h</strong></td>
+                        <td>${diferenca >= 0 ? '+' : ''}${diferenca.toFixed(2)}h vs 8h/dia</td>
+                        <td>${statusBadge}</td>
+                    `;
+                    tbodyFunc.appendChild(tr);
+                });
+
+                document.getElementById('loading-plr-func').style.display = 'none';
+                document.getElementById('wrapper-plr-func').style.display = 'block';
+
+            } catch(e) {
+                console.error("Erro em /HORAS_DIA:", e);
+                document.getElementById('loading-plr-func').innerText = "Erro ao carregar /HORAS_DIA.";
+            }
+
+            // Busca dados de PREV_REAL
+            try {
+                const resPrev = await fetch(`${API_URL}/PREV_REAL?ngrok-skip-browser-warning=1`, {
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                });
+                const dadosPrev = await resPrev.json();
+
+                const tbodyServ = document.getElementById('tbody-plr-servico');
+                tbodyServ.innerHTML = "";
+
+                let totalPrevistoSum = 0;
+                let totalRealizadoSum = 0;
+
+                dadosPrev.forEach(item => {
+                    const prev = parseFloat(item.PREVISTO || 0);
+                    const real = parseFloat(item.REALIZADO || 0);
+                    
+                    totalPrevistoSum += prev;
+                    totalRealizadoSum += real;
+
+                    // Eficiência: quanto menor o tempo gasto em relação ao previsto, melhor
+                    let eficiencia = prev > 0 ? ((prev / real) * 100) : 0;
+                    
+                    const dtFinal = item.DT_FINALIZACAO ? item.DT_FINALIZACAO.split('T')[0] : '-';
+                    const maiorQuePrev = item.REALIZADO_MAIOR_QUE_PREVISTO === 'SIM';
+
+                    const badgeComp = !maiorQuePrev 
+                        ? `<span class="badge badge-success"><i class="fa-solid fa-thumbs-up"></i> SIM (Eficiente)</span>`
+                        : `<span class="badge badge-danger"><i class="fa-solid fa-thumbs-down"></i> NÃO (Estourou Tempo)</span>`;
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><strong>${item.TIPOSERVICO || '-'}</strong></td>
+                        <td>${dtFinal}</td>
+                        <td>${prev.toFixed(2)}h</td>
+                        <td>${real.toFixed(2)}h</td>
+                        <td>${badgeComp}</td>
+                        <td><strong>${eficiencia.toFixed(1)}%</strong></td>
+                    `;
+                    tbodyServ.appendChild(tr);
+                });
+
+                // Calcula indicador global
+                if (totalRealizadoSum > 0) {
+                    const efGeral = (totalPrevistoSum / totalRealizadoSum) * 100;
+                    document.getElementById('metric-eficiencia-global').innerText = `${efGeral.toFixed(1)}%`;
+                    document.getElementById('metric-eficiencia-status').innerText = efGeral >= 100 ? "Excelente Desempenho PLR" : "Atenção nos Prazos de Serviço";
+                }
+
+                document.getElementById('loading-plr-servico').style.display = 'none';
+                document.getElementById('wrapper-plr-servico').style.display = 'block';
+
+            } catch(e) {
+                console.error("Erro em /PREV_REAL:", e);
+                document.getElementById('loading-plr-servico').innerText = "Erro ao carregar /PREV_REAL.";
+            }
+        }
+
+        // Executa inicialização
+        carregarErros();
     </script>
 </body>
 </html>
