@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Painel Operacional & PLR - ANFEER V1.9</title>
+    <title>Painel Operacional & PLR - ANFEER V2.0</title>
     
     <link rel="icon" type="image/png" href="LOGO MINIMALISTA.png">
     
@@ -409,7 +409,7 @@
     <section class="hero">
         <div class="hero-container">
             <div class="hero-text">
-                <h1>Painel Operacional de Produção & PLR V1.9</h1>
+                <h1>Painel Operacional de Produção & PLR V2.0</h1>
                 <p>Gestão de apontamentos e indicadores por setor, serviço e colaborador.</p>
             </div>
         </div>
@@ -573,6 +573,25 @@
 
         const mapaErrosPorDataEFunc = new Set();
         const mapaFuncionarioSetor = {};
+
+        // CALCULA DIAS ÚTEIS DECORRIDOS (SEGUNDA A SEXTA) DO DIA 01 DO MÊS ATÉ HOJE
+        function calcularDiasUteisDecorridos() {
+            const hoje = new Date();
+            const ano = hoje.getFullYear();
+            const mes = hoje.getMonth();
+            const diaHoje = hoje.getDate();
+
+            let diasUteis = 0;
+            for (let d = 1; d <= diaHoje; d++) {
+                const dataCheck = new Date(ano, mes, d);
+                const diaSemana = dataCheck.getDay();
+                // 0 = Domingo, 6 = Sábado
+                if (diaSemana !== 0 && diaSemana !== 6) {
+                    diasUteis++;
+                }
+            }
+            return diasUteis > 0 ? diasUteis : 1;
+        }
 
         function formatarDataHoraPtBr(dataIso, horaIso) {
             if (!dataIso) return '-';
@@ -739,54 +758,53 @@
             document.getElementById('wrapper-erros').style.display = 'block';
         }
 
-        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final, diasTotais) {
-            alert(`MEMÓRIA DE CÁLCULO - ${nome}\n\n1. Eficiência Individual (Assiduidade Totais de Dias do Mês):\n   Total Dias do Mês: ${diasTotais} dias\n   Média Diária: (${hMedia.toFixed(2)}h / 8.00h) = ${efInd.toFixed(1)}%\n\n2. Fator Previsto x Realizado do Setor: ${efSetor.toFixed(1)}%\n\n3. CÁLCULO DO PLR FINAL:\n   ${efInd.toFixed(1)}% (Individ.) x ${efSetor.toFixed(1)}% (Setor) = ${final.toFixed(1)}%`);
+        function calcularFatorEficienciaEspecificoDoSetor(nomeSetor) {
+            let filtrados = rawPrevReal;
+            if (nomeSetor === 'BROCHAMENTO') {
+                filtrados = rawPrevReal.filter(item => (item.TIPOSERVICO || '').includes('BROCHAMENTO'));
+            } else if (nomeSetor === 'FERRAMENTARIA') {
+                filtrados = rawPrevReal.filter(item => !(item.TIPOSERVICO || '').includes('BROCHAMENTO'));
+            }
+
+            let soma = 0;
+            let qtd = 0;
+            filtrados.forEach(item => {
+                const prev = parseFloat(item.PREVISTO || 0);
+                const real = parseFloat(item.REALIZADO || 0);
+
+                let ef = 100.0;
+                if (real > prev && prev > 0) {
+                    ef = (prev / real) * 100;
+                } else if (prev === 0 && real > 0) {
+                    ef = 0;
+                }
+                soma += ef;
+                qtd++;
+            });
+
+            return qtd > 0 ? (soma / qtd) : 100.0;
+        }
+
+        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final, diasUteis) {
+            alert(`MEMÓRIA DE CÁLCULO - ${nome}\n\n1. Eficiência Individual (Assiduidade):\n   Dias Úteis Decorridos do Mês: ${diasUteis} dias\n   Média Diária: (${hMedia.toFixed(2)}h / 8.00h) = ${efInd.toFixed(1)}%\n\n2. Fator Previsto x Realizado do Próprio Setor: ${efSetor.toFixed(1)}%\n\n3. CÁLCULO DO PLR FINAL:\n   ${efInd.toFixed(1)}% (Individ.) x ${efSetor.toFixed(1)}% (Setor) = ${final.toFixed(1)}%`);
         }
 
         function renderizarPLR() {
             const f = obterFiltrosAtivos();
 
-            // Mapeia todas as datas únicas que existem no sistema
+            // Opção B: Dias Úteis Decorridos no mês de Segunda a Sexta
+            const qtdDiasUteisDecorridos = calcularDiasUteisDecorridos();
+
+            // Mapeia todas as datas únicas de lançamento
             const todasDatasSet = new Set();
             rawHoras.forEach(i => { if (i.data_fim) todasDatasSet.add(i.data_fim.split('T')[0]); });
             const listaDatasOrdenadas = Array.from(todasDatasSet).sort().reverse();
-            const qtdDiasNoSistema = listaDatasOrdenadas.length || 1;
 
-            // 1. CÁLCULO FIXO E INDEPENDENTE DA EFICIÊNCIA PREVISTO X REALIZADO DO SETOR
-            let prevRealFiltradosSetor = rawPrevReal;
-            if (setorAtivo) {
-                prevRealFiltradosSetor = rawPrevReal.filter(item => {
-                    const servico = (item.TIPOSERVICO || '').trim();
-                    if (setorAtivo === 'BROCHAMENTO') {
-                        return servico.includes('BROCHAMENTO');
-                    } else {
-                        return !servico.includes('BROCHAMENTO');
-                    }
-                });
-            }
+            // 1. CÁLCULO DO FATOR EXIBIDO NO CARD DO TOPO (DE ACORDO COM A ABA SELECIONADA)
+            const efSetorAbaAtiva = calcularFatorEficienciaEspecificoDoSetor(setorAtivo);
+            document.getElementById('metric-eficiencia-setor').innerText = `${efSetorAbaAtiva.toFixed(1)}%`;
 
-            let somaEficienciasSetor = 0;
-            let totalItensSetor = 0;
-
-            prevRealFiltradosSetor.forEach(item => {
-                const prev = parseFloat(item.PREVISTO || 0);
-                const real = parseFloat(item.REALIZADO || 0);
-
-                let efCalculada = 100.0;
-                if (real > prev && prev > 0) {
-                    efCalculada = (prev / real) * 100;
-                } else if (prev === 0 && real > 0) {
-                    efCalculada = 0;
-                }
-                somaEficienciasSetor += efCalculada;
-                totalItensSetor++;
-            });
-
-            // Fator do Setor
-            const efPrevRealSetor = totalItensSetor > 0 ? (somaEficienciasSetor / totalItensSetor) : 100.0;
-            document.getElementById('metric-eficiencia-setor').innerText = `${efPrevRealSetor.toFixed(1)}%`;
-
-            // 2. RESUMO POR FUNCIONÁRIO (Divide obrigatoriamente por todos os dias do sistema)
+            // 2. RESUMO POR FUNCIONÁRIO (CADA UM USA FIXO O FATOR DO SEU PRÓPRIO SETOR)
             const tbodyResumo = document.getElementById('tbody-plr-resumo-func');
             tbodyResumo.innerHTML = "";
 
@@ -828,12 +846,14 @@
                 let somaH = 0;
                 Object.values(dadosF.horasPorData).forEach(h => somaH += h);
 
-                // REGRA CORRIGIDA: Divide pelo número de dias TOTAIS do sistema para considerar faltas e cancelamentos
-                const mediaHorasDiarias = somaH / qtdDiasNoSistema;
+                // Média dividida pelo Total de Dias Úteis Decorridos do mês
+                const mediaHorasDiarias = somaH / qtdDiasUteisDecorridos;
                 let efIndividual = (mediaHorasDiarias >= 8.0 ? 100.0 : (mediaHorasDiarias / 8.0) * 100.0);
 
-                // Aproveitamento PLR
-                let aproveitamentoFinal = efIndividual * (efPrevRealSetor / 100);
+                // O Fator Previsto x Realizado é sempre o do PRÓPRIO SETOR do colaborador!
+                const efSetorProprioDoFunc = calcularFatorEficienciaEspecificoDoSetor(dadosF.setor);
+
+                let aproveitamentoFinal = efIndividual * (efSetorProprioDoFunc / 100);
                 if (aproveitamentoFinal > 100) aproveitamentoFinal = 100;
 
                 let badgeAproveitamento = '';
@@ -845,7 +865,7 @@
                     badgeAproveitamento = `<span class="badge badge-danger">${aproveitamentoFinal.toFixed(1)}% (Abaixo)</span>`;
                 }
 
-                const btnInfo = `<button class="btn-calc-info" onclick="mostrarInfoConta('${funcName}', ${mediaHorasDiarias}, ${efIndividual}, ${efPrevRealSetor}, ${aproveitamentoFinal}, ${qtdDiasNoSistema})" title="Clique para ver a memória de cálculo">?</button>`;
+                const btnInfo = `<button class="btn-calc-info" onclick="mostrarInfoConta('${funcName}', ${mediaHorasDiarias}, ${efIndividual}, ${efSetorProprioDoFunc}, ${aproveitamentoFinal}, ${qtdDiasUteisDecorridos})" title="Clique para ver a memória de cálculo">?</button>`;
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
@@ -866,7 +886,7 @@
             document.getElementById('loading-plr-resumo-func').style.display = 'none';
             document.getElementById('wrapper-plr-resumo-func').style.display = 'block';
 
-            // 3. INDICADOR 1: DETALHAMENTO DIÁRIO COMPLETO COM IDENTIFICAÇÃO DE APONTAMENTO ERRADO
+            // 3. INDICADOR 1: DETALHAMENTO DIÁRIO COMPLETO
             const tbodyFunc = document.getElementById('tbody-plr-func');
             tbodyFunc.innerHTML = "";
 
@@ -881,7 +901,6 @@
 
                     let statusBadge = '';
                     if (ehApontamentoErro) {
-                        // EXIBIÇÃO SOLICITADA PARA ERRO DE APONTAMENTO
                         statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-triangle-exclamation"></i> Apontamento Errado (0.0h)</span>`;
                     } else if (hrsDia >= 8.0) {
                         statusBadge = `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Normal (${hrsDia.toFixed(1)}h)</span>`;
@@ -906,7 +925,7 @@
             document.getElementById('loading-plr-func').style.display = 'none';
             document.getElementById('wrapper-plr-func').style.display = 'block';
 
-            // 4. INDICADOR 2: PREV X REAL CONSOLIDADO
+            // 4. INDICADOR 2: PREV X REAL CONSOLIDADO POR SERVIÇO
             let prevRealFiltrados = rawPrevReal.filter(i => {
                 const matchServ = !f.servico || i.TIPOSERVICO === f.servico;
                 return matchServ;
