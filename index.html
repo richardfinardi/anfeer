@@ -19,7 +19,7 @@
             --anfeer-red: #D9231D;
             --anfeer-red-hover: #b51a15;
             --anfeer-dark: #1E1E1E;
-            --anfeer-gray-bg: #4F5254;
+            --anfeer-gray-bg: #2B2D2F;
             --anfeer-light-bg: #F8F9FA;
             --anfeer-card-bg: #FFFFFF;
             --anfeer-border: #E2E8F0;
@@ -42,7 +42,7 @@
             min-height: 100vh;
         }
 
-        /* HEADER SUPERIOR (FUNDO CLARO) */
+        /* HEADER SUPERIOR (Destaque Logo ANFEER BR) */
         header {
             background-color: #FFFFFF;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
@@ -54,58 +54,22 @@
         .header-container {
             max-width: 1280px;
             margin: 0 auto;
-            padding: 12px 24px;
+            padding: 14px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
-        .brand-logo {
-            height: 52px;
+        .brand-logo-main {
+            height: 60px;
             object-fit: contain;
         }
 
-        .nav-links {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            list-style: none;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: var(--anfeer-text-main);
-            font-weight: 500;
-            font-size: 0.95rem;
-            transition: color 0.2s;
-        }
-
-        .nav-links a:hover {
-            color: var(--anfeer-red);
-        }
-
-        .btn-contact {
-            background-color: var(--anfeer-red);
-            color: white !important;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: 600 !important;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.2s, transform 0.1s;
-        }
-
-        .btn-contact:hover {
-            background-color: var(--anfeer-red-hover);
-            transform: translateY(-1px);
-        }
-
-        /* HERO SECTION (FUNDO ESCURO - CINZA TÉCNICO ANFEER) */
+        /* HERO SECTION (FUNDO ESCURO - DESTAQUE TÉCNICO) */
         .hero {
             background-color: var(--anfeer-gray-bg);
             color: white;
-            padding: 40px 24px;
+            padding: 35px 24px;
             border-bottom: 4px solid var(--anfeer-red);
         }
 
@@ -132,13 +96,13 @@
             max-width: 650px;
         }
 
-        .hero-logo-dark {
-            height: 48px;
+        .hero-logo-large {
+            height: 65px;
             object-fit: contain;
-            opacity: 0.9;
+            opacity: 0.95;
         }
 
-        /* CONTEÚDO PRINCIPAL E NAVEGAÇÃO DE DADOS */
+        /* CONTEÚDO PRINCIPAL E TABS */
         main {
             max-width: 1280px;
             margin: 30px auto;
@@ -147,7 +111,6 @@
             flex: 1;
         }
 
-        /* TABS DE SELEÇÃO DE DADOS */
         .tabs-container {
             display: flex;
             gap: 8px;
@@ -216,14 +179,9 @@
             font-size: 0.75rem;
             padding: 4px 10px;
             border-radius: 20px;
-            background-color: #E2E8F0;
-            color: var(--anfeer-text-muted);
-            font-weight: 600;
-        }
-
-        .status-badge.online {
             background-color: #DEF7EC;
             color: #03543F;
+            font-weight: 600;
         }
 
         .table-wrapper {
@@ -289,7 +247,7 @@
             100% { transform: rotate(360deg); }
         }
 
-        /* FOOTER (FUNDO ESCURO) */
+        /* FOOTER (Sua Logo Mantida Aqui) */
         footer {
             background-color: var(--anfeer-dark);
             color: white;
@@ -309,16 +267,18 @@
             color: #A0AEC0;
         }
 
-        .footer-logo {
-            height: 36px;
+        .footer-rf-logo {
+            height: 38px;
             object-fit: contain;
+            background: white;
+            padding: 4px 10px;
+            border-radius: 6px;
         }
 
         /* RESPONSIVIDADE */
         @media (max-width: 768px) {
             .header-container {
-                flex-direction: column;
-                gap: 12px;
+                justify-content: center;
             }
             .hero-text h1 {
                 font-size: 1.4rem;
@@ -337,31 +297,27 @@
 </head>
 <body>
 
-    <!-- HEADER SUPERIOR (Aplica Logo para Fundo Branco) -->
+    <!-- HEADER SUPERIOR (Apenas Logo ANFEER em Destaque) -->
     <header>
         <div class="header-container">
-            <img src="LOGO_APLICACAO_FUNDO_BRANCO.png" alt="ANFEER Brochas e Ferramentas" class="brand-logo">
-            
-            <ul class="nav-links">
-                <li><a href="#" class="btn-contact"><i class="fa-brands fa-whatsapp"></i> Entre em contato</a></li>
-            </ul>
+            <img src="ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER & BR Brochas" class="brand-logo-main">
         </div>
     </header>
 
-    <!-- HERO SECTION (Aplica Logo para Fundo Escuro) -->
+    <!-- HERO SECTION -->
     <section class="hero">
         <div class="hero-container">
             <div class="hero-text">
                 <h1>Painel de Controle e Business Intelligence</h1>
                 <p>Acompanhamento analítico e relatórios estratégicos integrados em tempo real.</p>
             </div>
-            <img src="LOGO_APLICACAO_FUNDO_PRETO.png" alt="ANFEER Logo Dark" class="hero-logo-dark">
+            <img src="ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER BR Brochas" class="hero-logo-large">
         </div>
     </section>
 
     <!-- ÁREA DE DADOS INTEGRADA COM A API SQL -->
     <main>
-        <!-- NAVEGAÇÃO ENTRE OS ENDPOINTS DA SUA API -->
+        <!-- TABS DE NAVEGAÇÃO -->
         <div class="tabs-container">
             <button class="tab-btn active" onclick="carregarDados('FATURAMENTO', this)">
                 <i class="fa-solid fa-chart-line"></i> Faturamento
@@ -384,7 +340,7 @@
         <div class="data-card">
             <div class="card-header">
                 <h2 id="titulo-tabela"><i class="fa-solid fa-table"></i> Dados do Faturamento</h2>
-                <span id="badge-status" class="status-badge online"><i class="fa-solid fa-wifi"></i> Conectado à API</span>
+                <span id="badge-status" class="status-badge"><i class="fa-solid fa-wifi"></i> Conectado à API</span>
             </div>
 
             <div id="loading-state" class="loading-container">
@@ -408,12 +364,14 @@
         </div>
     </main>
 
-    <!-- FOOTER (Aplica Logo para Fundo Preto) -->
+    <!-- FOOTER (Sua Consultoria Mantida com Crédito) -->
     <footer>
         <div class="footer-container">
-            <img src="LOGO_APLICACAO_FUNDO_PRETO.png" alt="ANFEER Brochas" class="footer-logo">
             <p>&copy; 2026 ANFEER - Fabricação de Brochas e Afiação. Todos os direitos reservados.</p>
-            <p>Desenvolvido por <strong>Consultoria RF</strong></p>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span>Desenvolvido por:</span>
+                <img src="LOGO_APLICACAO_FUNDO_BRANCO.png" alt="Consultoria RF" class="footer-rf-logo">
+            </div>
         </div>
     </footer>
 
@@ -423,22 +381,18 @@
         const API_URL = "https://relieve-erased-projector.ngrok-free.dev"; 
 
         async function carregarDados(endpoint, elementoBotao) {
-            // Atualiza botões da interface (Tabs)
             if (elementoBotao) {
                 document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
                 elementoBotao.classList.add('active');
             }
 
-            // Atualiza o título da tabela
             document.getElementById('titulo-tabela').innerHTML = `<i class="fa-solid fa-table"></i> Relatório de ${endpoint.replace('_', ' ')}`;
 
-            // Exibe o Estado de Carregamento
             document.getElementById('loading-state').style.display = 'block';
             document.getElementById('error-state').style.display = 'none';
             document.getElementById('table-wrapper').style.display = 'none';
 
             try {
-                // Consulta a API SQL via Ngrok com bypass
                 const response = await fetch(`${API_URL}/${endpoint}?ngrok-skip-browser-warning=1`, {
                     headers: {
                         "ngrok-skip-browser-warning": "true"
@@ -455,7 +409,6 @@
                     throw new Error("Nenhum dado retornado do banco SQL.");
                 }
 
-                // Obtém cabeçalhos a partir das chaves do objeto JSON
                 const colunas = Object.keys(dados[0]);
                 const thead = document.getElementById('headers-tabela');
                 const tbody = document.getElementById('corpo-tabela');
@@ -463,21 +416,18 @@
                 thead.innerHTML = "";
                 tbody.innerHTML = "";
 
-                // Renderiza os cabeçalhos da Tabela
                 colunas.forEach(col => {
                     const th = document.createElement('th');
                     th.innerText = col.replace(/_/g, ' ');
                     thead.appendChild(th);
                 });
 
-                // Renderiza as linhas de dados
                 dados.forEach(linha => {
                     const tr = document.createElement('tr');
                     colunas.forEach(col => {
                         const td = document.createElement('td');
                         let valor = linha[col];
 
-                        // Formatação simples para valores numéricos ou nulos
                         if (valor === null || valor === undefined) {
                             td.innerText = '-';
                             td.style.color = '#A0AEC0';
@@ -490,7 +440,6 @@
                     tbody.appendChild(tr);
                 });
 
-                // Esconde carregamento e mostra a tabela preenchida
                 document.getElementById('loading-state').style.display = 'none';
                 document.getElementById('table-wrapper').style.display = 'block';
 
@@ -502,7 +451,6 @@
             }
         }
 
-        // Inicializa a página carregando os dados de Faturamento
         carregarDados('FATURAMENTO');
     </script>
 </body>
