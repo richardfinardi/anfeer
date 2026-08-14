@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Painel Operacional & PLR - ANFEER V1.7</title>
+    <title>Painel Operacional & PLR - ANFEER V1.8</title>
     
     <link rel="icon" type="image/png" href="LOGO MINIMALISTA.png">
     
@@ -319,6 +319,29 @@
         .badge-success { background-color: #D1FAE5; color: #065F46; }
         .badge-warning { background-color: #FEF3C7; color: #92400E; }
 
+        /* BOTÃO DE INTERROGAÇÃO / FORMULA (TOOLTIP) */
+        .btn-calc-info {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: var(--anfeer-border);
+            color: var(--anfeer-dark);
+            font-size: 0.68rem;
+            font-weight: 800;
+            margin-left: 6px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-calc-info:hover {
+            background-color: var(--anfeer-red);
+            color: white;
+        }
+
         .loading-container {
             padding: 30px;
             text-align: center;
@@ -386,7 +409,7 @@
     <section class="hero">
         <div class="hero-container">
             <div class="hero-text">
-                <h1>Painel Operacional de Produção & PLR V1.7</h1>
+                <h1>Painel Operacional de Produção & PLR V1.8</h1>
                 <p>Gestão de apontamentos e indicadores PLR.</p>
             </div>
         </div>
@@ -458,13 +481,13 @@
 
             <div class="metrics-grid">
                 <div class="metric-card" style="border-left-color: #10B981;">
-                    <h3>Aproveitamento PLR Médio do Setor (Global)</h3>
+                    <h3>Fator de Eficiência do Setor Selecionado (Previsto x Realizado)</h3>
                     <div class="value" id="metric-eficiencia-setor">--%</div>
-                    <div class="sub" id="metric-eficiencia-status">Média do PLR de toda a equipe do setor (Independente do filtro de pessoa)</div>
+                    <div class="sub" id="metric-eficiencia-status">Média do tempo previsto x realizado dos serviços do setor</div>
                 </div>
             </div>
 
-            <!-- RESUMO POR FUNCIONÁRIO COM MEMÓRIA DE CÁLCULO EXPLICADA -->
+            <!-- RESUMO POR FUNCIONÁRIO -->
             <div class="data-card">
                 <div class="card-header">
                     <h2><i class="fa-solid fa-id-card" style="color: var(--anfeer-red);"></i> Resumo por Funcionário (Aproveitamento PLR)</h2>
@@ -478,7 +501,6 @@
                                 <th>Setor</th>
                                 <th>Média Horas Válidas</th>
                                 <th>Eficiência Individual</th>
-                                <th>Fórmula / Memória do Cálculo</th>
                                 <th>Aproveitamento Final PLR</th>
                             </tr>
                         </thead>
@@ -718,6 +740,10 @@
             document.getElementById('wrapper-erros').style.display = 'block';
         }
 
+        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final) {
+            alert(`MEMÓRIA DE CÁLCULO - ${nome}\n\n1. Eficiência Individual: (${hMedia.toFixed(2)}h / 8.00h) = ${efInd.toFixed(1)}%\n2. Eficiência Prev. x Real do Setor: ${efSetor.toFixed(1)}%\n\n3. CÁLCULO DO PLR:\n${efInd.toFixed(1)}% (Individ.) x ${efSetor.toFixed(1)}% (Setor) = ${final.toFixed(1)}%`);
+        }
+
         function renderizarPLR() {
             const f = obterFiltrosAtivos();
 
@@ -727,21 +753,59 @@
             const listaDatasOrdenadas = Array.from(todasDatasSet).sort().reverse();
             const qtdDiasNoSistema = listaDatasOrdenadas.length || 1;
 
-            // Mapeia todos os funcionários cadastrados
+            // 1. CÁLCULO CORRETO DA EFICIÊNCIA DO SETOR SELECIONADO (PREVISTO X REALIZADO DO SETOR)
+            let prevRealFiltradosSetor = rawPrevReal.filter(item => {
+                const servico = (item.TIPOSERVICO || '').trim();
+                // Se o setor for BROCHAMENTO, pega os serviços de BROCHAMENTO. Caso contrário, pega os demais serviços.
+                if (!setorAtivo) return true;
+                if (setorAtivo === 'BROCHAMENTO') {
+                    return servico.includes('BROCHAMENTO');
+                } else {
+                    return !servico.includes('BROCHAMENTO');
+                }
+            });
+
+            let somaEficienciasSetor = 0;
+            let totalItensSetor = 0;
+
+            prevRealFiltradosSetor.forEach(item => {
+                const prev = parseFloat(item.PREVISTO || 0);
+                const real = parseFloat(item.REALIZADO || 0);
+
+                let efCalculada = 100.0;
+                if (real > prev && prev > 0) {
+                    efCalculada = (prev / real) * 100;
+                } else if (prev === 0 && real > 0) {
+                    efCalculada = 0;
+                }
+                somaEficienciasSetor += efCalculada;
+                totalItensSetor++;
+            });
+
+            // Fator Real do Setor (Previsto x Realizado)
+            const efPrevRealSetor = totalItensSetor > 0 ? (somaEficienciasSetor / totalItensSetor) : 100.0;
+            document.getElementById('metric-eficiencia-setor').innerText = `${efPrevRealSetor.toFixed(1)}%`;
+
+            // 2. MONTAGEM DA TABELA RESUMO POR FUNCIONÁRIO
+            const tbodyResumo = document.getElementById('tbody-plr-resumo-func');
+            tbodyResumo.innerHTML = "";
+
             const todosFuncionariosSet = new Set();
             rawHoras.forEach(i => { if (i.funcionario) todosFuncionariosSet.add(i.funcionario.trim()); });
             rawErros.forEach(e => { if (e.FUNCIONARIO) todosFuncionariosSet.add(e.FUNCIONARIO.trim()); });
 
-            // 1. CÁLCULO DE TODOS OS FUNCIONÁRIOS DO SETOR PRIMEIRO (PARA FIXAR O PLR MÉDIO DO SETOR)
-            const agrupadoEquipeSetor = {};
+            const agrupadoFunc = {};
 
             todosFuncionariosSet.forEach(funcName => {
                 const setorDoFunc = mapaFuncionarioSetor[funcName] || 'OUTROS';
+                // Filtra pessoas exclusivamente do Setor Ativo
                 if (!setorAtivo || setorDoFunc === setorAtivo) {
-                    agrupadoEquipeSetor[funcName] = {
-                        setor: setorDoFunc,
-                        horasPorData: {}
-                    };
+                    if (!f.func || funcName === f.func) {
+                        agrupadoFunc[funcName] = {
+                            setor: setorDoFunc,
+                            horasPorData: {}
+                        };
+                    }
                 }
             });
 
@@ -751,74 +815,52 @@
                 const chaveErro = `${func}_${dataIso}`;
                 const ehApontamentoErro = mapaErrosPorDataEFunc.has(chaveErro);
 
-                if (agrupadoEquipeSetor[func] && dataIso && !ehApontamentoErro) {
-                    if (!agrupadoEquipeSetor[func].horasPorData[dataIso]) {
-                        agrupadoEquipeSetor[func].horasPorData[dataIso] = 0;
+                if (agrupadoFunc[func] && dataIso && !ehApontamentoErro) {
+                    if (!agrupadoFunc[func].horasPorData[dataIso]) {
+                        agrupadoFunc[func].horasPorData[dataIso] = 0;
                     }
-                    agrupadoEquipeSetor[func].horasPorData[dataIso] += parseFloat(i.horas || 0);
+                    agrupadoFunc[func].horasPorData[dataIso] += parseFloat(i.horas || 0);
                 }
             });
 
-            let somaPlrGlobalEquipe = 0;
-            let totalEquipeContada = 0;
-
-            Object.keys(agrupadoEquipeSetor).forEach(funcName => {
-                const dadosF = agrupadoEquipeSetor[funcName];
+            Object.keys(agrupadoFunc).forEach(funcName => {
+                const dadosF = agrupadoFunc[funcName];
                 let somaH = 0;
                 Object.values(dadosF.horasPorData).forEach(h => somaH += h);
-                
-                const mediaH = somaH / qtdDiasNoSistema;
-                let efInd = (mediaH >= 8.0 ? 100.0 : (mediaH / 8.0) * 100.0);
-                
-                somaPlrGlobalEquipe += efInd;
-                totalEquipeContada++;
-            });
 
-            // PLR MÉDIO GLOBAL DO SETOR (NÃO MUDA MESMO SE FILTRAR UM ÚNICO FUNCIONÁRIO)
-            const plrMedioSetor = totalEquipeContada > 0 ? (somaPlrGlobalEquipe / totalEquipeContada) : 0.0;
-            document.getElementById('metric-eficiencia-setor').innerText = `${plrMedioSetor.toFixed(1)}%`;
+                const mediaHorasDiarias = somaH / qtdDiasNoSistema;
+                let efIndividual = (mediaHorasDiarias >= 8.0 ? 100.0 : (mediaHorasDiarias / 8.0) * 100.0);
 
-            // 2. MONTAGEM DA TABELA RESUMO POR FUNCIONÁRIO (RESPEITANDO O FILTRO INDIVIDUAL SE SELECIONADO)
-            const tbodyResumo = document.getElementById('tbody-plr-resumo-func');
-            tbodyResumo.innerHTML = "";
+                // Aproveitamento PLR Final = Eficiência Individual x Eficiência Previsto/Real do Setor
+                let aproveitamentoFinal = efIndividual * (efPrevRealSetor / 100);
+                if (aproveitamentoFinal > 100) aproveitamentoFinal = 100;
 
-            Object.keys(agrupadoEquipeSetor).forEach(funcName => {
-                // Aplica filtro de funcionário individual
-                if (!f.func || funcName === f.func) {
-                    const dadosF = agrupadoEquipeSetor[funcName];
-                    let somaH = 0;
-                    Object.values(dadosF.horasPorData).forEach(h => somaH += h);
-
-                    const mediaHorasDiarias = somaH / qtdDiasNoSistema;
-                    let efIndividual = (mediaHorasDiarias >= 8.0 ? 100.0 : (mediaHorasDiarias / 8.0) * 100.0);
-
-                    // Aproveitamento PLR
-                    let aproveitamentoFinal = efIndividual * (plrMedioSetor / 100);
-                    if (aproveitamentoFinal > 100) aproveitamentoFinal = 100;
-
-                    let badgeAproveitamento = '';
-                    if (aproveitamentoFinal >= 90) {
-                        badgeAproveitamento = `<span class="badge badge-success">${aproveitamentoFinal.toFixed(1)}% (Excelente)</span>`;
-                    } else if (aproveitamentoFinal >= 70) {
-                        badgeAproveitamento = `<span class="badge badge-warning">${aproveitamentoFinal.toFixed(1)}% (Atenção)</span>`;
-                    } else {
-                        badgeAproveitamento = `<span class="badge badge-danger">${aproveitamentoFinal.toFixed(1)}% (Abaixo)</span>`;
-                    }
-
-                    // Memória de Cálculo Explicada
-                    const memoriaCalculo = `(${mediaHorasDiarias.toFixed(2)}h ÷ 8h) = ${efIndividual.toFixed(1)}% Ind. × ${plrMedioSetor.toFixed(1)}% Setor`;
-
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td><strong>${funcName}</strong></td>
-                        <td>${dadosF.setor}</td>
-                        <td>${mediaHorasDiarias.toFixed(2)}h /dia</td>
-                        <td><strong>${efIndividual.toFixed(1)}%</strong></td>
-                        <td><small style="color: var(--anfeer-text-muted); font-family: monospace;">${memoriaCalculo}</small></td>
-                        <td>${badgeAproveitamento}</td>
-                    `;
-                    tbodyResumo.appendChild(tr);
+                let badgeAproveitamento = '';
+                if (aproveitamentoFinal >= 90) {
+                    badgeAproveitamento = `<span class="badge badge-success">${aproveitamentoFinal.toFixed(1)}% (Excelente)</span>`;
+                } else if (aproveitamentoFinal >= 70) {
+                    badgeAproveitamento = `<span class="badge badge-warning">${aproveitamentoFinal.toFixed(1)}% (Atenção)</span>`;
+                } else {
+                    badgeAproveitamento = `<span class="badge badge-danger">${aproveitamentoFinal.toFixed(1)}% (Abaixo)</span>`;
                 }
+
+                // Cria elemento de botão de interrogação ? para ver a memória de cálculo
+                const btnInfo = `<button class="btn-calc-info" onclick="mostrarInfoConta('${funcName}', ${mediaHorasDiarias}, ${efIndividual}, ${efPrevRealSetor}, ${aproveitamentoFinal})" title="Clique para ver a conta">?</button>`;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${funcName}</strong></td>
+                    <td>${dadosF.setor}</td>
+                    <td>${mediaHorasDiarias.toFixed(2)}h /dia</td>
+                    <td><strong>${efIndividual.toFixed(1)}%</strong></td>
+                    <td>
+                        <div style="display: flex; align-items: center;">
+                            ${badgeAproveitamento}
+                            ${btnInfo}
+                        </div>
+                    </td>
+                `;
+                tbodyResumo.appendChild(tr);
             });
 
             document.getElementById('loading-plr-resumo-func').style.display = 'none';
@@ -831,30 +873,28 @@
             listaDatasOrdenadas.forEach(dataIso => {
                 const dataPtBr = dataIso.split('-').reverse().join('/');
 
-                Object.keys(agrupadoEquipeSetor).forEach(funcName => {
-                    if (!f.func || funcName === f.func) {
-                        const dadosF = agrupadoEquipeSetor[funcName];
-                        const hrsDia = dadosF.horasPorData[dataIso] || 0.0;
+                Object.keys(agrupadoFunc).forEach(funcName => {
+                    const dadosF = agrupadoFunc[funcName];
+                    const hrsDia = dadosF.horasPorData[dataIso] || 0.0;
 
-                        let statusBadge = '';
-                        if (hrsDia >= 8.0) {
-                            statusBadge = `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Normal (${hrsDia.toFixed(1)}h)</span>`;
-                        } else if (hrsDia > 0) {
-                            statusBadge = `<span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> Baixo (${hrsDia.toFixed(1)}h)</span>`;
-                        } else {
-                            statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-xmark"></i> Sem Apontamento (0.0h)</span>`;
-                        }
-
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `
-                            <td>${dataPtBr}</td>
-                            <td><strong>${funcName}</strong></td>
-                            <td>${dadosF.setor}</td>
-                            <td><strong>${hrsDia.toFixed(2)}h</strong></td>
-                            <td>${statusBadge}</td>
-                        `;
-                        tbodyFunc.appendChild(tr);
+                    let statusBadge = '';
+                    if (hrsDia >= 8.0) {
+                        statusBadge = `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Normal (${hrsDia.toFixed(1)}h)</span>`;
+                    } else if (hrsDia > 0) {
+                        statusBadge = `<span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> Baixo (${hrsDia.toFixed(1)}h)</span>`;
+                    } else {
+                        statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-xmark"></i> Sem Apontamento (0.0h)</span>`;
                     }
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${dataPtBr}</td>
+                        <td><strong>${funcName}</strong></td>
+                        <td>${dadosF.setor}</td>
+                        <td><strong>${hrsDia.toFixed(2)}h</strong></td>
+                        <td>${statusBadge}</td>
+                    `;
+                    tbodyFunc.appendChild(tr);
                 });
             });
 
