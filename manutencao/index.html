@@ -201,10 +201,9 @@
         let rawMachines = [];
         let rawHistory = [];
 
-        // Normalizador de texto para comparação segura
-        function normalizeStr(str) {
+        function cleanStr(str) {
             if (!str) return '';
-            return str.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+            return str.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
         }
 
         async function fetchSheetData() {
@@ -212,73 +211,92 @@
             lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Sincronizando...`;
 
             try {
-                // 1. Carregar Histórico / Formulário primeiro
+                // 1. Fetch Histórico (Form_Responses / Respostas do Formulário 1)
                 const resHist = await fetch(LINK_CSV_HISTORICO);
                 const csvHistText = await resHist.text();
                 const parsedHist = Papa.parse(csvHistText, { header: true, skipEmptyLines: true });
                 
+                const groupCols = ["BROCHADEIRAS", "FRESADORAS", "AFIADORAS", "RETIFICAS", "TORNOS"];
+                const metaCols = ["CARIMBO DE DATA/HORA", "GRUPO DE MÁQUINAS", "TEVE NÃO CONFORMIDADE?", "DESCREVER NÃO CONFORMIDADE", ...groupCols];
+
                 rawHistory = parsedHist.data.map(row => {
-                    // Descobre a máquina selecionada entre as colunas específicas de grupo
-                    let machineName = row["BROCHADEIRAS"] || row["FRESADORAS"] || row["AFIADORAS"] || row["RETIFICAS"] || row["TORNOS"] || "";
+                    const keys = Object.keys(row);
+                    
+                    // Extrai nome da máquina testando as colunas de grupos e depois todas as colunas
+                    let machineName = "";
+                    for (let gCol of groupCols) {
+                        const foundKey = keys.find(k => k.trim().toUpperCase() === gCol);
+                        if (foundKey && row[foundKey] && row[foundKey].trim() !== '') {
+                            machineName = row[foundKey].trim();
+                            break;
+                        }
+                    }
+
                     if (!machineName) {
-                        for (let k of Object.keys(row)) {
-                            const val = row[k] ? row[k].toString() : '';
-                            if (val.includes('-') && (val.includes('46') || val.includes('47') || val.includes('48') || val.includes('49') || val.includes('01') || val.includes('89') || val.includes('31'))) {
+                        for (let k of keys) {
+                            const val = row[k] ? row[k].trim() : '';
+                            if (val.includes('-') && (val.includes('01') || val.includes('02') || val.includes('46') || val.includes('47') || val.includes('14') || val.includes('89') || val.includes('252'))) {
                                 machineName = val;
                                 break;
                             }
                         }
                     }
 
-                    const ncVal = (row["TEVE NÃO CONFORMIDADE?"] || "").toString().trim().toUpperCase();
+                    const ncKey = keys.find(k => k.trim().toUpperCase().includes("TEVE NÃO CONFORMIDADE")) || "";
+                    const descKey = keys.find(k => k.trim().toUpperCase().includes("DESCREVER NÃO CONFORMIDADE")) || "";
+                    const dateKey = keys.find(k => k.trim().toUpperCase().includes("CARIMBO")) || keys[0];
+                    const groupKey = keys.find(k => k.trim().toUpperCase().includes("GRUPO DE MÁQUINAS")) || "";
+
+                    const ncVal = ncKey && row[ncKey] ? row[ncKey].trim().toUpperCase() : "";
                     const hasNC = ncVal === "SIM";
 
-                    // Mapeia todos os itens de inspeção e seus status
+                    // Captura os itens do checklist (todas as colunas que possuem CONFORME / NÃO CONFORME)
                     const itemsInspected = [];
-                    const ignoredKeys = ["Carimbo de data/hora", "GRUPO DE MÁQUINAS", "BROCHADEIRAS", "FRESADORAS", "AFIADORAS", "RETIFICAS", "TORNOS", "TEVE NÃO CONFORMIDADE?", "DESCREVER NÃO CONFORMIDADE"];
-                    
-                    Object.keys(row).forEach(key => {
-                        if (!ignoredKeys.includes(key.trim()) && row[key] && row[key].trim() !== '') {
+                    keys.forEach(k => {
+                        const kUpper = k.trim().toUpperCase();
+                        const val = row[k] ? row[k].trim() : '';
+                        if (!metaCols.includes(kUpper) && val !== '') {
                             itemsInspected.push({
-                                item: key.trim(),
-                                status: row[key].trim()
+                                item: k.trim(),
+                                status: val
                             });
                         }
                     });
 
                     return {
-                        date: row["Carimbo de data/hora"] || "",
-                        machine: machineName.trim(),
-                        group: row["GRUPO DE MÁQUINAS"] || "",
+                        date: dateKey && row[dateKey] ? row[dateKey].trim() : "",
+                        machine: machineName,
+                        group: groupKey && row[groupKey] ? row[groupKey].trim() : "",
                         nc: hasNC,
-                        descNC: row["DESCREVER NÃO CONFORMIDADE"] || "",
+                        descNC: descKey && row[descKey] ? row[descKey].trim() : "",
                         items: itemsInspected
                     };
-                }).filter(h => h.date !== "");
+                }).filter(h => h.machine !== "" && h.date !== "");
 
-                // 2. Carregar Lista de Máquinas
+                // 2. Fetch Máquinas (Aba MAQUINAS)
                 const resMachines = await fetch(LINK_CSV_MAQUINAS);
                 const csvMachinesText = await resMachines.text();
                 const parsedMachines = Papa.parse(csvMachinesText, { header: true, skipEmptyLines: true });
                 
                 rawMachines = parsedMachines.data.map(row => {
                     const keys = Object.keys(row);
-                    const getCol = (name) => {
-                        const foundKey = keys.find(k => normalizeStr(k).includes(normalizeStr(name)));
-                        return foundKey ? row[foundKey] : '';
+                    const getVal = (term) => {
+                        const k = keys.find(key => key.trim().toUpperCase().includes(term));
+                        return k ? row[k].trim() : '';
                     };
 
-                    const machineId = getCol("MAQUINAS") || getCol("MAQUINA") || keys[0] && row[keys[0]];
+                    const machineId = getVal("MAQUINA") || (keys[0] ? row[keys[0]].trim() : "");
+                    const groupVal = getVal("GRUPO") || getVal("MÁQUINAS") || "";
 
                     return {
-                        id: machineId ? machineId.trim() : "",
-                        group: getCol("GRUPO") || "DIVERSOS",
-                        last: getCol("ULTIMA") || "",
-                        period: parseInt(getCol("PERIODICIDADE")) || 90,
-                        next: getCol("PROXIMA") || "",
-                        notice: getCol("AVISO") || ""
+                        id: machineId,
+                        group: groupVal || "DIVERSOS",
+                        last: getVal("ULTIMA") || getVal("MANUTENÇÃO") || "",
+                        period: parseInt(getVal("PERIODICIDADE")) || 90,
+                        next: getVal("PRÓXIMA") || getVal("PROXIMA") || "",
+                        notice: getVal("AVISO") || ""
                     };
-                }).filter(m => m.id !== "" && !m.id.toLowerCase().includes("maquinas"));
+                }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
 
                 renderKPIs();
                 renderTable();
@@ -302,12 +320,17 @@
             return new Date(parts[2], parts[1] - 1, parts[0]);
         }
 
+        function matchMachine(m1, m2) {
+            if (!m1 || !m2) return false;
+            const c1 = cleanStr(m1);
+            const c2 = cleanStr(m2);
+            return c1.includes(c2) || c2.includes(c1);
+        }
+
         function getMachineStatus(m) {
-            const mNorm = normalizeStr(m.id);
-            const ncRecord = rawHistory.find(h => normalizeStr(h.machine).includes(mNorm) || mNorm.includes(normalizeStr(h.machine)) && h.nc);
-            
+            const ncRecord = rawHistory.find(h => matchMachine(h.machine, m.id) && h.nc);
             if (ncRecord) {
-                return { code: 'VENCIDA', label: 'Não Conforme / Reprovada', class: 'bg-rose-500/20 text-rose-300 border-rose-500/30' };
+                return { code: 'VENCIDA', label: 'Não Conforme / Parada', class: 'bg-rose-500/20 text-rose-300 border-rose-500/30' };
             }
 
             const today = new Date();
@@ -351,7 +374,7 @@
 
             const filtered = rawMachines.filter(m => {
                 const matchesSearch = m.id.toLowerCase().includes(search) || m.group.toLowerCase().includes(search);
-                const matchesGroup = groupFilter === 'ALL' || normalizeStr(m.group).includes(normalizeStr(groupFilter));
+                const matchesGroup = groupFilter === 'ALL' || cleanStr(m.group).includes(cleanStr(groupFilter)) || cleanStr(groupFilter).includes(cleanStr(m.group));
                 const status = getMachineStatus(m);
                 const matchesStatus = statusFilter === 'ALL' || status.code === statusFilter;
                 return matchesSearch && matchesGroup && matchesStatus;
@@ -376,7 +399,7 @@
                         </span>
                     </td>
                     <td class="py-3.5 px-4 text-center">
-                        <button onclick="openModal('${encodeURIComponent(m.id)}')" class="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 rounded text-xs flex items-center gap-1 mx-auto transition" title="Gerar Relatório de Inspeção">
+                        <button onclick="openModal('${encodeURIComponent(m.id)}')" class="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 rounded text-xs flex items-center gap-1 mx-auto transition">
                             <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Relatório
                         </button>
                     </td>
@@ -392,13 +415,13 @@
             container.innerHTML = '';
 
             if (rawHistory.length === 0) {
-                container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">Nenhuma aferição registrada.</p>`;
+                container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">Nenhuma aferição encontrada na planilha.</p>`;
                 return;
             }
 
-            rawHistory.slice().reverse().slice(0, 25).forEach(h => {
+            rawHistory.slice().reverse().slice(0, 30).forEach(h => {
                 const div = document.createElement('div');
-                div.className = `p-3 rounded-lg border ${h.nc ? 'bg-rose-950/30 border-rose-800/50' : 'bg-slate-900/50 border-slate-700/60'} text-xs space-y-1.5 cursor-pointer hover:border-slate-500 transition`;
+                div.className = `p-3 rounded-lg border ${h.nc ? 'bg-rose-950/30 border-rose-800/50' : 'bg-slate-900/50 border-slate-700/60'} text-xs space-y-1.5 cursor-pointer hover:border-blue-500 transition`;
                 div.onclick = () => openModal(encodeURIComponent(h.machine));
 
                 div.innerHTML = `
@@ -409,7 +432,7 @@
                         </span>
                     </div>
                     <div class="flex justify-between text-slate-400 text-[11px]">
-                        <span>${h.group || 'Aferição'}</span>
+                        <span>${h.group || 'Preventiva'}</span>
                         <span>${h.date}</span>
                     </div>
                     ${h.descNC ? `<p class="text-rose-300 italic pt-1 border-t border-rose-900/40">${h.descNC}</p>` : ''}
@@ -420,16 +443,10 @@
 
         function openModal(encodedMachineId) {
             const machineId = decodeURIComponent(encodedMachineId);
-            const normTarget = normalizeStr(machineId);
+            const m = rawMachines.find(x => matchMachine(x.id, machineId)) || { id: machineId, group: "-", last: "-", next: "-", period: 90 };
 
-            const m = rawMachines.find(x => normalizeStr(x.id) === normTarget || normTarget.includes(normalizeStr(x.id)) || normalizeStr(x.id).includes(normTarget)) || { id: machineId, group: "-", last: "-", next: "-", period: 90 };
-
-            // Encontra todas as aferições dessa máquina
-            const inspections = rawHistory.filter(h => {
-                const hNorm = normalizeStr(h.machine);
-                return hNorm.includes(normTarget) || normTarget.includes(hNorm);
-            });
-
+            // Busca histórico de inspeções dessa máquina
+            const inspections = rawHistory.filter(h => matchMachine(h.machine, machineId));
             const lastInspection = inspections.length > 0 ? inspections[inspections.length - 1] : null;
 
             document.getElementById('modal-title').innerText = m.id;
@@ -448,12 +465,12 @@
                                 <thead class="bg-slate-900/80 text-slate-400 border-b border-slate-700">
                                     <tr>
                                         <th class="p-2.5">Item do Checklist / Componente</th>
-                                        <th class="p-2.5 w-32 text-center">Status</th>
+                                        <th class="p-2.5 w-36 text-center">Status Aferido</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-700/50 bg-slate-900/30">
                                     ${lastInspection.items.map(it => {
-                                        const isOk = normalizeStr(it.status).includes('conforme') && !normalizeStr(it.status).includes('nao');
+                                        const isOk = cleanStr(it.status).includes('conforme') && !cleanStr(it.status).includes('nao');
                                         return `
                                             <tr>
                                                 <td class="p-2.5 text-slate-300 font-medium">${it.item}</td>
@@ -473,7 +490,7 @@
             } else {
                 itemsTableHtml = `
                     <div class="p-4 bg-slate-900/50 rounded-lg border border-slate-700/60 text-slate-400 text-xs italic text-center mt-3">
-                        Nenhuma aferição de formulário individual vinculada a esta máquina até o momento.
+                        Nenhuma aferição individual vinculada a esta máquina até o momento.
                     </div>
                 `;
             }
@@ -481,9 +498,9 @@
             document.getElementById('modal-content').innerHTML = `
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-900/80 p-3.5 rounded-lg border border-slate-700 text-xs">
                     <div><span class="text-slate-400 block">Última Preventiva:</span> <strong class="text-white text-sm">${m.last || '-'}</strong></div>
-                    <div><span class="text-slate-400 block">Próxima Vencimento:</span> <strong class="text-white text-sm">${m.next || '-'}</strong></div>
-                    <div><span class="text-slate-400 block">Status Aferição:</span> <strong class="${lastInspection && lastInspection.nc ? 'text-rose-400' : 'text-emerald-400'} text-sm">${lastInspection ? (lastInspection.nc ? 'NÃO CONFORME' : 'CONFORME') : 'SEM DADOS'}</strong></div>
-                    <div><span class="text-slate-400 block">Histórico Registrado:</span> <strong class="text-white text-sm">${inspections.length} aferições</strong></div>
+                    <div><span class="text-slate-400 block">Próximo Vencimento:</span> <strong class="text-white text-sm">${m.next || '-'}</strong></div>
+                    <div><span class="text-slate-400 block">Status Geral:</span> <strong class="${lastInspection && lastInspection.nc ? 'text-rose-400' : 'text-emerald-400'} text-sm">${lastInspection ? (lastInspection.nc ? 'NÃO CONFORME' : 'CONFORME') : 'SEM DADOS'}</strong></div>
+                    <div><span class="text-slate-400 block">Aferições Gravadas:</span> <strong class="text-white text-sm">${inspections.length} registro(s)</strong></div>
                 </div>
 
                 ${lastInspection && lastInspection.nc && lastInspection.descNC ? `
