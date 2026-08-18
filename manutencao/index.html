@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V1.1</title>
+    <title>Painel de Manutenção Preventiva V1.2</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -11,11 +11,76 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
+
+        /* REGRAS EXCLUSIVAS DE IMPRESSÃO / PDF (1 PÁGINA PERFEITA) */
         @media print {
-            body * { visibility: hidden; }
-            #modal-printable, #modal-printable * { visibility: visible; }
-            #modal-printable { position: absolute; left: 0; top: 0; width: 100%; color: #000 !important; background: #fff !important; }
-            .no-print { display: none !important; }
+            @page {
+                size: A4 portrait;
+                margin: 10mm;
+            }
+            
+            /* Esconde absolutamente tudo no fundo */
+            body, body * {
+                visibility: hidden !important;
+                background: none !important;
+            }
+
+            /* Exibe apenas o container do modal */
+            #modal-printable, #modal-printable * {
+                visibility: visible !important;
+            }
+
+            /* Fixa o relatório no topo da página sem quebras extras */
+            #modal-printable {
+                position: fixed !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                margin: 0 !important;
+                padding: 12px !important;
+                border: 1px solid #cbd5e1 !important;
+                border-radius: 8px !important;
+                background-color: #ffffff !important;
+                color: #0f172a !important;
+                box-shadow: none !important;
+                page-break-after: avoid !important;
+                page-break-before: avoid !important;
+            }
+
+            /* Cores otimizadas para impressão em papel branco */
+            #modal-printable h3, 
+            #modal-printable h4, 
+            #modal-printable strong {
+                color: #0f172a !important;
+            }
+
+            #modal-printable p, 
+            #modal-printable span, 
+            #modal-printable td {
+                color: #334155 !important;
+            }
+
+            #modal-printable table {
+                border-collapse: collapse !important;
+                width: 100% !important;
+            }
+
+            #modal-printable th, 
+            #modal-printable td {
+                border: 1px solid #cbd5e1 !important;
+                padding: 5px 8px !important;
+            }
+
+            #modal-printable thead {
+                background-color: #f1f5f9 !important;
+            }
+
+            /* Esconde os botões Fechar e Imprimir no PDF */
+            .no-print {
+                display: none !important;
+            }
         }
     </style>
 </head>
@@ -29,7 +94,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.1</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.2</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -144,7 +209,7 @@
                                 </tr>
                             </thead>
                             <tbody id="machines-table-body" class="divide-y divide-slate-700/50">
-                                <!-- Linhas -->
+                                <!-- Linhas dinamicas -->
                             </tbody>
                         </table>
                     </div>
@@ -160,7 +225,7 @@
                     </h2>
                     
                     <div id="history-container" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                        <!-- Cards -->
+                        <!-- Cards dinamicos -->
                     </div>
                 </div>
             </div>
@@ -187,17 +252,13 @@
             </div>
 
             <div id="modal-content" class="space-y-4 text-sm">
-                <!-- Conteúdo -->
+                <!-- Conteúdo dinamico -->
             </div>
         </div>
     </div>
 
     <script>
-        // =========================================================================
-        // 🔗 SUBSTITUA PELO URL DO SEU GOOGLE APPS SCRIPT PUBLICADO:
-        // =========================================================================
         const URL_DO_SEU_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxBxZVyj94Czw_ZqRdX4_F1nvBDdiv_m1YpVBK_KRybcZUPyRmy6FaXa9JkCuiGThuArQ/exec";
-        // =========================================================================
 
         let rawMachines = [];
         let rawHistory = [];
@@ -225,7 +286,7 @@
                 const res = await fetch(URL_DO_SEU_APPS_SCRIPT);
                 const data = await res.json();
 
-                // 1. Tabela de Máquinas
+                // 1. Processar Tabela de Máquinas
                 if (data.maquinas && data.maquinas.length > 1) {
                     const rowsM = data.maquinas.slice(1);
                     rawMachines = rowsM.map(r => {
@@ -248,15 +309,15 @@
                     }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
                 }
 
-                // 2. Histórico de Respostas (Processamento do Cabeçalho)
+                // 2. Processar Histórico de Respostas
                 if (data.historico && data.historico.length > 1) {
-                    const headersH = data.historico[0]; // Linha 1 de Cabeçalhos
+                    const headersH = data.historico[0];
                     const rowsH = data.historico.slice(1);
 
                     rawHistory = rowsH.map(r => {
                         let machineName = "";
                         
-                        // O nome da máquina fica entre os índices 2 e 6 (Colunas C, D, E, F, G)
+                        // Busca o nome da máquina especificamente nas colunas C a G (índices 2 a 6)
                         for (let idx = 2; idx <= 6; idx++) {
                             if (r[idx] && r[idx].toString().trim() !== '') {
                                 machineName = r[idx].toString().trim();
@@ -268,7 +329,7 @@
                         let descNC = "";
                         const items = [];
 
-                        // Pega os itens aferidos associando o valor da célula ao texto do cabeçalho
+                        // Mapeia o cabeçalho (Linha 1) com cada célula preenchida da resposta
                         headersH.forEach((headerText, colIdx) => {
                             const hUpper = headerText ? headerText.toString().toUpperCase().trim() : '';
                             const cellVal = r[colIdx] ? r[colIdx].toString().trim() : '';
