@@ -3,13 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V2</title>
+    <title>Painel de Manutenção Preventiva V3</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- PapaParse para conversão de CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
@@ -31,7 +29,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V2</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V3</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -39,7 +37,7 @@
             <div class="flex items-center gap-3">
                 <span id="last-update" class="text-xs bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Sincronizando...
+                    Carregando...
                 </span>
                 <button onclick="refreshData()" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition" title="Atualizar dados">
                     <i data-lucide="refresh-cw" class="w-4 h-4"></i>
@@ -195,12 +193,10 @@
     </div>
 
     <script>
-        const RAW_URL_HISTORICO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUDTrxUwcimui0x1iUAiZ7Sk32Dd2WpFP44IM8jHFeumhO4VPmEk9gxfB1tc-2XSKHIrD1qvBqNjg_/pub?gid=2051194470&single=true&output=csv";
-        const RAW_URL_MAQUINAS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUDTrxUwcimui0x1iUAiZ7Sk32Dd2WpFP44IM8jHFeumhO4VPmEk9gxfB1tc-2XSKHIrD1qvBqNjg_/pub?gid=1150804683&single=true&output=csv";
-
-        // Bypass CORS via Proxy
-        const LINK_CSV_HISTORICO = "https://corsproxy.io/?" + encodeURIComponent(RAW_URL_HISTORICO);
-        const LINK_CSV_MAQUINAS = "https://corsproxy.io/?" + encodeURIComponent(RAW_URL_MAQUINAS);
+        // API Nativa do Google Visualization (Zero CORS, 100% Direto)
+        const SHEET_ID = "2PACX-1vQUDTrxUwcimui0x1iUAiZ7Sk32Dd2WpFP44IM8jHFeumhO4VPmEk9gxfB1tc-2XSKHIrD1qvBqNjg_";
+        const GVIZ_MAQUINAS = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/gviz/tq?tqx=out:json&gid=1150804683`;
+        const GVIZ_HISTORICO = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/gviz/tq?tqx=out:json&gid=2051194470`;
 
         let rawMachines = [];
         let rawHistory = [];
@@ -210,25 +206,47 @@
             return str.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
         }
 
+        // Função de parser para a resposta GViz do Google
+        async function fetchGVizData(url) {
+            const res = await fetch(url);
+            const text = await res.text();
+            // Remove o wrapper google.visualization.Query.setResponse()
+            const jsonText = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+            const data = JSON.parse(jsonText);
+            
+            const cols = data.table.cols.map(c => c ? (c.label || c.id || '') : '');
+            const rows = data.table.rows.map(r => {
+                const rowObj = {};
+                r.c.forEach((cell, idx) => {
+                    const colName = cols[idx] || `col_${idx}`;
+                    let val = '';
+                    if (cell) {
+                        val = cell.f !== undefined ? cell.f : (cell.v !== undefined ? cell.v : '');
+                    }
+                    rowObj[colName] = val;
+                    rowObj[`_idx_${idx}`] = val;
+                });
+                return rowObj;
+            });
+
+            return { cols, rows };
+        }
+
         async function fetchSheetData() {
             const lastUpdateElem = document.getElementById('last-update');
             lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Sincronizando...`;
 
             try {
-                // 1. Fetch Histórico de Respostas
-                const resHist = await fetch(LINK_CSV_HISTORICO);
-                const csvHistText = await resHist.text();
-                const parsedHist = Papa.parse(csvHistText, { header: true, skipEmptyLines: true });
+                // 1. Fetch Histórico
+                const histData = await fetchGVizData(GVIZ_HISTORICO);
                 
-                const groupCols = ["BROCHADEIRAS", "FRESADORAS", "AFIADORAS", "RETIFICAS", "TORNOS"];
-
-                rawHistory = parsedHist.data.map(row => {
+                rawHistory = histData.rows.map(row => {
                     const keys = Object.keys(row);
                     
                     let machineName = "";
                     for (let k of keys) {
-                        const val = row[k] ? row[k].trim() : '';
-                        if (val && val.includes('-')) {
+                        const val = row[k] ? row[k].toString().trim() : '';
+                        if (val && val.includes('-') && (val.includes('0') || val.includes('1') || val.includes('2') || val.includes('3') || val.includes('4') || val.includes('8') || val.includes('9'))) {
                             machineName = val;
                             break;
                         }
@@ -236,53 +254,54 @@
 
                     const ncKey = keys.find(k => k.trim().toUpperCase().includes("TEVE NÃO CONFORMIDADE")) || "";
                     const descKey = keys.find(k => k.trim().toUpperCase().includes("DESCREVER NÃO CONFORMIDADE")) || "";
-                    const dateKey = keys.find(k => k.trim().toUpperCase().includes("CARIMBO")) || keys[0];
-                    const groupKey = keys.find(k => k.trim().toUpperCase().includes("GRUPO DE MÁQUINAS")) || "";
+                    const dateVal = row["_idx_0"] || row[keys[0]] || "";
+                    const groupVal = row["_idx_1"] || "";
 
-                    const ncVal = ncKey && row[ncKey] ? row[ncKey].trim().toUpperCase() : "";
+                    const ncVal = ncKey && row[ncKey] ? row[ncKey].toString().trim().toUpperCase() : "";
                     const hasNC = ncVal.includes("SIM");
 
                     const itemsInspected = [];
-                    keys.forEach(k => {
-                        const kUpper = k.trim().toUpperCase();
-                        const val = row[k] ? row[k].trim() : '';
-                        if (!kUpper.includes("CARIMBO") && !kUpper.includes("GRUPO") && !kUpper.includes("TEVE NÃO") && !kUpper.includes("DESCREVER") && !groupCols.includes(kUpper) && val !== '') {
-                            itemsInspected.push({ item: k.trim(), status: val });
+                    histData.cols.forEach((colLabel, colIdx) => {
+                        const val = row[`_idx_${colIdx}`] ? row[`_idx_${colIdx}`].toString().trim() : '';
+                        const colUpper = colLabel.trim().toUpperCase();
+                        if (colIdx > 6 && val !== '' && !colUpper.includes("TEVE NÃO") && !colUpper.includes("DESCREVER")) {
+                            itemsInspected.push({ item: colLabel.trim(), status: val });
                         }
                     });
 
                     return {
-                        date: dateKey && row[dateKey] ? row[dateKey].trim() : "",
+                        date: dateVal,
                         machine: machineName,
-                        group: groupKey && row[groupKey] ? row[groupKey].trim() : "",
+                        group: groupVal,
                         nc: hasNC,
-                        descNC: descKey && row[descKey] ? row[descKey].trim() : "",
+                        descNC: descKey && row[descKey] ? row[descKey].toString().trim() : "",
                         items: itemsInspected
                     };
                 }).filter(h => h.machine !== "" && h.date !== "");
 
                 // 2. Fetch Tabela Máquinas
-                const resMachines = await fetch(LINK_CSV_MAQUINAS);
-                const csvMachinesText = await resMachines.text();
-                const parsedMachines = Papa.parse(csvMachinesText, { header: true, skipEmptyLines: true });
+                const machData = await fetchGVizData(GVIZ_MAQUINAS);
                 
-                rawMachines = parsedMachines.data.map(row => {
-                    const vals = Object.values(row).map(v => v ? v.toString().trim() : '');
-                    const machineId = vals[0] || "";
-                    let group = "DIVERSOS";
+                rawMachines = machData.rows.map(row => {
+                    const mId = row["_idx_0"] ? row["_idx_0"].toString().trim() : "";
+                    const lastVal = row["_idx_1"] ? row["_idx_1"].toString().trim() : "";
+                    const periodVal = parseInt(row["_idx_2"]) || 90;
+                    const nextVal = row["_idx_3"] ? row["_idx_3"].toString().trim() : "";
+                    const noticeVal = row["_idx_4"] ? row["_idx_4"].toString().trim() : "";
 
-                    if (machineId.toUpperCase().includes("AFIADORA")) group = "AFIAÇÃO";
-                    else if (machineId.toUpperCase().includes("BROCHADEIRA")) group = "BROCHAMENTO";
-                    else if (machineId.toUpperCase().includes("FRESA")) group = "FRESAS";
-                    else if (machineId.toUpperCase().includes("RETIFICA")) group = "RETIFICAS";
-                    else if (machineId.toUpperCase().includes("TORNO")) group = "TORNOS";
+                    let group = "DIVERSOS";
+                    if (mId.toUpperCase().includes("AFIADORA")) group = "AFIAÇÃO";
+                    else if (mId.toUpperCase().includes("BROCHADEIRA")) group = "BROCHAMENTO";
+                    else if (mId.toUpperCase().includes("FRESA")) group = "FRESAS";
+                    else if (mId.toUpperCase().includes("RETIFICA")) group = "RETIFICAS";
+                    else if (mId.toUpperCase().includes("TORNO")) group = "TORNOS";
 
                     return {
-                        id: machineId,
-                        last: vals[1] || "",
-                        period: parseInt(vals[2]) || 90,
-                        next: vals[3] || "",
-                        notice: vals[4] || "",
+                        id: mId,
+                        last: lastVal,
+                        period: periodVal,
+                        next: nextVal,
+                        notice: noticeVal,
                         group: group
                     };
                 }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
@@ -297,8 +316,8 @@
                     Sincronizado às ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                 `;
             } catch (err) {
-                console.error("Erro ao carregar dados:", err);
-                lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Erro de Conexão`;
+                console.error("Erro ao carregar dados do GViz:", err);
+                lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Erro de Leitura`;
             }
         }
 
