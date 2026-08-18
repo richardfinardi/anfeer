@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva</title>
+    <title>Painel de Manutenção Preventiva V1.1</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -29,7 +29,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.1</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -193,7 +193,11 @@
     </div>
 
     <script>
+        // =========================================================================
+        // 🔗 SUBSTITUA PELO URL DO SEU GOOGLE APPS SCRIPT PUBLICADO:
+        // =========================================================================
         const URL_DO_SEU_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxBxZVyj94Czw_ZqRdX4_F1nvBDdiv_m1YpVBK_KRybcZUPyRmy6FaXa9JkCuiGThuArQ/exec";
+        // =========================================================================
 
         let rawMachines = [];
         let rawHistory = [];
@@ -221,7 +225,7 @@
                 const res = await fetch(URL_DO_SEU_APPS_SCRIPT);
                 const data = await res.json();
 
-                // 1. Processar Tabela de Máquinas
+                // 1. Tabela de Máquinas
                 if (data.maquinas && data.maquinas.length > 1) {
                     const rowsM = data.maquinas.slice(1);
                     rawMachines = rowsM.map(r => {
@@ -244,15 +248,15 @@
                     }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
                 }
 
-                // 2. Processar Histórico de Respostas
+                // 2. Histórico de Respostas (Processamento do Cabeçalho)
                 if (data.historico && data.historico.length > 1) {
-                    const headersH = data.historico[0];
+                    const headersH = data.historico[0]; // Linha 1 de Cabeçalhos
                     const rowsH = data.historico.slice(1);
 
                     rawHistory = rowsH.map(r => {
                         let machineName = "";
                         
-                        // Varre especificamente das colunas 2 a 6 para encontrar o nome da máquina
+                        // O nome da máquina fica entre os índices 2 e 6 (Colunas C, D, E, F, G)
                         for (let idx = 2; idx <= 6; idx++) {
                             if (r[idx] && r[idx].toString().trim() !== '') {
                                 machineName = r[idx].toString().trim();
@@ -260,36 +264,31 @@
                             }
                         }
 
-                        // Fallback se estiver em outra coluna
-                        if (!machineName) {
-                            for (let cell of r) {
-                                const val = cell ? cell.toString().trim() : '';
-                                if (val && val.includes('-') && !val.includes('T') && val.length > 3) {
-                                    machineName = val;
-                                    break;
-                                }
-                            }
-                        }
-
                         let ncVal = "";
                         let descNC = "";
                         const items = [];
 
-                        headersH.forEach((h, idx) => {
-                            const hUpper = h ? h.toString().toUpperCase() : '';
-                            const cellVal = r[idx] ? r[idx].toString().trim() : '';
+                        // Pega os itens aferidos associando o valor da célula ao texto do cabeçalho
+                        headersH.forEach((headerText, colIdx) => {
+                            const hUpper = headerText ? headerText.toString().toUpperCase().trim() : '';
+                            const cellVal = r[colIdx] ? r[colIdx].toString().trim() : '';
 
-                            if (hUpper.includes("TEVE NÃO CONFORMIDADE")) ncVal = cellVal;
-                            else if (hUpper.includes("DESCREVER NÃO CONFORMIDADE")) descNC = cellVal;
-                            else if (cellVal !== '' && !hUpper.includes("CARIMBO") && !hUpper.includes("GRUPO") && idx > 6) {
-                                items.push({ item: h.toString().trim(), status: cellVal });
+                            if (hUpper.includes("TEVE NÃO CONFORMIDADE")) {
+                                ncVal = cellVal;
+                            } else if (hUpper.includes("DESCREVER NÃO CONFORMIDADE")) {
+                                descNC = cellVal;
+                            } else if (colIdx >= 7 && cellVal !== '' && (cellVal.toUpperCase().includes("CONFORME"))) {
+                                items.push({
+                                    item: headerText.toString().trim(),
+                                    status: cellVal
+                                });
                             }
                         });
 
                         return {
                             date: formatDate(r[0]),
                             machine: machineName,
-                            group: r[1] ? r[1].toString() : '',
+                            group: r[1] ? r[1].toString().trim() : '',
                             nc: ncVal.toUpperCase().includes("SIM"),
                             descNC: descNC,
                             items: items
