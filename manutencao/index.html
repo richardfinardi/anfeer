@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V1.2</title>
+    <title>Painel de Manutenção Preventiva V1.3</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -12,44 +12,41 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
 
-        /* REGRAS EXCLUSIVAS DE IMPRESSÃO / PDF (1 PÁGINA PERFEITA) */
+        /* REGRAS RÍGIDAS DE IMPRESSÃO - 1 PÁGINA APENAS */
         @media print {
             @page {
                 size: A4 portrait;
-                margin: 10mm;
+                margin: 8mm;
             }
             
-            /* Esconde absolutamente tudo no fundo */
-            body, body * {
-                visibility: hidden !important;
-                background: none !important;
+            html, body {
+                height: 100% !important;
+                overflow: hidden !important;
+                background: #ffffff !important;
             }
 
-            /* Exibe apenas o container do modal */
+            body * {
+                visibility: hidden !important;
+            }
+
             #modal-printable, #modal-printable * {
                 visibility: visible !important;
             }
 
-            /* Fixa o relatório no topo da página sem quebras extras */
             #modal-printable {
-                position: fixed !important;
+                position: absolute !important;
                 left: 0 !important;
                 top: 0 !important;
                 width: 100% !important;
-                height: auto !important;
-                max-height: none !important;
                 margin: 0 !important;
-                padding: 12px !important;
+                padding: 10px !important;
                 border: 1px solid #cbd5e1 !important;
-                border-radius: 8px !important;
+                border-radius: 6px !important;
                 background-color: #ffffff !important;
                 color: #0f172a !important;
                 box-shadow: none !important;
-                page-break-after: avoid !important;
-                page-break-before: avoid !important;
             }
 
-            /* Cores otimizadas para impressão em papel branco */
             #modal-printable h3, 
             #modal-printable h4, 
             #modal-printable strong {
@@ -70,14 +67,13 @@
             #modal-printable th, 
             #modal-printable td {
                 border: 1px solid #cbd5e1 !important;
-                padding: 5px 8px !important;
+                padding: 4px 6px !important;
             }
 
             #modal-printable thead {
                 background-color: #f1f5f9 !important;
             }
 
-            /* Esconde os botões Fechar e Imprimir no PDF */
             .no-print {
                 display: none !important;
             }
@@ -94,7 +90,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.2</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.3</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -111,7 +107,7 @@
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
+    <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 space-y-6">
 
         <!-- KPIs -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -204,7 +200,7 @@
                                     <th class="py-3 px-4">Máquina</th>
                                     <th class="py-3 px-4">Última Manut.</th>
                                     <th class="py-3 px-4">Próxima Manut.</th>
-                                    <th class="py-3 px-4">Status</th>
+                                    <th class="py-3 px-4 min-w-[150px]">Status</th>
                                     <th class="py-3 px-4 text-center">Ações</th>
                                 </tr>
                             </thead>
@@ -242,7 +238,7 @@
                     <p id="modal-subtitle" class="text-xs text-slate-400"></p>
                 </div>
                 <div class="flex gap-2 no-print">
-                    <button onclick="window.print()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white flex items-center gap-1.5 transition">
+                    <button onclick="printSinglePage()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white flex items-center gap-1.5 transition">
                         <i data-lucide="printer" class="w-3.5 h-3.5"></i> Imprimir / PDF
                     </button>
                     <button onclick="closeModal()" class="text-slate-400 hover:text-white p-1">
@@ -317,7 +313,6 @@
                     rawHistory = rowsH.map(r => {
                         let machineName = "";
                         
-                        // Busca o nome da máquina especificamente nas colunas C a G (índices 2 a 6)
                         for (let idx = 2; idx <= 6; idx++) {
                             if (r[idx] && r[idx].toString().trim() !== '') {
                                 machineName = r[idx].toString().trim();
@@ -329,7 +324,6 @@
                         let descNC = "";
                         const items = [];
 
-                        // Mapeia o cabeçalho (Linha 1) com cada célula preenchida da resposta
                         headersH.forEach((headerText, colIdx) => {
                             const hUpper = headerText ? headerText.toString().toUpperCase().trim() : '';
                             const cellVal = r[colIdx] ? r[colIdx].toString().trim() : '';
@@ -389,7 +383,12 @@
         function getMachineStatus(m) {
             const ncRecord = rawHistory.find(h => matchMachine(h.machine, m.id) && h.nc);
             if (ncRecord) {
-                return { code: 'VENCIDA', label: 'Não Conforme / Parada', class: 'bg-rose-500/20 text-rose-300 border-rose-500/30' };
+                return { 
+                    code: 'VENCIDA', 
+                    label: 'Não Conforme', 
+                    dotClass: 'bg-rose-500', 
+                    badgeClass: 'bg-rose-500/10 text-rose-400 border-rose-500/30' 
+                };
             }
 
             const today = new Date();
@@ -398,11 +397,26 @@
             const diffDaysNext = Math.ceil((nextDate - today) / (1000 * 60 * 60 * 24));
             
             if (diffDaysNext < 0) {
-                return { code: 'VENCIDA', label: 'Vencida', class: 'bg-rose-500/20 text-rose-300 border-rose-500/30' };
+                return { 
+                    code: 'VENCIDA', 
+                    label: `Vencida (${Math.abs(diffDaysNext)}d)`, 
+                    dotClass: 'bg-rose-500 animate-ping', 
+                    badgeClass: 'bg-rose-500/15 text-rose-400 border-rose-500/40' 
+                };
             } else if (today >= noticeDate || diffDaysNext <= 20) {
-                return { code: 'AVISO', label: `Próxima (${diffDaysNext}d)`, class: 'bg-amber-500/20 text-amber-300 border-amber-500/30' };
+                return { 
+                    code: 'AVISO', 
+                    label: `Próxima (${diffDaysNext}d)`, 
+                    dotClass: 'bg-amber-400 animate-pulse', 
+                    badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/30' 
+                };
             } else {
-                return { code: 'OK', label: 'Em Dia', class: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' };
+                return { 
+                    code: 'OK', 
+                    label: 'Em Dia', 
+                    dotClass: 'bg-emerald-400', 
+                    badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' 
+                };
             }
         }
 
@@ -453,7 +467,8 @@
                     <td class="py-3.5 px-4 text-slate-300">${m.last}</td>
                     <td class="py-3.5 px-4 text-slate-300">${m.next}</td>
                     <td class="py-3.5 px-4">
-                        <span class="px-2.5 py-1 text-xs rounded-full font-medium border ${status.class}">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-medium border whitespace-nowrap ${status.badgeClass}">
+                            <span class="w-1.5 h-1.5 rounded-full ${status.dotClass}"></span>
                             ${status.label}
                         </span>
                     </td>
@@ -510,20 +525,38 @@
             document.getElementById('modal-title').innerText = m.id;
             document.getElementById('modal-subtitle').innerText = `Grupo: ${m.group} | Periodicidade Preventiva: ${m.period} dias`;
 
+            // HISTÓRICO DE DATAS DAS AFERIÇÕES ANTERIORES
+            let historyDatesHtml = '';
+            if (inspections.length > 0) {
+                historyDatesHtml = `
+                    <div class="mt-3">
+                        <h4 class="font-semibold text-slate-300 mb-1.5 text-xs uppercase tracking-wider">Histórico de Aferições Registradas (${inspections.length})</h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${inspections.map(insp => `
+                                <span class="px-2.5 py-1 rounded text-xs border ${insp.nc ? 'bg-rose-500/15 border-rose-500/30 text-rose-300' : 'bg-slate-700/50 border-slate-600 text-slate-200'}">
+                                    📅 ${insp.date} - <strong class="${insp.nc ? 'text-rose-400' : 'text-emerald-400'}">${insp.nc ? 'Reprovado' : 'OK'}</strong>
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            // ITENS DA ÚLTIMA AFERIÇÃO
             let itemsTableHtml = '';
             if (lastInspection && lastInspection.items.length > 0) {
                 itemsTableHtml = `
                     <div class="mt-4">
                         <h4 class="font-semibold text-slate-200 mb-2 text-xs uppercase tracking-wider flex justify-between items-center">
-                            <span>Itens Aferidos na Última Preventiva</span>
+                            <span>Checklist da Última Preventiva</span>
                             <span class="text-slate-400 font-normal">Data: ${lastInspection.date}</span>
                         </h4>
                         <div class="border border-slate-700 rounded-lg overflow-hidden">
                             <table class="w-full text-left text-xs">
                                 <thead class="bg-slate-900/80 text-slate-400 border-b border-slate-700">
                                     <tr>
-                                        <th class="p-2.5">Item do Checklist / Componente</th>
-                                        <th class="p-2.5 w-36 text-center">Status Aferido</th>
+                                        <th class="p-2">Item / Componente Aferido</th>
+                                        <th class="p-2 w-32 text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-700/50 bg-slate-900/30">
@@ -531,9 +564,9 @@
                                         const isOk = cleanStr(it.status).includes('conforme') && !cleanStr(it.status).includes('nao');
                                         return `
                                             <tr>
-                                                <td class="p-2.5 text-slate-300 font-medium">${it.item}</td>
-                                                <td class="p-2.5 text-center">
-                                                    <span class="px-2 py-0.5 rounded text-[11px] font-semibold ${isOk ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
+                                                <td class="p-2 text-slate-300 font-medium">${it.item}</td>
+                                                <td class="p-2 text-center">
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${isOk ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}">
                                                         ${it.status}
                                                     </span>
                                                 </td>
@@ -547,19 +580,21 @@
                 `;
             } else {
                 itemsTableHtml = `
-                    <div class="p-4 bg-slate-900/50 rounded-lg border border-slate-700/60 text-slate-400 text-xs italic text-center mt-3">
+                    <div class="p-3 bg-slate-900/50 rounded-lg border border-slate-700/60 text-slate-400 text-xs italic text-center mt-3">
                         Nenhuma aferição individual vinculada a esta máquina até o momento.
                     </div>
                 `;
             }
 
             document.getElementById('modal-content').innerHTML = `
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-900/80 p-3.5 rounded-lg border border-slate-700 text-xs">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 bg-slate-900/80 p-3 rounded-lg border border-slate-700 text-xs">
                     <div><span class="text-slate-400 block">Última Preventiva:</span> <strong class="text-white text-sm">${m.last || '-'}</strong></div>
                     <div><span class="text-slate-400 block">Próximo Vencimento:</span> <strong class="text-white text-sm">${m.next || '-'}</strong></div>
                     <div><span class="text-slate-400 block">Status Geral:</span> <strong class="${lastInspection && lastInspection.nc ? 'text-rose-400' : 'text-emerald-400'} text-sm">${lastInspection ? (lastInspection.nc ? 'NÃO CONFORME' : 'CONFORME') : 'SEM DADOS'}</strong></div>
                     <div><span class="text-slate-400 block">Aferições Gravadas:</span> <strong class="text-white text-sm">${inspections.length} registro(s)</strong></div>
                 </div>
+
+                ${historyDatesHtml}
 
                 ${lastInspection && lastInspection.nc && lastInspection.descNC ? `
                     <div class="p-3 bg-rose-950/40 border border-rose-800/60 rounded-lg text-xs space-y-1">
@@ -577,6 +612,16 @@
 
         function closeModal() {
             document.getElementById('details-modal').classList.add('hidden');
+        }
+
+        // FUNÇÃO DE IMPRESSÃO - FORÇA 1 PÁGINA ESCONDENDO O MAIN
+        function printSinglePage() {
+            const mainContent = document.getElementById('main-content');
+            mainContent.style.display = 'none';
+            window.print();
+            setTimeout(() => {
+                mainContent.style.display = 'block';
+            }, 500);
         }
 
         document.getElementById('search-input').addEventListener('input', renderTable);
