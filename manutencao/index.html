@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard de Manutenção de Máquinas V1</title>
+    <title>Painel de Manutenção Preventiva V2</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- PapaParse para CSV -->
+    <!-- PapaParse para conversão de CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -31,7 +31,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V2</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -162,7 +162,7 @@
                     </h2>
                     
                     <div id="history-container" class="space-y-3 max-h-[600px] overflow-y-auto pr-1">
-                        <!-- Cards do histórico -->
+                        <!-- Cards -->
                     </div>
                 </div>
             </div>
@@ -170,7 +170,7 @@
         </div>
     </main>
 
-    <!-- Modal Relatório de Inspeção -->
+    <!-- Modal Relatório -->
     <div id="details-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
         <div id="modal-printable" class="bg-slate-800 border border-slate-700 rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4 text-slate-100">
             <div class="flex justify-between items-start border-b border-slate-700 pb-3">
@@ -189,14 +189,18 @@
             </div>
 
             <div id="modal-content" class="space-y-4 text-sm">
-                <!-- Conteúdo gerado dinamicamente -->
+                <!-- Conteúdo -->
             </div>
         </div>
     </div>
 
     <script>
-        const LINK_CSV_MAQUINAS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUDTrxUwcimui0x1iUAiZ7Sk32Dd2WpFP44IM8jHFeumhO4VPmEk9gxfB1tc-2XSKHIrD1qvBqNjg_/pub?gid=1150804683&single=true&output=csv";
-        const LINK_CSV_HISTORICO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUDTrxUwcimui0x1iUAiZ7Sk32Dd2WpFP44IM8jHFeumhO4VPmEk9gxfB1tc-2XSKHIrD1qvBqNjg_/pub?gid=2051194470&single=true&output=csv";
+        const RAW_URL_HISTORICO = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUDTrxUwcimui0x1iUAiZ7Sk32Dd2WpFP44IM8jHFeumhO4VPmEk9gxfB1tc-2XSKHIrD1qvBqNjg_/pub?gid=2051194470&single=true&output=csv";
+        const RAW_URL_MAQUINAS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQUDTrxUwcimui0x1iUAiZ7Sk32Dd2WpFP44IM8jHFeumhO4VPmEk9gxfB1tc-2XSKHIrD1qvBqNjg_/pub?gid=1150804683&single=true&output=csv";
+
+        // Bypass CORS via Proxy
+        const LINK_CSV_HISTORICO = "https://corsproxy.io/?" + encodeURIComponent(RAW_URL_HISTORICO);
+        const LINK_CSV_MAQUINAS = "https://corsproxy.io/?" + encodeURIComponent(RAW_URL_MAQUINAS);
 
         let rawMachines = [];
         let rawHistory = [];
@@ -211,34 +215,22 @@
             lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Sincronizando...`;
 
             try {
-                // 1. Fetch Histórico (Form_Responses / Respostas do Formulário 1)
+                // 1. Fetch Histórico de Respostas
                 const resHist = await fetch(LINK_CSV_HISTORICO);
                 const csvHistText = await resHist.text();
                 const parsedHist = Papa.parse(csvHistText, { header: true, skipEmptyLines: true });
                 
                 const groupCols = ["BROCHADEIRAS", "FRESADORAS", "AFIADORAS", "RETIFICAS", "TORNOS"];
-                const metaCols = ["CARIMBO DE DATA/HORA", "GRUPO DE MÁQUINAS", "TEVE NÃO CONFORMIDADE?", "DESCREVER NÃO CONFORMIDADE", ...groupCols];
 
                 rawHistory = parsedHist.data.map(row => {
                     const keys = Object.keys(row);
                     
-                    // Extrai nome da máquina testando as colunas de grupos e depois todas as colunas
                     let machineName = "";
-                    for (let gCol of groupCols) {
-                        const foundKey = keys.find(k => k.trim().toUpperCase() === gCol);
-                        if (foundKey && row[foundKey] && row[foundKey].trim() !== '') {
-                            machineName = row[foundKey].trim();
+                    for (let k of keys) {
+                        const val = row[k] ? row[k].trim() : '';
+                        if (val && val.includes('-')) {
+                            machineName = val;
                             break;
-                        }
-                    }
-
-                    if (!machineName) {
-                        for (let k of keys) {
-                            const val = row[k] ? row[k].trim() : '';
-                            if (val.includes('-') && (val.includes('01') || val.includes('02') || val.includes('46') || val.includes('47') || val.includes('14') || val.includes('89') || val.includes('252'))) {
-                                machineName = val;
-                                break;
-                            }
                         }
                     }
 
@@ -248,18 +240,14 @@
                     const groupKey = keys.find(k => k.trim().toUpperCase().includes("GRUPO DE MÁQUINAS")) || "";
 
                     const ncVal = ncKey && row[ncKey] ? row[ncKey].trim().toUpperCase() : "";
-                    const hasNC = ncVal === "SIM";
+                    const hasNC = ncVal.includes("SIM");
 
-                    // Captura os itens do checklist (todas as colunas que possuem CONFORME / NÃO CONFORME)
                     const itemsInspected = [];
                     keys.forEach(k => {
                         const kUpper = k.trim().toUpperCase();
                         const val = row[k] ? row[k].trim() : '';
-                        if (!metaCols.includes(kUpper) && val !== '') {
-                            itemsInspected.push({
-                                item: k.trim(),
-                                status: val
-                            });
+                        if (!kUpper.includes("CARIMBO") && !kUpper.includes("GRUPO") && !kUpper.includes("TEVE NÃO") && !kUpper.includes("DESCREVER") && !groupCols.includes(kUpper) && val !== '') {
+                            itemsInspected.push({ item: k.trim(), status: val });
                         }
                     });
 
@@ -273,28 +261,29 @@
                     };
                 }).filter(h => h.machine !== "" && h.date !== "");
 
-                // 2. Fetch Máquinas (Aba MAQUINAS)
+                // 2. Fetch Tabela Máquinas
                 const resMachines = await fetch(LINK_CSV_MAQUINAS);
                 const csvMachinesText = await resMachines.text();
                 const parsedMachines = Papa.parse(csvMachinesText, { header: true, skipEmptyLines: true });
                 
                 rawMachines = parsedMachines.data.map(row => {
-                    const keys = Object.keys(row);
-                    const getVal = (term) => {
-                        const k = keys.find(key => key.trim().toUpperCase().includes(term));
-                        return k ? row[k].trim() : '';
-                    };
+                    const vals = Object.values(row).map(v => v ? v.toString().trim() : '');
+                    const machineId = vals[0] || "";
+                    let group = "DIVERSOS";
 
-                    const machineId = getVal("MAQUINA") || (keys[0] ? row[keys[0]].trim() : "");
-                    const groupVal = getVal("GRUPO") || getVal("MÁQUINAS") || "";
+                    if (machineId.toUpperCase().includes("AFIADORA")) group = "AFIAÇÃO";
+                    else if (machineId.toUpperCase().includes("BROCHADEIRA")) group = "BROCHAMENTO";
+                    else if (machineId.toUpperCase().includes("FRESA")) group = "FRESAS";
+                    else if (machineId.toUpperCase().includes("RETIFICA")) group = "RETIFICAS";
+                    else if (machineId.toUpperCase().includes("TORNO")) group = "TORNOS";
 
                     return {
                         id: machineId,
-                        group: groupVal || "DIVERSOS",
-                        last: getVal("ULTIMA") || getVal("MANUTENÇÃO") || "",
-                        period: parseInt(getVal("PERIODICIDADE")) || 90,
-                        next: getVal("PRÓXIMA") || getVal("PROXIMA") || "",
-                        notice: getVal("AVISO") || ""
+                        last: vals[1] || "",
+                        period: parseInt(vals[2]) || 90,
+                        next: vals[3] || "",
+                        notice: vals[4] || "",
+                        group: group
                     };
                 }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
 
@@ -309,7 +298,7 @@
                 `;
             } catch (err) {
                 console.error("Erro ao carregar dados:", err);
-                lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Erro de conexão`;
+                lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Erro de Conexão`;
             }
         }
 
@@ -374,7 +363,7 @@
 
             const filtered = rawMachines.filter(m => {
                 const matchesSearch = m.id.toLowerCase().includes(search) || m.group.toLowerCase().includes(search);
-                const matchesGroup = groupFilter === 'ALL' || cleanStr(m.group).includes(cleanStr(groupFilter)) || cleanStr(groupFilter).includes(cleanStr(m.group));
+                const matchesGroup = groupFilter === 'ALL' || cleanStr(m.group).includes(cleanStr(groupFilter));
                 const status = getMachineStatus(m);
                 const matchesStatus = statusFilter === 'ALL' || status.code === statusFilter;
                 return matchesSearch && matchesGroup && matchesStatus;
@@ -415,7 +404,7 @@
             container.innerHTML = '';
 
             if (rawHistory.length === 0) {
-                container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">Nenhuma aferição encontrada na planilha.</p>`;
+                container.innerHTML = `<p class="text-xs text-slate-400 italic text-center py-4">Nenhuma aferição registrada.</p>`;
                 return;
             }
 
@@ -445,7 +434,6 @@
             const machineId = decodeURIComponent(encodedMachineId);
             const m = rawMachines.find(x => matchMachine(x.id, machineId)) || { id: machineId, group: "-", last: "-", next: "-", period: 90 };
 
-            // Busca histórico de inspeções dessa máquina
             const inspections = rawHistory.filter(h => matchMachine(h.machine, machineId));
             const lastInspection = inspections.length > 0 ? inspections[inspections.length - 1] : null;
 
