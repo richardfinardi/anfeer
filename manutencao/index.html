@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V3</title>
+    <title>Painel de Manutenção Preventiva</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -29,7 +29,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V3</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -37,9 +37,9 @@
             <div class="flex items-center gap-3">
                 <span id="last-update" class="text-xs bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Carregando...
+                    Sincronizando...
                 </span>
-                <button onclick="refreshData()" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition" title="Atualizar dados">
+                <button onclick="fetchSheetData()" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition" title="Atualizar dados">
                     <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -193,10 +193,11 @@
     </div>
 
     <script>
-        // API Nativa do Google Visualization (Zero CORS, 100% Direto)
-        const SHEET_ID = "2PACX-1vQUDTrxUwcimui0x1iUAiZ7Sk32Dd2WpFP44IM8jHFeumhO4VPmEk9gxfB1tc-2XSKHIrD1qvBqNjg_";
-        const GVIZ_MAQUINAS = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/gviz/tq?tqx=out:json&gid=1150804683`;
-        const GVIZ_HISTORICO = `https://docs.google.com/spreadsheets/d/e/${SHEET_ID}/gviz/tq?tqx=out:json&gid=2051194470`;
+        // =========================================================================
+        // 🔗 COLE O URL DO SEU APPS SCRIPT PUBLICADO AQUI:
+        // =========================================================================
+        const URL_DO_SEU_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxBxZVyj94Czw_ZqRdX4_F1nvBDdiv_m1YpVBK_KRybcZUPyRmy6FaXa9JkCuiGThuArQ/exec";
+        // =========================================================================
 
         let rawMachines = [];
         let rawHistory = [];
@@ -206,30 +207,13 @@
             return str.toString().toLowerCase().replace(/[^a-z0-9]/g, '');
         }
 
-        // Função de parser para a resposta GViz do Google
-        async function fetchGVizData(url) {
-            const res = await fetch(url);
-            const text = await res.text();
-            // Remove o wrapper google.visualization.Query.setResponse()
-            const jsonText = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
-            const data = JSON.parse(jsonText);
-            
-            const cols = data.table.cols.map(c => c ? (c.label || c.id || '') : '');
-            const rows = data.table.rows.map(r => {
-                const rowObj = {};
-                r.c.forEach((cell, idx) => {
-                    const colName = cols[idx] || `col_${idx}`;
-                    let val = '';
-                    if (cell) {
-                        val = cell.f !== undefined ? cell.f : (cell.v !== undefined ? cell.v : '');
-                    }
-                    rowObj[colName] = val;
-                    rowObj[`_idx_${idx}`] = val;
-                });
-                return rowObj;
-            });
-
-            return { cols, rows };
+        function formatDate(val) {
+            if (!val) return '';
+            if (val instanceof Date || typeof val === 'string' && val.includes('T')) {
+                const d = new Date(val);
+                if (!isNaN(d)) return d.toLocaleDateString('pt-BR');
+            }
+            return val.toString().split('T')[0];
         }
 
         async function fetchSheetData() {
@@ -237,74 +221,72 @@
             lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Sincronizando...`;
 
             try {
-                // 1. Fetch Histórico
-                const histData = await fetchGVizData(GVIZ_HISTORICO);
-                
-                rawHistory = histData.rows.map(row => {
-                    const keys = Object.keys(row);
-                    
-                    let machineName = "";
-                    for (let k of keys) {
-                        const val = row[k] ? row[k].toString().trim() : '';
-                        if (val && val.includes('-') && (val.includes('0') || val.includes('1') || val.includes('2') || val.includes('3') || val.includes('4') || val.includes('8') || val.includes('9'))) {
-                            machineName = val;
-                            break;
+                const res = await fetch(URL_DO_SEU_APPS_SCRIPT);
+                const data = await res.json();
+
+                // 1. Processar Tabela de Máquinas
+                if (data.maquinas && data.maquinas.length > 1) {
+                    const rowsM = data.maquinas.slice(1); // ignora cabeçalho
+                    rawMachines = rowsM.map(r => {
+                        const mId = r[0] ? r[0].toString().trim() : '';
+                        let group = "DIVERSOS";
+                        if (mId.toUpperCase().includes("AFIADORA")) group = "AFIAÇÃO";
+                        else if (mId.toUpperCase().includes("BROCHADEIRA")) group = "BROCHAMENTO";
+                        else if (mId.toUpperCase().includes("FRESA")) group = "FRESAS";
+                        else if (mId.toUpperCase().includes("RETIFICA")) group = "RETIFICAS";
+                        else if (mId.toUpperCase().includes("TORNO")) group = "TORNOS";
+
+                        return {
+                            id: mId,
+                            last: formatDate(r[1]),
+                            period: parseInt(r[2]) || 90,
+                            next: formatDate(r[3]),
+                            notice: formatDate(r[4]),
+                            group: group
+                        };
+                    }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
+                }
+
+                // 2. Processar Histórico de Respostas
+                if (data.historico && data.historico.length > 1) {
+                    const headersH = data.historico[0];
+                    const rowsH = data.historico.slice(1);
+
+                    rawHistory = rowsH.map(r => {
+                        let machineName = "";
+                        for (let cell of r) {
+                            const val = cell ? cell.toString().trim() : '';
+                            if (val && val.includes('-') && (val.includes('0') || val.includes('1') || val.includes('2') || val.includes('3') || val.includes('4') || val.includes('8') || val.includes('9'))) {
+                                machineName = val;
+                                break;
+                            }
                         }
-                    }
 
-                    const ncKey = keys.find(k => k.trim().toUpperCase().includes("TEVE NÃO CONFORMIDADE")) || "";
-                    const descKey = keys.find(k => k.trim().toUpperCase().includes("DESCREVER NÃO CONFORMIDADE")) || "";
-                    const dateVal = row["_idx_0"] || row[keys[0]] || "";
-                    const groupVal = row["_idx_1"] || "";
+                        let ncVal = "";
+                        let descNC = "";
+                        const items = [];
 
-                    const ncVal = ncKey && row[ncKey] ? row[ncKey].toString().trim().toUpperCase() : "";
-                    const hasNC = ncVal.includes("SIM");
+                        headersH.forEach((h, idx) => {
+                            const hUpper = h ? h.toString().toUpperCase() : '';
+                            const cellVal = r[idx] ? r[idx].toString().trim() : '';
 
-                    const itemsInspected = [];
-                    histData.cols.forEach((colLabel, colIdx) => {
-                        const val = row[`_idx_${colIdx}`] ? row[`_idx_${colIdx}`].toString().trim() : '';
-                        const colUpper = colLabel.trim().toUpperCase();
-                        if (colIdx > 6 && val !== '' && !colUpper.includes("TEVE NÃO") && !colUpper.includes("DESCREVER")) {
-                            itemsInspected.push({ item: colLabel.trim(), status: val });
-                        }
-                    });
+                            if (hUpper.includes("TEVE NÃO CONFORMIDADE")) ncVal = cellVal;
+                            else if (hUpper.includes("DESCREVER NÃO CONFORMIDADE")) descNC = cellVal;
+                            else if (cellVal !== '' && !hUpper.includes("CARIMBO") && !hUpper.includes("GRUPO") && idx > 6) {
+                                items.push({ item: h.toString().trim(), status: cellVal });
+                            }
+                        });
 
-                    return {
-                        date: dateVal,
-                        machine: machineName,
-                        group: groupVal,
-                        nc: hasNC,
-                        descNC: descKey && row[descKey] ? row[descKey].toString().trim() : "",
-                        items: itemsInspected
-                    };
-                }).filter(h => h.machine !== "" && h.date !== "");
-
-                // 2. Fetch Tabela Máquinas
-                const machData = await fetchGVizData(GVIZ_MAQUINAS);
-                
-                rawMachines = machData.rows.map(row => {
-                    const mId = row["_idx_0"] ? row["_idx_0"].toString().trim() : "";
-                    const lastVal = row["_idx_1"] ? row["_idx_1"].toString().trim() : "";
-                    const periodVal = parseInt(row["_idx_2"]) || 90;
-                    const nextVal = row["_idx_3"] ? row["_idx_3"].toString().trim() : "";
-                    const noticeVal = row["_idx_4"] ? row["_idx_4"].toString().trim() : "";
-
-                    let group = "DIVERSOS";
-                    if (mId.toUpperCase().includes("AFIADORA")) group = "AFIAÇÃO";
-                    else if (mId.toUpperCase().includes("BROCHADEIRA")) group = "BROCHAMENTO";
-                    else if (mId.toUpperCase().includes("FRESA")) group = "FRESAS";
-                    else if (mId.toUpperCase().includes("RETIFICA")) group = "RETIFICAS";
-                    else if (mId.toUpperCase().includes("TORNO")) group = "TORNOS";
-
-                    return {
-                        id: mId,
-                        last: lastVal,
-                        period: periodVal,
-                        next: nextVal,
-                        notice: noticeVal,
-                        group: group
-                    };
-                }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
+                        return {
+                            date: formatDate(r[0]),
+                            machine: machineName,
+                            group: r[1] ? r[1].toString() : '',
+                            nc: ncVal.toUpperCase().includes("SIM"),
+                            descNC: descNC,
+                            items: items
+                        };
+                    }).filter(h => h.machine !== "" && h.date !== "");
+                }
 
                 renderKPIs();
                 renderTable();
@@ -316,8 +298,8 @@
                     Sincronizado às ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                 `;
             } catch (err) {
-                console.error("Erro ao carregar dados do GViz:", err);
-                lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Erro de Leitura`;
+                console.error("Erro na API do Apps Script:", err);
+                lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span> Erro de Conexão`;
             }
         }
 
@@ -526,10 +508,6 @@
 
         function closeModal() {
             document.getElementById('details-modal').classList.add('hidden');
-        }
-
-        function refreshData() {
-            fetchSheetData();
         }
 
         document.getElementById('search-input').addEventListener('input', renderTable);
