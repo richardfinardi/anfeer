@@ -2,980 +2,179 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Painel Operacional & PLR - ANFEER V2.0</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ANFEER - Portal de Gestão</title>
     <link rel="icon" type="image/png" href="LOGO MINIMALISTA.png">
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
             --anfeer-red: #D9231D;
-            --anfeer-red-hover: #b51a15;
             --anfeer-dark: #1E1E1E;
-            --anfeer-gray-bg: #2B2D2F;
-            --anfeer-card-bg: #FFFFFF;
-            --anfeer-border: #E2E8F0;
-            --anfeer-text-main: #2D3748;
-            --anfeer-text-muted: #718096;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            background-color: #F4F6F8;
-            color: var(--anfeer-text-main);
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh;
-        }
-
-        header {
-            background-color: #FFFFFF;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header-container {
-            max-width: 1280px;
-            margin: 0 auto;
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .brand-logo-main {
-            height: 45px;
-            max-width: 100%;
-            object-fit: contain;
-        }
-
-        .hero {
-            background-color: var(--anfeer-gray-bg);
-            color: white;
-            padding: 20px 16px;
-            border-bottom: 4px solid var(--anfeer-red);
-        }
-
-        .hero-container {
-            max-width: 1280px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            flex-wrap: wrap;
-        }
-
-        .hero-text h1 {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .hero-text p {
-            color: #E2E8F0;
-            font-size: 0.82rem;
-        }
-
-        main {
-            max-width: 1280px;
-            margin: 16px auto;
-            padding: 0 16px;
-            width: 100%;
-            flex: 1;
-        }
-
-        .panel-selector {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            flex-direction: row;
-        }
-
-        .panel-btn {
-            background: #FFFFFF;
-            border: 2px solid var(--anfeer-border);
-            padding: 10px 12px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 0.85rem;
-            color: var(--anfeer-text-muted);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: all 0.2s;
-            flex: 1;
-            justify-content: center;
-            text-align: center;
-        }
-
-        .panel-btn:hover {
-            border-color: var(--anfeer-red);
-            color: var(--anfeer-red);
-        }
-
-        .panel-btn.active {
-            background-color: var(--anfeer-red);
-            color: white;
-            border-color: var(--anfeer-red);
-            box-shadow: 0 4px 10px rgba(217, 35, 29, 0.25);
-        }
-
-        .sector-tabs {
-            display: flex;
-            gap: 6px;
-            overflow-x: auto;
-            padding-bottom: 8px;
-            margin-bottom: 16px;
-            border-bottom: 2px solid var(--anfeer-border);
-        }
-
-        .sector-tab-btn {
-            background: #FFFFFF;
-            border: 1px solid var(--anfeer-border);
-            padding: 8px 14px;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            color: var(--anfeer-text-muted);
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-
-        .sector-tab-btn:hover {
-            border-color: var(--anfeer-red);
-            color: var(--anfeer-red);
-        }
-
-        .sector-tab-btn.active {
-            background-color: var(--anfeer-dark);
-            color: white;
-            border-color: var(--anfeer-dark);
-        }
-
-        .filter-bar {
-            background: #FFFFFF;
-            padding: 14px 16px;
-            border-radius: 8px;
-            border: 1px solid var(--anfeer-border);
-            margin-bottom: 16px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 12px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .filter-group label {
-            font-size: 0.72rem;
-            font-weight: 700;
-            color: var(--anfeer-dark);
-            text-transform: uppercase;
-        }
-
-        .filter-group select {
-            padding: 10px 12px;
-            border-radius: 6px;
-            border: 1px solid var(--anfeer-border);
-            font-size: 0.85rem;
-            color: var(--anfeer-text-main);
-            outline: none;
-            background-color: #F8FAFC;
-            width: 100%;
-        }
-
-        .filter-group select:focus {
-            border-color: var(--anfeer-red);
-        }
-
-        .data-card {
-            background: var(--anfeer-card-bg);
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-            border: 1px solid var(--anfeer-border);
-            overflow: hidden;
-            margin-bottom: 16px;
-        }
-
-        .card-header {
-            padding: 12px 16px;
-            background-color: #FFFFFF;
-            border-bottom: 1px solid var(--anfeer-border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .card-header h2 {
-            font-size: 0.98rem;
-            color: var(--anfeer-dark);
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-
-        .metric-card {
-            background: white;
-            padding: 16px;
-            border-radius: 8px;
-            border: 1px solid var(--anfeer-border);
-            border-left: 5px solid var(--anfeer-red);
-        }
-
-        .metric-card h3 {
-            font-size: 0.78rem;
-            color: var(--anfeer-text-muted);
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
-
-        .metric-card .value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--anfeer-dark);
-        }
-
-        .metric-card .sub {
-            font-size: 0.75rem;
-            margin-top: 4px;
-        }
-
-        .table-wrapper {
-            width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-            max-height: 480px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.82rem;
-            white-space: nowrap;
-        }
-
-        th {
-            background-color: #F8FAFC;
-            color: var(--anfeer-dark);
-            font-weight: 700;
-            padding: 10px 12px;
-            border-bottom: 2px solid var(--anfeer-border);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-            text-transform: uppercase;
-            font-size: 0.72rem;
-        }
-
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid var(--anfeer-border);
-            color: var(--anfeer-text-main);
-        }
-
-        tbody tr:nth-child(even) { background-color: #F9FAFB; }
-        tbody tr:hover { background-color: #FEF2F2; }
-
-        .badge {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.72rem;
-            font-weight: 700;
-            display: inline-block;
-        }
-        .badge-danger { background-color: #FEE2E2; color: #991B1B; }
-        .badge-success { background-color: #D1FAE5; color: #065F46; }
-        .badge-warning { background-color: #FEF3C7; color: #92400E; }
-        .badge-dark { background-color: #1E1E1E; color: #FFFFFF; }
-
-        .btn-calc-info {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background-color: var(--anfeer-border);
-            color: var(--anfeer-dark);
-            font-size: 0.68rem;
-            font-weight: 800;
-            margin-left: 6px;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s;
-        }
-
-        .btn-calc-info:hover {
-            background-color: var(--anfeer-red);
-            color: white;
-        }
-
-        .loading-container {
-            padding: 30px;
-            text-align: center;
-            color: var(--anfeer-text-muted);
-            font-size: 0.85rem;
-        }
-
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--anfeer-red);
-            border-radius: 50%;
-            width: 26px;
-            height: 26px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 8px auto;
-        }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        footer {
-            background-color: var(--anfeer-dark);
-            color: white;
-            padding: 16px;
-            margin-top: auto;
-        }
-
-        .footer-container {
-            max-width: 1280px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 0.78rem;
-            color: #A0AEC0;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-
-        .footer-rf-logo {
-            height: 30px;
-            background: white;
-            padding: 3px 6px;
-            border-radius: 4px;
-        }
-
-        @media (max-width: 600px) {
-            .header-container { justify-content: center; }
-            .brand-logo-main { height: 38px; }
-            .hero-text h1 { font-size: 1.15rem; }
-            .panel-selector { flex-direction: column; }
-            .panel-btn { width: 100%; padding: 12px; font-size: 0.88rem; }
-            .filter-bar { grid-template-columns: 1fr; }
-            .footer-container { flex-direction: column; text-align: center; }
         }
     </style>
 </head>
-<body>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4">
 
-    <header>
-        <div class="header-container">
-            <img src="ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER BR" class="brand-logo-main">
+    <!-- TELA DE LOGIN -->
+    <div id="loginBox" class="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl space-y-6">
+        <div class="text-center space-y-2">
+            <img src="./ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER Logo" class="h-12 mx-auto object-contain" onerror="this.style.display='none'">
+            <h1 class="text-2xl font-black text-white">ANFEER</h1>
+            <p class="text-xs text-slate-400">Informe seu usuário e senha do sistema</p>
         </div>
-    </header>
 
-    <section class="hero">
-        <div class="hero-container">
-            <div class="hero-text">
-                <h1>Painel Operacional de Produção & PLR V2.0</h1>
-                <p>Gestão de apontamentos e indicadores por setor, serviço e colaborador.</p>
+        <form onsubmit="handleLogin(event)" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">USUÁRIO</label>
+                <input type="text" id="userInput" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-600 uppercase">
             </div>
-        </div>
-    </section>
+            <div>
+                <label class="block text-xs font-bold text-slate-400 mb-1">SENHA</label>
+                <input type="password" id="passInput" required class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-red-600">
+            </div>
 
-    <main>
-        <div class="panel-selector">
-            <button class="panel-btn active" id="btn-erros" onclick="alternarPainel('ERROS')">
-                <i class="fa-solid fa-triangle-exclamation"></i> 1. Erros Apontamento
+            <p id="errorMsg" class="text-xs text-red-500 hidden font-bold text-center"></p>
+
+            <button type="submit" id="btnLogin" class="w-full bg-[#D9231D] hover:bg-red-700 text-white font-extrabold py-3 rounded-xl transition text-sm flex items-center justify-center gap-2">
+                <span>Entrar no Sistema</span>
             </button>
-            <button class="panel-btn" id="btn-plr" onclick="alternarPainel('PLR')">
-                <i class="fa-solid fa-calculator"></i> 2. Indicadores PLR
+        </form>
+    </div>
+
+    <!-- PAINEL / MENU PRINCIPAL -->
+    <div id="menuBox" class="hidden w-full max-w-4xl bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl space-y-6">
+        <div class="flex justify-between items-center border-b border-slate-800 pb-4">
+            <div class="flex items-center gap-4">
+                <img src="./ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER Logo" class="h-10 object-contain" onerror="this.style.display='none'">
+                <div>
+                    <h1 class="text-xl font-black text-white">ANFEER Brochas</h1>
+                    <p class="text-xs text-slate-400">Usuário: <span id="lblUser" class="text-red-500 font-bold"></span></p>
+                </div>
+            </div>
+            <button onclick="logout()" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Sair
             </button>
         </div>
 
-        <!-- PAINEL 1: ERROS DE APONTAMENTO -->
-        <div id="secao-erros" class="data-card">
-            <div class="card-header">
-                <h2><i class="fa-solid fa-list-check" style="color: var(--anfeer-red);"></i> Apontamentos Incorretos</h2>
-                <span class="badge badge-danger" id="total-erros-count">Carregando...</span>
-            </div>
-            
-            <div id="loading-erros" class="loading-container"><div class="spinner"></div>Buscando erros de apontamento...</div>
-            
-            <div id="wrapper-erros" class="table-wrapper" style="display:none;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Empresa</th>
-                            <th>OS Completa</th>
-                            <th>Cód. Barras</th>
-                            <th>Funcionário</th>
-                            <th>Início (Data - Hora)</th>
-                            <th>Fim (Data - Hora)</th>
-                            <th>Total Horas</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbody-erros"></tbody>
-                </table>
+        <div>
+            <h2 class="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Sistemas Disponíveis</h2>
+            <div id="gridModules" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                
+                <!-- CARD 1: APONTAMENTOS -->
+                <a href="./apontamentos/" class="flex items-center gap-4 p-5 bg-slate-950 border border-slate-800 rounded-xl hover:border-red-600 hover:shadow-lg transition cursor-pointer group">
+                    <div class="p-3 bg-slate-900 group-hover:bg-[#D9231D] text-red-500 group-hover:text-white rounded-xl transition">
+                        <i data-lucide="list-checks" class="w-7 h-7"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white group-hover:text-red-500 transition">Controle de Apontamentos</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Painel Operacional de Produção & PLR</p>
+                    </div>
+                </a>
+
+                <!-- CARD 2: MANUTENÇÃO / MÁQUINAS -->
+                <a href="./maquinas/" class="flex items-center gap-4 p-5 bg-slate-950 border border-slate-800 rounded-xl hover:border-red-600 hover:shadow-lg transition cursor-pointer group">
+                    <div class="p-3 bg-slate-900 group-hover:bg-[#D9231D] text-red-500 group-hover:text-white rounded-xl transition">
+                        <i data-lucide="wrench" class="w-7 h-7"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white group-hover:text-red-500 transition">Controle de Máquinas</h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Painel de Manutenção Preventiva</p>
+                    </div>
+                </a>
+
             </div>
         </div>
-
-        <!-- PAINEL 2: INDICADORES DE PLR -->
-        <div id="secao-plr" style="display: none;">
-            
-            <!-- ABAS DINÂMICAS POR SETOR -->
-            <div class="sector-tabs" id="container-abas-setor">
-                <button class="sector-tab-btn active" onclick="selecionarAbaSetor('', this)">
-                    <i class="fa-solid fa-layer-group"></i> Eficiência Total
-                </button>
-            </div>
-
-            <!-- BARRA DE FILTROS -->
-            <div class="filter-bar">
-                <div class="filter-group">
-                    <label for="filtro-servico"><i class="fa-solid fa-gears"></i> Tipo de Serviço</label>
-                    <select id="filtro-servico" onchange="aplicarFiltros()">
-                        <option value="">TODOS OS SERVIÇOS</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="filtro-funcionario"><i class="fa-solid fa-user"></i> Funcionário</label>
-                    <select id="filtro-funcionario" onchange="aplicarFiltros()">
-                        <option value="">TODOS OS FUNCIONÁRIOS</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="metrics-grid">
-                <div class="metric-card" style="border-left-color: #10B981;">
-                    <h3>Fator de Eficiência do Setor Selecionado (Previsto x Realizado)</h3>
-                    <div class="value" id="metric-eficiencia-setor">--%</div>
-                    <div class="sub" id="metric-eficiencia-status">Média do tempo previsto x realizado dos serviços do setor</div>
-                </div>
-            </div>
-
-            <!-- RESUMO POR FUNCIONÁRIO -->
-            <div class="data-card">
-                <div class="card-header">
-                    <h2><i class="fa-solid fa-id-card" style="color: var(--anfeer-red);"></i> Resumo por Funcionário (Aproveitamento PLR)</h2>
-                </div>
-                <div id="loading-plr-resumo-func" class="loading-container"><div class="spinner"></div>Calculando notas dos colaboradores...</div>
-                <div id="wrapper-plr-resumo-func" class="table-wrapper" style="display:none;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Funcionário</th>
-                                <th>Setor</th>
-                                <th>Média Horas Válidas</th>
-                                <th>Eficiência Individual</th>
-                                <th>Aproveitamento Final PLR</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-plr-resumo-func"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- INDICADOR 1: DETALHAMENTO DE APONTAMENTO DIÁRIO COMPLETO -->
-            <div class="data-card">
-                <div class="card-header">
-                    <h2><i class="fa-solid fa-user-clock" style="color: var(--anfeer-red);"></i> Indicador 1: Apontamentos Diários Válidos</h2>
-                </div>
-                <div id="loading-plr-func" class="loading-container"><div class="spinner"></div>Calculando apontamentos...</div>
-                <div id="wrapper-plr-func" class="table-wrapper" style="display:none;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Data</th>
-                                <th>Funcionário</th>
-                                <th>Setor</th>
-                                <th>Horas Apontadas Válidas</th>
-                                <th>Status Apontamento</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-plr-func"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- INDICADOR 2: PREV X REAL CONSOLIDADO -->
-            <div class="data-card">
-                <div class="card-header">
-                    <h2><i class="fa-solid fa-chart-pie" style="color: var(--anfeer-red);"></i> Indicador 2: Eficiência Consolidada por Tipo de Serviço</h2>
-                </div>
-                <div id="loading-plr-servico" class="loading-container"><div class="spinner"></div>Calculando serviços...</div>
-                <div id="wrapper-plr-servico" class="table-wrapper" style="display:none;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Tipo de Serviço</th>
-                                <th>Desempenho Geral</th>
-                                <th>Índice Eficiência Médio</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-plr-servico"></tbody>
-                    </table>
-                </div>
-            </div>
-
-        </div>
-    </main>
-
-    <footer>
-        <div class="footer-container">
-            <p>&copy; 2026 ANFEER Brochas. Todos os direitos reservados.</p>
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span>Desenvolvido por:</span>
-                <img src="LOGO_APLICACAO_FUNDO_BRANCO.png" alt="Consultoria RF" class="footer-rf-logo">
-            </div>
-        </div>
-    </footer>
+    </div>
 
     <script>
-        const API_URL = "https://relieve-erased-projector.ngrok-free.dev";
+        const API_URL = 'https://relieve-erased-projector.ngrok-free.dev';
 
-        let rawErros = [];
-        let rawHoras = [];
-        let rawPrevReal = [];
-        let setorAtivo = "";
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            checkSession();
+        });
 
-        const mapaErrosPorDataEFunc = new Set();
-        const mapaFuncionarioSetor = {};
+        async function checkSession() {
+            const userData = localStorage.getItem('anfeer_user');
+            if (userData) {
+                const user = JSON.parse(userData);
+                try {
+                    const res = await fetch(`${API_URL}/me`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify({ usuario: user.nome })
+                    });
 
-        // CALCULA DIAS ÚTEIS DECORRIDOS (SEGUNDA A SEXTA) DO DIA 01 DO MÊS ATÉ HOJE
-        function calcularDiasUteisDecorridos() {
-            const hoje = new Date();
-            const ano = hoje.getFullYear();
-            const mes = hoje.getMonth();
-            const diaHoje = hoje.getDate();
-
-            let diasUteis = 0;
-            for (let d = 1; d <= diaHoje; d++) {
-                const dataCheck = new Date(ano, mes, d);
-                const diaSemana = dataCheck.getDay();
-                // 0 = Domingo, 6 = Sábado
-                if (diaSemana !== 0 && diaSemana !== 6) {
-                    diasUteis++;
+                    if (res.ok) {
+                        const updatedData = await res.json();
+                        localStorage.setItem('anfeer_user', JSON.stringify(updatedData));
+                        showMenu(updatedData);
+                    } else {
+                        logout();
+                    }
+                } catch (e) {
+                    showMenu(user);
                 }
             }
-            return diasUteis > 0 ? diasUteis : 1;
         }
 
-        function formatarDataHoraPtBr(dataIso, horaIso) {
-            if (!dataIso) return '-';
-            const dataObj = new Date(dataIso);
-            const dia = String(dataObj.getDate()).padStart(2, '0');
-            const mes = String(dataObj.getMonth() + 1).padStart(2, '0');
-            const ano = dataObj.getFullYear();
-            
-            let horaFormatada = "00:00:00";
-            if (horaIso) {
-                horaFormatada = horaIso.split('T')[1].substring(0, 8);
-            }
-            return `${dia}/${mes}/${ano} - ${horaFormatada}`;
-        }
+        async function handleLogin(e) {
+            e.preventDefault();
+            const usuario = document.getElementById('userInput').value.trim().toUpperCase();
+            const senha = document.getElementById('passInput').value;
+            const errorMsg = document.getElementById('errorMsg');
+            const btnLogin = document.getElementById('btnLogin');
 
-        function alternarPainel(painel) {
-            if (painel === 'ERROS') {
-                document.getElementById('secao-erros').style.display = 'block';
-                document.getElementById('secao-plr').style.display = 'none';
-                document.getElementById('btn-erros').classList.add('active');
-                document.getElementById('btn-plr').classList.remove('active');
-            } else {
-                document.getElementById('secao-erros').style.display = 'none';
-                document.getElementById('secao-plr').style.display = 'block';
-                document.getElementById('btn-erros').classList.remove('active');
-                document.getElementById('btn-plr').classList.add('active');
-                renderizarPLR();
-            }
-        }
+            errorMsg.classList.add('hidden');
+            btnLogin.disabled = true;
+            btnLogin.innerText = "Autenticando...";
 
-        async function carregarDadosIniciais() {
             try {
-                const resErros = await fetch(`${API_URL}/ERRO_APONTAMENTO?ngrok-skip-browser-warning=1`, {
-                    headers: { "ngrok-skip-browser-warning": "true" }
-                });
-                rawErros = await resErros.json();
-                rawErros.sort((a, b) => new Date(b.DATA_FIM || 0) - new Date(a.DATA_FIM || 0));
-
-                mapaErrosPorDataEFunc.clear();
-                rawErros.forEach(e => {
-                    if (e.FUNCIONARIO && e.DATA_FIM) {
-                        const chave = `${e.FUNCIONARIO.trim()}_${e.DATA_FIM.split('T')[0]}`;
-                        mapaErrosPorDataEFunc.add(chave);
-                    }
+                const res = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({ usuario, senha })
                 });
 
-                const resHoras = await fetch(`${API_URL}/HORAS_DIA?ngrok-skip-browser-warning=1`, {
-                    headers: { "ngrok-skip-browser-warning": "true" }
-                });
-                rawHoras = await resHoras.json();
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Usuário ou senha incorretos.');
+                }
 
-                rawHoras.forEach(i => {
-                    if (i.funcionario && i.SETOR) {
-                        mapaFuncionarioSetor[i.funcionario.trim()] = i.SETOR.trim();
-                    }
-                });
-
-                const resPrev = await fetch(`${API_URL}/PREV_REAL?ngrok-skip-browser-warning=1`, {
-                    headers: { "ngrok-skip-browser-warning": "true" }
-                });
-                rawPrevReal = await resPrev.json();
-
-                montarAbasSetoresEDropdowns();
-                renderizarErros();
+                const data = await res.json();
+                localStorage.setItem('anfeer_user', JSON.stringify(data));
+                showMenu(data);
 
             } catch (err) {
-                console.error("Erro ao carregar dados:", err);
-                document.getElementById('loading-erros').innerText = "Erro ao carregar dados do Ngrok.";
+                errorMsg.innerText = err.message;
+                errorMsg.classList.remove('hidden');
+            } finally {
+                btnLogin.disabled = false;
+                btnLogin.innerText = "Entrar no Sistema";
             }
         }
 
-        function montarAbasSetoresEDropdowns() {
-            const setoresSet = new Set();
-            const servicosSet = new Set();
-            const funcionariosSet = new Set();
-
-            rawHoras.forEach(i => {
-                if (i.SETOR) setoresSet.add(i.SETOR.trim());
-                if (i.TP_MAQUINA) servicosSet.add(i.TP_MAQUINA.trim());
-                if (i.funcionario) funcionariosSet.add(i.funcionario.trim());
-            });
-
-            rawPrevReal.forEach(i => {
-                if (i.TIPOSERVICO) servicosSet.add(i.TIPOSERVICO.trim());
-            });
-
-            const containerAbas = document.getElementById('container-abas-setor');
-            containerAbas.innerHTML = `
-                <button class="sector-tab-btn active" onclick="selecionarAbaSetor('', this)">
-                    <i class="fa-solid fa-layer-group"></i> Eficiência Total
-                </button>
-            `;
-
-            Array.from(setoresSet).sort().forEach(setor => {
-                const btn = document.createElement('button');
-                btn.className = 'sector-tab-btn';
-                btn.innerHTML = `<i class="fa-solid fa-industry"></i> ${setor}`;
-                btn.onclick = () => selecionarAbaSetor(setor, btn);
-                containerAbas.appendChild(btn);
-            });
-
-            populaSelect('filtro-servico', Array.from(servicosSet).sort());
-            populaSelect('filtro-funcionario', Array.from(funcionariosSet).sort());
+        function showMenu(user) {
+            document.getElementById('loginBox').classList.add('hidden');
+            document.getElementById('menuBox').classList.remove('hidden');
+            document.getElementById('lblUser').innerText = user.nome;
+            lucide.createIcons();
         }
 
-        function selecionarAbaSetor(setor, elementoBotao) {
-            setorAtivo = setor;
-            document.querySelectorAll('.sector-tab-btn').forEach(b => b.classList.remove('active'));
-            elementoBotao.classList.add('active');
-            renderizarPLR();
+        function logout() {
+            localStorage.removeItem('anfeer_user');
+            document.getElementById('menuBox').classList.add('hidden');
+            document.getElementById('loginBox').classList.remove('hidden');
+            document.getElementById('userInput').value = '';
+            document.getElementById('passInput').value = '';
         }
-
-        function populaSelect(idSelect, listaValores) {
-            const select = document.getElementById(idSelect);
-            listaValores.forEach(v => {
-                const opt = document.createElement('option');
-                opt.value = v;
-                opt.innerText = v;
-                select.appendChild(opt);
-            });
-        }
-
-        function aplicarFiltros() {
-            renderizarErros();
-            renderizarPLR();
-        }
-
-        function obterFiltrosAtivos() {
-            return {
-                servico: document.getElementById('filtro-servico').value,
-                func: document.getElementById('filtro-funcionario').value
-            };
-        }
-
-        function renderizarErros() {
-            const f = obterFiltrosAtivos();
-            let filtrados = rawErros.filter(i => {
-                const matchFunc = !f.func || i.FUNCIONARIO === f.func;
-                return matchFunc;
-            });
-
-            const tbody = document.getElementById('tbody-erros');
-            tbody.innerHTML = "";
-            document.getElementById('total-erros-count').innerText = `${filtrados.length} Erros`;
-
-            filtrados.forEach(item => {
-                const inicioFormatado = formatarDataHoraPtBr(item.DATA, item.INICIO);
-                const fimFormatado = formatarDataHoraPtBr(item.DATA_FIM, item.FIM);
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>${item.COD_EMPRESA || '-'}</td>
-                    <td><strong>${item.COD_OS_COMPLETO || '-'}</strong></td>
-                    <td>${item.COD_BARR || '-'}</td>
-                    <td>${item.FUNCIONARIO || '-'}</td>
-                    <td>${inicioFormatado}</td>
-                    <td>${fimFormatado}</td>
-                    <td><span class="badge badge-danger">${parseFloat(item.TOTAL_HS || 0).toFixed(2)}h</span></td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            document.getElementById('loading-erros').style.display = 'none';
-            document.getElementById('wrapper-erros').style.display = 'block';
-        }
-
-        function calcularFatorEficienciaEspecificoDoSetor(nomeSetor) {
-            let filtrados = rawPrevReal;
-            if (nomeSetor === 'BROCHAMENTO') {
-                filtrados = rawPrevReal.filter(item => (item.TIPOSERVICO || '').includes('BROCHAMENTO'));
-            } else if (nomeSetor === 'FERRAMENTARIA') {
-                filtrados = rawPrevReal.filter(item => !(item.TIPOSERVICO || '').includes('BROCHAMENTO'));
-            }
-
-            let soma = 0;
-            let qtd = 0;
-            filtrados.forEach(item => {
-                const prev = parseFloat(item.PREVISTO || 0);
-                const real = parseFloat(item.REALIZADO || 0);
-
-                let ef = 100.0;
-                if (real > prev && prev > 0) {
-                    ef = (prev / real) * 100;
-                } else if (prev === 0 && real > 0) {
-                    ef = 0;
-                }
-                soma += ef;
-                qtd++;
-            });
-
-            return qtd > 0 ? (soma / qtd) : 100.0;
-        }
-
-        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final, diasUteis) {
-            alert(`MEMÓRIA DE CÁLCULO - ${nome}\n\n1. Eficiência Individual (Assiduidade):\n   Dias Úteis Decorridos do Mês: ${diasUteis} dias\n   Média Diária: (${hMedia.toFixed(2)}h / 8.00h) = ${efInd.toFixed(1)}%\n\n2. Fator Previsto x Realizado do Próprio Setor: ${efSetor.toFixed(1)}%\n\n3. CÁLCULO DO PLR FINAL:\n   ${efInd.toFixed(1)}% (Individ.) x ${efSetor.toFixed(1)}% (Setor) = ${final.toFixed(1)}%`);
-        }
-
-        function renderizarPLR() {
-            const f = obterFiltrosAtivos();
-
-            // Opção B: Dias Úteis Decorridos no mês de Segunda a Sexta
-            const qtdDiasUteisDecorridos = calcularDiasUteisDecorridos();
-
-            // Mapeia todas as datas únicas de lançamento
-            const todasDatasSet = new Set();
-            rawHoras.forEach(i => { if (i.data_fim) todasDatasSet.add(i.data_fim.split('T')[0]); });
-            const listaDatasOrdenadas = Array.from(todasDatasSet).sort().reverse();
-
-            // 1. CÁLCULO DO FATOR EXIBIDO NO CARD DO TOPO (DE ACORDO COM A ABA SELECIONADA)
-            const efSetorAbaAtiva = calcularFatorEficienciaEspecificoDoSetor(setorAtivo);
-            document.getElementById('metric-eficiencia-setor').innerText = `${efSetorAbaAtiva.toFixed(1)}%`;
-
-            // 2. RESUMO POR FUNCIONÁRIO (CADA UM USA FIXO O FATOR DO SEU PRÓPRIO SETOR)
-            const tbodyResumo = document.getElementById('tbody-plr-resumo-func');
-            tbodyResumo.innerHTML = "";
-
-            const todosFuncionariosSet = new Set();
-            rawHoras.forEach(i => { if (i.funcionario) todosFuncionariosSet.add(i.funcionario.trim()); });
-            rawErros.forEach(e => { if (e.FUNCIONARIO) todosFuncionariosSet.add(e.FUNCIONARIO.trim()); });
-
-            const agrupadoFunc = {};
-
-            todosFuncionariosSet.forEach(funcName => {
-                const setorDoFunc = mapaFuncionarioSetor[funcName] || 'OUTROS';
-                if (!setorAtivo || setorDoFunc === setorAtivo) {
-                    if (!f.func || funcName === f.func) {
-                        agrupadoFunc[funcName] = {
-                            setor: setorDoFunc,
-                            horasPorData: {}
-                        };
-                    }
-                }
-            });
-
-            rawHoras.forEach(i => {
-                const func = i.funcionario ? i.funcionario.trim() : '';
-                const dataIso = i.data_fim ? i.data_fim.split('T')[0] : '';
-                const chaveErro = `${func}_${dataIso}`;
-                const ehApontamentoErro = mapaErrosPorDataEFunc.has(chaveErro);
-
-                if (agrupadoFunc[func] && dataIso && !ehApontamentoErro) {
-                    if (!agrupadoFunc[func].horasPorData[dataIso]) {
-                        agrupadoFunc[func].horasPorData[dataIso] = 0;
-                    }
-                    agrupadoFunc[func].horasPorData[dataIso] += parseFloat(i.horas || 0);
-                }
-            });
-
-            Object.keys(agrupadoFunc).forEach(funcName => {
-                const dadosF = agrupadoFunc[funcName];
-                
-                let somaH = 0;
-                Object.values(dadosF.horasPorData).forEach(h => somaH += h);
-
-                // Média dividida pelo Total de Dias Úteis Decorridos do mês
-                const mediaHorasDiarias = somaH / qtdDiasUteisDecorridos;
-                let efIndividual = (mediaHorasDiarias >= 8.0 ? 100.0 : (mediaHorasDiarias / 8.0) * 100.0);
-
-                // O Fator Previsto x Realizado é sempre o do PRÓPRIO SETOR do colaborador!
-                const efSetorProprioDoFunc = calcularFatorEficienciaEspecificoDoSetor(dadosF.setor);
-
-                let aproveitamentoFinal = efIndividual * (efSetorProprioDoFunc / 100);
-                if (aproveitamentoFinal > 100) aproveitamentoFinal = 100;
-
-                let badgeAproveitamento = '';
-                if (aproveitamentoFinal >= 90) {
-                    badgeAproveitamento = `<span class="badge badge-success">${aproveitamentoFinal.toFixed(1)}% (Excelente)</span>`;
-                } else if (aproveitamentoFinal >= 70) {
-                    badgeAproveitamento = `<span class="badge badge-warning">${aproveitamentoFinal.toFixed(1)}% (Atenção)</span>`;
-                } else {
-                    badgeAproveitamento = `<span class="badge badge-danger">${aproveitamentoFinal.toFixed(1)}% (Abaixo)</span>`;
-                }
-
-                const btnInfo = `<button class="btn-calc-info" onclick="mostrarInfoConta('${funcName}', ${mediaHorasDiarias}, ${efIndividual}, ${efSetorProprioDoFunc}, ${aproveitamentoFinal}, ${qtdDiasUteisDecorridos})" title="Clique para ver a memória de cálculo">?</button>`;
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${funcName}</strong></td>
-                    <td>${dadosF.setor}</td>
-                    <td>${mediaHorasDiarias.toFixed(2)}h /dia</td>
-                    <td><strong>${efIndividual.toFixed(1)}%</strong></td>
-                    <td>
-                        <div style="display: flex; align-items: center;">
-                            ${badgeAproveitamento}
-                            ${btnInfo}
-                        </div>
-                    </td>
-                `;
-                tbodyResumo.appendChild(tr);
-            });
-
-            document.getElementById('loading-plr-resumo-func').style.display = 'none';
-            document.getElementById('wrapper-plr-resumo-func').style.display = 'block';
-
-            // 3. INDICADOR 1: DETALHAMENTO DIÁRIO COMPLETO
-            const tbodyFunc = document.getElementById('tbody-plr-func');
-            tbodyFunc.innerHTML = "";
-
-            listaDatasOrdenadas.forEach(dataIso => {
-                const dataPtBr = dataIso.split('-').reverse().join('/');
-
-                Object.keys(agrupadoFunc).forEach(funcName => {
-                    const dadosF = agrupadoFunc[funcName];
-                    const chaveErro = `${funcName}_${dataIso}`;
-                    const ehApontamentoErro = mapaErrosPorDataEFunc.has(chaveErro);
-                    const hrsDia = dadosF.horasPorData[dataIso] || 0.0;
-
-                    let statusBadge = '';
-                    if (ehApontamentoErro) {
-                        statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-triangle-exclamation"></i> Apontamento Errado (0.0h)</span>`;
-                    } else if (hrsDia >= 8.0) {
-                        statusBadge = `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Normal (${hrsDia.toFixed(1)}h)</span>`;
-                    } else if (hrsDia > 0) {
-                        statusBadge = `<span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> Baixo (${hrsDia.toFixed(1)}h)</span>`;
-                    } else {
-                        statusBadge = `<span class="badge badge-dark"><i class="fa-solid fa-minus"></i> Sem Apontamento (0.0h)</span>`;
-                    }
-
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${dataPtBr}</td>
-                        <td><strong>${funcName}</strong></td>
-                        <td>${dadosF.setor}</td>
-                        <td><strong>${hrsDia.toFixed(2)}h</strong></td>
-                        <td>${statusBadge}</td>
-                    `;
-                    tbodyFunc.appendChild(tr);
-                });
-            });
-
-            document.getElementById('loading-plr-func').style.display = 'none';
-            document.getElementById('wrapper-plr-func').style.display = 'block';
-
-            // 4. INDICADOR 2: PREV X REAL CONSOLIDADO POR SERVIÇO
-            let prevRealFiltrados = rawPrevReal.filter(i => {
-                const matchServ = !f.servico || i.TIPOSERVICO === f.servico;
-                return matchServ;
-            });
-
-            const servicosAgrupados = {};
-            prevRealFiltrados.forEach(item => {
-                const servico = item.TIPOSERVICO || 'OUTROS';
-                const prev = parseFloat(item.PREVISTO || 0);
-                const real = parseFloat(item.REALIZADO || 0);
-
-                let efCalculada = 100.0;
-                if (real > prev && prev > 0) {
-                    efCalculada = (prev / real) * 100;
-                } else if (prev === 0 && real > 0) {
-                    efCalculada = 0;
-                }
-
-                if (!servicosAgrupados[servico]) {
-                    servicosAgrupados[servico] = { somaEficiencia: 0, qtdOcorrencias: 0 };
-                }
-                servicosAgrupados[servico].somaEficiencia += efCalculada;
-                servicosAgrupados[servico].qtdOcorrencias += 1;
-            });
-
-            const tbodyServ = document.getElementById('tbody-plr-servico');
-            tbodyServ.innerHTML = "";
-
-            Object.keys(servicosAgrupados).forEach(servName => {
-                const dadosS = servicosAgrupados[servName];
-                const efMediaServico = dadosS.somaEficiencia / dadosS.qtdOcorrencias;
-
-                const badgeComp = efMediaServico >= 100.0 
-                    ? `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Dentro do Prazo</span>`
-                    : `<span class="badge badge-danger"><i class="fa-solid fa-xmark"></i> Estourou Tempo</span>`;
-
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${servName}</strong></td>
-                    <td>${badgeComp}</td>
-                    <td><strong>${efMediaServico.toFixed(1)}%</strong></td>
-                `;
-                tbodyServ.appendChild(tr);
-            });
-
-            document.getElementById('loading-plr-servico').style.display = 'none';
-            document.getElementById('wrapper-plr-servico').style.display = 'block';
-        }
-
-        carregarDadosIniciais();
     </script>
 </body>
 </html>
