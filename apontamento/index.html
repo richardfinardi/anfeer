@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Painel Operacional & PLR - ANFEER V2.0</title>
+    <title>Painel Operacional & PLR - ANFEER V2.1</title>
     
-    <link rel="icon" type="image/png" href="LOGO MINIMALISTA.png">
+    <link rel="icon" type="image/png" href="../LOGO MINIMALISTA.png">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,6 +55,27 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+        }
+
+        .btn-back-menu {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background-color: #F1F5F9;
+            color: var(--anfeer-dark);
+            border: 1px solid var(--anfeer-border);
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.82rem;
+            font-weight: 700;
+            transition: all 0.2s;
+        }
+
+        .btn-back-menu:hover {
+            background-color: var(--anfeer-red);
+            color: white;
+            border-color: var(--anfeer-red);
         }
 
         .brand-logo-main {
@@ -388,7 +409,7 @@
         }
 
         @media (max-width: 600px) {
-            .header-container { justify-content: center; }
+            .header-container { justify-content: space-between; }
             .brand-logo-main { height: 38px; }
             .hero-text h1 { font-size: 1.15rem; }
             .panel-selector { flex-direction: column; }
@@ -402,14 +423,17 @@
 
     <header>
         <div class="header-container">
-            <img src="ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER BR" class="brand-logo-main">
+            <a href="../" class="btn-back-menu" title="Voltar ao Menu Principal">
+                <i class="fa-solid fa-arrow-left"></i> Voltar ao Menu
+            </a>
+            <img src="../ANFEER BR FUNDO TRANSPARENTE.png" alt="ANFEER BR" class="brand-logo-main">
         </div>
     </header>
 
     <section class="hero">
         <div class="hero-container">
             <div class="hero-text">
-                <h1>Painel Operacional de Produção & PLR V2.0</h1>
+                <h1>Painel Operacional de Produção & PLR V2.1</h1>
                 <p>Gestão de apontamentos e indicadores por setor, serviço e colaborador.</p>
             </div>
         </div>
@@ -558,12 +582,19 @@
             <p>&copy; 2026 ANFEER Brochas. Todos os direitos reservados.</p>
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span>Desenvolvido por:</span>
-                <img src="LOGO_APLICACAO_FUNDO_BRANCO.png" alt="Consultoria RF" class="footer-rf-logo">
+                <img src="../LOGO_APLICACAO_FUNDO_BRANCO.png" alt="Consultoria RF" class="footer-rf-logo">
             </div>
         </div>
     </footer>
 
     <script>
+        // TRAVA DE SEGURANÇA E SESSÃO
+        const sessionData = localStorage.getItem('anfeer_user');
+        if (!sessionData) {
+            window.location.href = '../';
+        }
+        const currentUser = JSON.parse(sessionData);
+
         const API_URL = "https://relieve-erased-projector.ngrok-free.dev";
 
         let rawErros = [];
@@ -574,7 +605,6 @@
         const mapaErrosPorDataEFunc = new Set();
         const mapaFuncionarioSetor = {};
 
-        // CALCULA DIAS ÚTEIS DECORRIDOS (SEGUNDA A SEXTA) DO DIA 01 DO MÊS ATÉ HOJE
         function calcularDiasUteisDecorridos() {
             const hoje = new Date();
             const ano = hoje.getFullYear();
@@ -585,7 +615,6 @@
             for (let d = 1; d <= diaHoje; d++) {
                 const dataCheck = new Date(ano, mes, d);
                 const diaSemana = dataCheck.getDay();
-                // 0 = Domingo, 6 = Sábado
                 if (diaSemana !== 0 && diaSemana !== 6) {
                     diasUteis++;
                 }
@@ -791,20 +820,15 @@
 
         function renderizarPLR() {
             const f = obterFiltrosAtivos();
-
-            // Opção B: Dias Úteis Decorridos no mês de Segunda a Sexta
             const qtdDiasUteisDecorridos = calcularDiasUteisDecorridos();
 
-            // Mapeia todas as datas únicas de lançamento
             const todasDatasSet = new Set();
             rawHoras.forEach(i => { if (i.data_fim) todasDatasSet.add(i.data_fim.split('T')[0]); });
             const listaDatasOrdenadas = Array.from(todasDatasSet).sort().reverse();
 
-            // 1. CÁLCULO DO FATOR EXIBIDO NO CARD DO TOPO (DE ACORDO COM A ABA SELECIONADA)
             const efSetorAbaAtiva = calcularFatorEficienciaEspecificoDoSetor(setorAtivo);
             document.getElementById('metric-eficiencia-setor').innerText = `${efSetorAbaAtiva.toFixed(1)}%`;
 
-            // 2. RESUMO POR FUNCIONÁRIO (CADA UM USA FIXO O FATOR DO SEU PRÓPRIO SETOR)
             const tbodyResumo = document.getElementById('tbody-plr-resumo-func');
             tbodyResumo.innerHTML = "";
 
@@ -846,11 +870,9 @@
                 let somaH = 0;
                 Object.values(dadosF.horasPorData).forEach(h => somaH += h);
 
-                // Média dividida pelo Total de Dias Úteis Decorridos do mês
                 const mediaHorasDiarias = somaH / qtdDiasUteisDecorridos;
                 let efIndividual = (mediaHorasDiarias >= 8.0 ? 100.0 : (mediaHorasDiarias / 8.0) * 100.0);
 
-                // O Fator Previsto x Realizado é sempre o do PRÓPRIO SETOR do colaborador!
                 const efSetorProprioDoFunc = calcularFatorEficienciaEspecificoDoSetor(dadosF.setor);
 
                 let aproveitamentoFinal = efIndividual * (efSetorProprioDoFunc / 100);
@@ -886,7 +908,6 @@
             document.getElementById('loading-plr-resumo-func').style.display = 'none';
             document.getElementById('wrapper-plr-resumo-func').style.display = 'block';
 
-            // 3. INDICADOR 1: DETALHAMENTO DIÁRIO COMPLETO
             const tbodyFunc = document.getElementById('tbody-plr-func');
             tbodyFunc.innerHTML = "";
 
@@ -925,7 +946,6 @@
             document.getElementById('loading-plr-func').style.display = 'none';
             document.getElementById('wrapper-plr-func').style.display = 'block';
 
-            // 4. INDICADOR 2: PREV X REAL CONSOLIDADO POR SERVIÇO
             let prevRealFiltrados = rawPrevReal.filter(i => {
                 const matchServ = !f.servico || i.TIPOSERVICO === f.servico;
                 return matchServ;
