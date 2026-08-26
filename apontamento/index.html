@@ -595,7 +595,7 @@
         }
         const currentUser = JSON.parse(sessionData);
 
-        const API_URL = "https://relieve-erased-projector.ngrok-free.dev";
+        const API_URL = "https://anfeer.consultoriarf.net";
 
         let rawErros = [];
         let rawHoras = [];
@@ -653,9 +653,7 @@
 
         async function carregarDadosIniciais() {
             try {
-                const resErros = await fetch(`${API_URL}/ERRO_APONTAMENTO?ngrok-skip-browser-warning=1`, {
-                    headers: { "ngrok-skip-browser-warning": "true" }
-                });
+                const resErros = await fetch(`${API_URL}/ERRO_APONTAMENTO`);
                 rawErros = await resErros.json();
                 rawErros.sort((a, b) => new Date(b.DATA_FIM || 0) - new Date(a.DATA_FIM || 0));
 
@@ -667,9 +665,7 @@
                     }
                 });
 
-                const resHoras = await fetch(`${API_URL}/HORAS_DIA?ngrok-skip-browser-warning=1`, {
-                    headers: { "ngrok-skip-browser-warning": "true" }
-                });
+                const resHoras = await fetch(`${API_URL}/HORAS_DIA`);
                 rawHoras = await resHoras.json();
 
                 rawHoras.forEach(i => {
@@ -678,9 +674,7 @@
                     }
                 });
 
-                const resPrev = await fetch(`${API_URL}/PREV_REAL?ngrok-skip-browser-warning=1`, {
-                    headers: { "ngrok-skip-browser-warning": "true" }
-                });
+                const resPrev = await fetch(`${API_URL}/PREV_REAL`);
                 rawPrevReal = await resPrev.json();
 
                 montarAbasSetoresEDropdowns();
@@ -688,7 +682,7 @@
 
             } catch (err) {
                 console.error("Erro ao carregar dados:", err);
-                document.getElementById('loading-erros').innerText = "Erro ao carregar dados do Ngrok.";
+                document.getElementById('loading-erros').innerText = "Erro ao carregar dados da API.";
             }
         }
 
