@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V2.1</title>
+    <title>Painel de Manutenção Preventiva V2.2</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -50,7 +50,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V2.1</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V2.2</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -275,7 +275,7 @@
         let rawMachines = [];
         let rawHistory = [];
 
-        // MAPEAMENTO RIGOROSO DAS COLUNAS DA PLANILHA POR GRUPO DE MÁQUINAS
+        // ESTRUTURA IDÊNTICA À PLANILHA DO EXCEL PARA CADA GRUPO
         const CHECKLIST_POR_GRUPO = {
             "AFIAÇÃO": [
                 "GUIAS LONGITUINAIS E TRANSVERSAIS",
@@ -383,7 +383,7 @@
                     rawMachines = Array.from(uniqueMap.values());
                 }
 
-                // 2. Processar Histórico de Respostas filtrando rigorosamente apenas as colunas válidas
+                // 2. Processar Histórico capturando as colunas que realmente possuem valor naquela linha
                 if (data.historico && data.historico.length > 1) {
                     const headersH = data.historico[0];
                     const rowsH = data.historico.slice(1);
@@ -399,7 +399,6 @@
                         }
 
                         const groupKey = getGroupKey(r[1] || machineName);
-                        const expectedGroupItems = CHECKLIST_POR_GRUPO[groupKey] || [];
 
                         let ncVal = "";
                         let descNC = "";
@@ -415,14 +414,10 @@
                             } else if (hUpper.includes("DESCREVER NÃO CONFORMIDADE")) {
                                 descNC = cellVal;
                             } else if (colIdx >= 7 && cellVal !== '' && cellVal.toUpperCase().includes("CONFORME")) {
-                                // Aceita o item SE ele for do grupo ou tiver preenchimento positivo na linha
-                                const isGroupItem = expectedGroupItems.some(exp => cleanStr(exp) === cleanStr(hText));
-                                if (isGroupItem) {
-                                    items.push({
-                                        item: hText,
-                                        status: cellVal
-                                    });
-                                }
+                                items.push({
+                                    item: hText,
+                                    status: cellVal
+                                });
                             }
                         });
 
