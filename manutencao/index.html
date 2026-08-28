@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V1.4</title>
+    <title>Painel de Manutenção Preventiva V1.5</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -17,65 +17,26 @@
                 size: A4 portrait;
                 margin: 8mm;
             }
-            
             html, body {
                 height: 100% !important;
                 overflow: hidden !important;
                 background: #ffffff !important;
             }
-
-            body * {
-                visibility: hidden !important;
-            }
-
-            #modal-printable, #modal-printable * {
-                visibility: visible !important;
-            }
-
+            body * { visibility: hidden !important; }
+            #modal-printable, #modal-printable * { visibility: visible !important; }
             #modal-printable {
                 position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 10px !important;
-                border: 1px solid #cbd5e1 !important;
-                border-radius: 6px !important;
-                background-color: #ffffff !important;
-                color: #0f172a !important;
-                box-shadow: none !important;
+                left: 0 !important; top: 0 !important;
+                width: 100% !important; margin: 0 !important; padding: 10px !important;
+                border: 1px solid #cbd5e1 !important; border-radius: 6px !important;
+                background-color: #ffffff !important; color: #0f172a !important; box-shadow: none !important;
             }
-
-            #modal-printable h3, 
-            #modal-printable h4, 
-            #modal-printable strong {
-                color: #0f172a !important;
-            }
-
-            #modal-printable p, 
-            #modal-printable span, 
-            #modal-printable td {
-                color: #334155 !important;
-            }
-
-            #modal-printable table {
-                border-collapse: collapse !important;
-                width: 100% !important;
-            }
-
-            #modal-printable th, 
-            #modal-printable td {
-                border: 1px solid #cbd5e1 !important;
-                padding: 4px 6px !important;
-            }
-
-            #modal-printable thead {
-                background-color: #f1f5f9 !important;
-            }
-
-            .no-print {
-                display: none !important;
-            }
+            #modal-printable h3, #modal-printable h4, #modal-printable strong { color: #0f172a !important; }
+            #modal-printable p, #modal-printable span, #modal-printable td { color: #334155 !important; }
+            #modal-printable table { border-collapse: collapse !important; width: 100% !important; }
+            #modal-printable th, #modal-printable td { border: 1px solid #cbd5e1 !important; padding: 4px 6px !important; }
+            #modal-printable thead { background-color: #f1f5f9 !important; }
+            .no-print { display: none !important; }
         }
     </style>
 </head>
@@ -85,14 +46,11 @@
     <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center space-x-3">
-                <a href="../" class="p-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition border border-slate-600 flex items-center justify-center" title="Voltar ao Menu Principal">
-                    <i data-lucide="arrow-left" class="w-5 h-5"></i>
-                </a>
-                <div class="p-2 bg-red-600 rounded-lg text-white">
+                <div class="p-2 bg-blue-600 rounded-lg text-white">
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.4</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.5</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -189,7 +147,7 @@
                 <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-lg">
                     <div class="p-4 bg-slate-800/80 border-b border-slate-700 flex justify-between items-center">
                         <h2 class="text-base font-semibold text-white flex items-center gap-2">
-                            <i data-lucide="sliders" class="w-4 h-4 text-red-500"></i>
+                            <i data-lucide="sliders" class="w-4 h-4 text-blue-400"></i>
                             Controle de Manutenção Preventiva
                         </h2>
                         <span id="machines-count" class="text-xs text-slate-400">Mostrando 0 máquinas</span>
@@ -240,7 +198,7 @@
                     <p id="modal-subtitle" class="text-xs text-slate-400"></p>
                 </div>
                 <div class="flex gap-2 no-print">
-                    <button onclick="printSinglePage()" class="px-3 py-1.5 bg-red-600 hover:bg-red-500 rounded text-xs text-white flex items-center gap-1.5 transition">
+                    <button onclick="printSinglePage()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white flex items-center gap-1.5 transition">
                         <i data-lucide="printer" class="w-3.5 h-3.5"></i> Imprimir / PDF
                     </button>
                     <button onclick="closeModal()" class="text-slate-400 hover:text-white p-1">
@@ -255,18 +213,68 @@
         </div>
     </div>
 
-    <script>
-        // TRAVA DE SEGURANÇA E SESSÃO
-        const sessionData = localStorage.getItem('anfeer_user');
-        if (!sessionData) {
-            window.location.href = '../';
-        }
-        const currentUser = JSON.parse(sessionData);
+    <!-- Modal Formulário de Nova Aferição -->
+    <div id="afericao-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-5 text-slate-100">
+            <div class="flex justify-between items-start border-b border-slate-700 pb-3">
+                <div>
+                    <h3 id="afericao-modal-title" class="text-lg font-bold text-white">Nova Aferição de Preventiva</h3>
+                    <p id="afericao-modal-subtitle" class="text-xs text-slate-400"></p>
+                </div>
+                <button onclick="closeAfericaoModal()" class="text-slate-400 hover:text-white p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
 
+            <form id="afericao-form" onsubmit="submitAfericao(event)" class="space-y-4">
+                <input type="hidden" id="form-maquina-id">
+                <input type="hidden" id="form-grupo">
+
+                <div class="space-y-3">
+                    <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Itens do Checklist de Manutenção</h4>
+                    <div id="form-checklist-items" class="space-y-2 bg-slate-900/60 p-3.5 rounded-lg border border-slate-700/70 max-h-64 overflow-y-auto">
+                        <!-- Itens renderizados dinamicamente -->
+                    </div>
+                </div>
+
+                <!-- Campo Não Conformidade -->
+                <div class="p-3.5 bg-slate-900/60 rounded-lg border border-slate-700/70 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-semibold text-slate-200">Teve Não Conformidade?</label>
+                        <div class="flex items-center gap-4">
+                            <label class="inline-flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+                                <input type="radio" name="teveNC" value="Nao" checked onchange="toggleDescNC(false)" class="text-blue-600 bg-slate-800 border-slate-700"> Não
+                            </label>
+                            <label class="inline-flex items-center gap-1.5 text-xs text-rose-300 font-semibold cursor-pointer">
+                                <input type="radio" name="teveNC" value="Sim" onchange="toggleDescNC(true)" class="text-rose-600 bg-slate-800 border-slate-700"> Sim
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="container-desc-nc" class="hidden">
+                        <label class="block text-xs text-rose-300 mb-1 font-medium">Descrever a Não Conformidade:</label>
+                        <textarea id="descNC" rows="2" placeholder="Informe detalhes da falha observada..." 
+                            class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500"></textarea>
+                    </div>
+                </div>
+
+                <!-- Botões de Ação -->
+                <div class="flex justify-end gap-3 pt-2 border-t border-slate-700">
+                    <button type="button" onclick="closeAfericaoModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-xs text-slate-200 transition">Cancelar</button>
+                    <button type="submit" id="btn-submit-afericao" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-xs text-white font-semibold flex items-center gap-1.5 transition">
+                        <i data-lucide="check-circle" class="w-4 h-4"></i> Salvar Aferição
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
         const URL_DO_SEU_APPS_SCRIPT = "https://script.google.com/macros/s/AKfycbxBxZVyj94Czw_ZqRdX4_F1nvBDdiv_m1YpVBK_KRybcZUPyRmy6FaXa9JkCuiGThuArQ/exec";
 
         let rawMachines = [];
         let rawHistory = [];
+        let headerChecklist = [];
 
         function cleanStr(str) {
             if (!str) return '';
@@ -291,6 +299,7 @@
                 const res = await fetch(URL_DO_SEU_APPS_SCRIPT);
                 const data = await res.json();
 
+                // 1. Processar Tabela de Máquinas
                 if (data.maquinas && data.maquinas.length > 1) {
                     const rowsM = data.maquinas.slice(1);
                     rawMachines = rowsM.map(r => {
@@ -313,13 +322,18 @@
                     }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
                 }
 
+                // 2. Processar Histórico de Respostas
                 if (data.historico && data.historico.length > 1) {
                     const headersH = data.historico[0];
+                    headerChecklist = headersH.filter((h, idx) => {
+                        const hUpper = h ? h.toString().toUpperCase().trim() : '';
+                        return idx >= 7 && !hUpper.includes("TEVE NÃO CONFORMIDADE") && !hUpper.includes("DESCREVER NÃO CONFORMIDADE");
+                    });
+
                     const rowsH = data.historico.slice(1);
 
                     rawHistory = rowsH.map(r => {
                         let machineName = "";
-                        
                         for (let idx = 2; idx <= 6; idx++) {
                             if (r[idx] && r[idx].toString().trim() !== '') {
                                 machineName = r[idx].toString().trim();
@@ -480,9 +494,14 @@
                         </span>
                     </td>
                     <td class="py-3.5 px-4 text-center">
-                        <button onclick="openModal('${encodeURIComponent(m.id)}')" class="px-3 py-1.5 bg-red-600/20 hover:bg-red-600/40 text-red-300 border border-red-500/30 rounded text-xs flex items-center gap-1 mx-auto transition">
-                            <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Relatório
-                        </button>
+                        <div class="flex items-center justify-center gap-1.5">
+                            <button onclick="openAfericaoModal('${encodeURIComponent(m.id)}')" class="px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 rounded text-xs flex items-center gap-1 transition" title="Lançar Nova Aferição">
+                                <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i> Aferir
+                            </button>
+                            <button onclick="openModal('${encodeURIComponent(m.id)}')" class="px-2.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 rounded text-xs flex items-center gap-1 transition" title="Ver Relatório">
+                                <i data-lucide="file-text" class="w-3.5 h-3.5"></i> Relatório
+                            </button>
+                        </div>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -502,7 +521,7 @@
 
             rawHistory.slice().reverse().slice(0, 30).forEach(h => {
                 const div = document.createElement('div');
-                div.className = `p-3 rounded-lg border ${h.nc ? 'bg-rose-950/30 border-rose-800/50' : 'bg-slate-900/50 border-slate-700/60'} text-xs space-y-1.5 cursor-pointer hover:border-red-500 transition`;
+                div.className = `p-3 rounded-lg border ${h.nc ? 'bg-rose-950/30 border-rose-800/50' : 'bg-slate-900/50 border-slate-700/60'} text-xs space-y-1.5 cursor-pointer hover:border-blue-500 transition`;
                 div.onclick = () => openModal(encodeURIComponent(h.machine));
 
                 div.innerHTML = `
@@ -617,6 +636,102 @@
 
         function closeModal() {
             document.getElementById('details-modal').classList.add('hidden');
+        }
+
+        // NOVO MODAL - FORMULÁRIO DE AFERIÇÃO
+        function openAfericaoModal(encodedMachineId) {
+            const machineId = decodeURIComponent(encodedMachineId);
+            const m = rawMachines.find(x => matchMachine(x.id, machineId)) || { id: machineId, group: "DIVERSOS" };
+
+            document.getElementById('afericao-modal-title').innerText = `Lançar Preventiva: ${m.id}`;
+            document.getElementById('afericao-modal-subtitle').innerText = `Grupo: ${m.group}`;
+            document.getElementById('form-maquina-id').value = m.id;
+            document.getElementById('form-grupo').value = m.group;
+
+            const container = document.getElementById('form-checklist-items');
+            container.innerHTML = '';
+
+            const itemsToRender = headerChecklist.length > 0 ? headerChecklist : [
+                "GUIAS", "SISTEMA HIDRAULICO", "BOTOEIRAS/MANIPULOS DE ACIONAMENTO",
+                "RASPADORES DE PISTÃO", "CHAVE DE FIM DE CURSO", "CONTADOR ANALÓGICO"
+            ];
+
+            itemsToRender.forEach((itemText, idx) => {
+                const div = document.createElement('div');
+                div.className = "flex items-center justify-between p-2 rounded bg-slate-800/80 border border-slate-700/50 text-xs";
+                div.innerHTML = `
+                    <span class="font-medium text-slate-300">${itemText}</span>
+                    <div class="flex items-center gap-3">
+                        <label class="inline-flex items-center gap-1 text-emerald-400 font-semibold cursor-pointer">
+                            <input type="radio" name="item_${idx}" value="CONFORME" checked data-item-name="${itemText}" class="text-emerald-600 bg-slate-900 border-slate-700"> CONFORME
+                        </label>
+                        <label class="inline-flex items-center gap-1 text-rose-400 font-semibold cursor-pointer">
+                            <input type="radio" name="item_${idx}" value="NÃO CONFORME" data-item-name="${itemText}" class="text-rose-600 bg-slate-900 border-slate-700"> NÃO CONFORME
+                        </label>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('afericao-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeAfericaoModal() {
+            document.getElementById('afericao-modal').classList.add('hidden');
+        }
+
+        function toggleDescNC(show) {
+            const container = document.getElementById('container-desc-nc');
+            if (show) container.classList.remove('hidden');
+            else container.classList.add('hidden');
+        }
+
+        async function submitAfericao(event) {
+            event.preventDefault();
+
+            const btn = document.getElementById('btn-submit-afericao');
+            btn.disabled = true;
+            btn.innerHTML = `<span class="w-3 h-3 rounded-full bg-white animate-ping"></span> Salvando...`;
+
+            const maquina = document.getElementById('form-maquina-id').value;
+            const grupo = document.getElementById('form-grupo').value;
+            const teveNC = document.querySelector('input[name="teveNC"]:checked').value === 'Sim';
+            const descNC = document.getElementById('descNC').value;
+
+            const itemResp = {};
+            const radios = document.querySelectorAll('#form-checklist-items input[type="radio"]:checked');
+            radios.forEach(r => {
+                const itemName = r.getAttribute('data-item-name');
+                if (itemName) itemResp[itemName] = r.value;
+            });
+
+            const payload = {
+                maquina: maquina,
+                grupo: grupo,
+                teveNC: teveNC,
+                descNC: descNC,
+                itemResp: itemResp
+            };
+
+            try {
+                await fetch(URL_DO_SEU_APPS_SCRIPT, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                closeAfericaoModal();
+                setTimeout(fetchSheetData, 1500);
+            } catch (err) {
+                console.error("Erro ao enviar aferição:", err);
+                alert("Erro ao gravar a aferição. Verifique a conexão.");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i> Salvar Aferição`;
+                lucide.createIcons();
+            }
         }
 
         function printSinglePage() {
