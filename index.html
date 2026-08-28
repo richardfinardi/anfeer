@@ -88,7 +88,7 @@
     </div>
 
     <script>
-        const API_URL = 'https://relieve-erased-projector.ngrok-free.dev';
+        const API_URL = 'https://anfeer.consultoriarf.net';
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
@@ -103,15 +103,13 @@
                     const res = await fetch(`${API_URL}/me`, {
                         method: 'POST',
                         headers: { 
-                            'Content-Type': 'application/json',
-                            'ngrok-skip-browser-warning': 'true'
+                            'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({ usuario: user.nome })
+                        body: JSON.stringify({ usuario: user.nome || user.usuario })
                     });
 
                     if (res.ok) {
                         const updatedData = await res.json();
-                        localStorage.setItem('anfeer_user', JSON.stringify(updatedData));
                         showMenu(updatedData);
                     } else {
                         logout();
@@ -137,8 +135,7 @@
                 const res = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     headers: { 
-                        'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true'
+                        'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({ usuario, senha })
                 });
@@ -153,7 +150,7 @@
                 showMenu(data);
 
             } catch (err) {
-                errorMsg.innerText = err.message;
+                errorMsg.innerText = err.message || "Falha na conexão com o servidor.";
                 errorMsg.classList.remove('hidden');
             } finally {
                 btnLogin.disabled = false;
@@ -164,7 +161,7 @@
         function showMenu(user) {
             document.getElementById('loginBox').classList.add('hidden');
             document.getElementById('menuBox').classList.remove('hidden');
-            document.getElementById('lblUser').innerText = user.nome;
+            document.getElementById('lblUser').innerText = user.nome || user.usuario || 'Usuário';
             lucide.createIcons();
         }
 
