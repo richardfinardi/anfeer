@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V1.5</title>
+    <title>Painel de Manutenção Preventiva V1.6</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -50,7 +50,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.5</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.6</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -233,7 +233,7 @@
                 <div class="space-y-3">
                     <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Itens do Checklist de Manutenção</h4>
                     <div id="form-checklist-items" class="space-y-2 bg-slate-900/60 p-3.5 rounded-lg border border-slate-700/70 max-h-64 overflow-y-auto">
-                        <!-- Itens renderizados dinamicamente -->
+                        <!-- Itens renderizados dinamicamente pelo Grupo da Máquina -->
                     </div>
                 </div>
 
@@ -274,7 +274,57 @@
 
         let rawMachines = [];
         let rawHistory = [];
-        let headerChecklist = [];
+
+        // MAPEAMENTO EXCLUSIVO DOS DADOS DO CHECKLIST POR GRUPO
+        const CHECKLIST_POR_GRUPO = {
+            "BROCHAMENTO": [
+                "GUIAS",
+                "ALINHAMENTO SUPORTE BROCHA EM RELAÇÃO AS GUIAS",
+                "SISTEMA HIDRAULICO",
+                "BOTOEIRAS/MANIPULOS DE ACIONAMENTO",
+                "RASPADORES DE PISTÃO",
+                "CHAVE DE FIM DE CURSO",
+                "CONTADOR ANALÓGICO"
+            ],
+            "AFIAÇÃO": [
+                "GUIAS LONGITUDINAIS E TRANSVERSAIS",
+                "GUIAS VERTICAIS, FUSOS E PORCAS",
+                "CORREIAS DO REBOLO",
+                "LIMPADORES DO PRISMA",
+                "TENSÃO DAS CORREIAS",
+                "LUBRIFICAR ROLAMENTOS VERTICAIS DA ARVORE",
+                "FILTRO DE ASPIRAÇÃO"
+            ],
+            "RETIFICAS": [
+                "GUIAS LONGITUDINAIS E TRANSVERSAIS",
+                "GUIAS VERTICAIS, FUSOS E PORCAS",
+                "CORREIRAS DE REBOLO",
+                "LIMPADORES DO PRISMA",
+                "TENSÃO DAS CORREIAS",
+                "TANQUE DE REFRIGERAÇÃO",
+                "LIQUIDO REFRIGERANTE: NÍVEL E CONTAMINAÇÃO"
+            ],
+            "FRESAS": [
+                "GUIAS LONGITUDINAIS E TRANSVERSAIS",
+                "GUIAS VERTICAIS, FUSOS E PORCAS",
+                "REDUTOR VERTICAL",
+                "CAIXA DE ENGRENAGEM DE AVANSO VERTICAL DA ARVORE",
+                "ROLAMENTOS DO PARAFUSO DE AVANÇO DA MESA",
+                "ENGRENAGENS CHANFRADAS DO ELEVADOR DO JOELHO",
+                "LUBRIFICADOR AUTOMATICO",
+                "VIAS CORREDIÇAS"
+            ],
+            "TORNOS": [
+                "VIAS CORREDIÇAS",
+                "EIXO DA ARVORE",
+                "MECANISMO DO DESENGATE",
+                "PARAFUSOS DE ELEVAÇÃO",
+                "CHAVETAS DA ÁRVORE",
+                "CABEÇOTE",
+                "CAIXAS DE ROSCA",
+                "AVENTAL"
+            ]
+        };
 
         function cleanStr(str) {
             if (!str) return '';
@@ -325,15 +375,11 @@
                 // 2. Processar Histórico de Respostas
                 if (data.historico && data.historico.length > 1) {
                     const headersH = data.historico[0];
-                    headerChecklist = headersH.filter((h, idx) => {
-                        const hUpper = h ? h.toString().toUpperCase().trim() : '';
-                        return idx >= 7 && !hUpper.includes("TEVE NÃO CONFORMIDADE") && !hUpper.includes("DESCREVER NÃO CONFORMIDADE");
-                    });
-
                     const rowsH = data.historico.slice(1);
 
                     rawHistory = rowsH.map(r => {
                         let machineName = "";
+                        
                         for (let idx = 2; idx <= 6; idx++) {
                             if (r[idx] && r[idx].toString().trim() !== '') {
                                 machineName = r[idx].toString().trim();
@@ -638,10 +684,21 @@
             document.getElementById('details-modal').classList.add('hidden');
         }
 
-        // NOVO MODAL - FORMULÁRIO DE AFERIÇÃO
+        // SELEÇÃO FILTRADA DOS ITENS DO MODAL PELO GRUPO ESPECÍFICO
         function openAfericaoModal(encodedMachineId) {
             const machineId = decodeURIComponent(encodedMachineId);
-            const m = rawMachines.find(x => matchMachine(x.id, machineId)) || { id: machineId, group: "DIVERSOS" };
+            const m = rawMachines.find(x => matchMachine(x.id, machineId)) || { id: machineId, group: "BROCHAMENTO" };
+
+            const grupoClean = (m.group || "").toString().toUpperCase();
+            let itemsToRender = [];
+
+            // Identifica qual lista do checklist usar para este grupo
+            if (grupoClean.includes("AFIA")) itemsToRender = CHECKLIST_POR_GRUPO["AFIAÇÃO"];
+            else if (grupoClean.includes("BROCHA")) itemsToRender = CHECKLIST_POR_GRUPO["BROCHAMENTO"];
+            else if (grupoClean.includes("FRESA")) itemsToRender = CHECKLIST_POR_GRUPO["FRESAS"];
+            else if (grupoClean.includes("RETIFICA")) itemsToRender = CHECKLIST_POR_GRUPO["RETIFICAS"];
+            else if (grupoClean.includes("TORNO")) itemsToRender = CHECKLIST_POR_GRUPO["TORNOS"];
+            else itemsToRender = CHECKLIST_POR_GRUPO["BROCHAMENTO"]; // Fallback padrão
 
             document.getElementById('afericao-modal-title').innerText = `Lançar Preventiva: ${m.id}`;
             document.getElementById('afericao-modal-subtitle').innerText = `Grupo: ${m.group}`;
@@ -650,11 +707,6 @@
 
             const container = document.getElementById('form-checklist-items');
             container.innerHTML = '';
-
-            const itemsToRender = headerChecklist.length > 0 ? headerChecklist : [
-                "GUIAS", "SISTEMA HIDRAULICO", "BOTOEIRAS/MANIPULOS DE ACIONAMENTO",
-                "RASPADORES DE PISTÃO", "CHAVE DE FIM DE CURSO", "CONTADOR ANALÓGICO"
-            ];
 
             itemsToRender.forEach((itemText, idx) => {
                 const div = document.createElement('div');
