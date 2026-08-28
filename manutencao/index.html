@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V1.7</title>
+    <title>Painel de Manutenção Preventiva V1.8</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -50,7 +50,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.7</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.8</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -275,7 +275,6 @@
         let rawMachines = [];
         let rawHistory = [];
 
-        // ESTRUTURA RÍGIDA E RIGOROSA DE CHECKLISTS EXCLUSIVOS
         const CHECKLIST_POR_GRUPO = {
             "BROCHAMENTO": [
                 "GUIAS",
@@ -377,7 +376,7 @@
                     }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
                 }
 
-                // 2. Processar Histórico de Respostas (Filtragem estrita para impedir misturar itens)
+                // 2. Processar Histórico de Respostas
                 if (data.historico && data.historico.length > 1) {
                     const headersH = data.historico[0];
                     const rowsH = data.historico.slice(1);
@@ -393,7 +392,6 @@
                         }
 
                         const groupKey = getGroupKey(r[1] || machineName);
-                        const expectedItems = CHECKLIST_POR_GRUPO[groupKey] || [];
 
                         let ncVal = "";
                         let descNC = "";
@@ -409,14 +407,10 @@
                             } else if (hUpper.includes("DESCREVER NÃO CONFORMIDADE")) {
                                 descNC = cellVal;
                             } else if (colIdx >= 7 && cellVal !== '' && cellVal.toUpperCase().includes("CONFORME")) {
-                                // SÓ ADICIONA SE O ITEM FOR PERTENCENTE AO GRUPO DA MÁQUINA
-                                const isItemFromGroup = expectedItems.some(itemExp => cleanStr(itemExp) === cleanStr(hText));
-                                if (isItemFromGroup) {
-                                    items.push({
-                                        item: hText,
-                                        status: cellVal
-                                    });
-                                }
+                                items.push({
+                                    item: hText,
+                                    status: cellVal
+                                });
                             }
                         });
 
