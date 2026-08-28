@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V1.8</title>
+    <title>Painel de Manutenção Preventiva V1.9</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -50,7 +50,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.8</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.9</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -233,7 +233,7 @@
                 <div class="space-y-3">
                     <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Itens do Checklist de Manutenção</h4>
                     <div id="form-checklist-items" class="space-y-2 bg-slate-900/60 p-3.5 rounded-lg border border-slate-700/70 max-h-64 overflow-y-auto">
-                        <!-- Itens renderizados dinamicamente -->
+                        <!-- Itens do grupo -->
                     </div>
                 </div>
 
@@ -358,22 +358,26 @@
                 const res = await fetch(URL_DO_SEU_APPS_SCRIPT);
                 const data = await res.json();
 
-                // 1. Processar Tabela de Máquinas
+                // 1. Processar Tabela de Máquinas com DESDUPLICAÇÃO AUTOMÁTICA
                 if (data.maquinas && data.maquinas.length > 1) {
                     const rowsM = data.maquinas.slice(1);
-                    rawMachines = rowsM.map(r => {
-                        const mId = r[0] ? r[0].toString().trim() : '';
-                        let group = getGroupKey(mId);
+                    const uniqueMap = new Map();
 
-                        return {
-                            id: mId,
-                            last: formatDate(r[1]),
-                            period: parseInt(r[2]) || 90,
-                            next: formatDate(r[3]),
-                            notice: formatDate(r[4]),
-                            group: group
-                        };
-                    }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
+                    rowsM.forEach(r => {
+                        const mId = r[0] ? r[0].toString().trim() : '';
+                        if (mId && !mId.toUpperCase().includes("MAQUINAS") && !uniqueMap.has(mId)) {
+                            uniqueMap.set(mId, {
+                                id: mId,
+                                last: formatDate(r[1]),
+                                period: parseInt(r[2]) || 90,
+                                next: formatDate(r[3]),
+                                notice: formatDate(r[4]),
+                                group: getGroupKey(mId)
+                            });
+                        }
+                    });
+
+                    rawMachines = Array.from(uniqueMap.values());
                 }
 
                 // 2. Processar Histórico de Respostas
