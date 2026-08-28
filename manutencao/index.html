@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V1.7</title>
+    <title>Painel de Manutenção Preventiva v2.0</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -50,7 +50,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.7</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva v2.0</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -275,8 +275,17 @@
         let rawMachines = [];
         let rawHistory = [];
 
-        // MAPEAMENTO ESTRITO DOS COMPONENTES DE CADA GRUPO
+        // MAPEAMENTO DOS COMPONENTES REAIS MAPEADOS DIRETAMENTE DA PLANILHA
         const CHECKLIST_POR_GRUPO = {
+            "AFIAÇÃO": [
+                "GUIAS LONGITUINAIS E TRANSVERSAIS",
+                "GUIAS VERTICAIS, FUSOS E PORCAS",
+                "REDUTOR VERTICAL",
+                "FILTRO DE ASPIRAÇÃO",
+                "OLEO E TANQUE HIDRÁULICO",
+                "LIQUIDO REFRIGERANTE: NÍVEL E CONTAMINAÇÃO",
+                "CORREIRAS DE REBOLO"
+            ],
             "BROCHAMENTO": [
                 "GUIAS",
                 "ALINHAMENTO SUPORTE BROCHA EM RELAÇÃO AS GUIAS",
@@ -286,43 +295,36 @@
                 "CHAVE DE FIM DE CURSO",
                 "CONTADOR ANALÓGICO"
             ],
-            "AFIAÇÃO": [
-                "GUIAS LONGITUDINAIS E TRANSVERSAIS",
-                "GUIAS VERTICAIS, FUSOS E PORCAS",
-                "CORREIAS DO REBOLO",
-                "LIMPADORES DO PRISMA",
-                "TENSÃO DAS CORREIAS",
-                "LUBRIFICAR ROLAMENTOS VERTICAIS DA ARVORE",
-                "FILTRO DE ASPIRAÇÃO"
-            ],
-            "RETIFICAS": [
-                "GUIAS LONGITUDINAIS E TRANSVERSAIS",
-                "GUIAS VERTICAIS, FUSOS E PORCAS",
-                "CORREIRAS DE REBOLO",
-                "LIMPADORES DO PRISMA",
-                "TENSÃO DAS CORREIAS",
-                "TANQUE DE REFRIGERAÇÃO",
-                "LIQUIDO REFRIGERANTE: NÍVEL E CONTAMINAÇÃO"
-            ],
             "FRESAS": [
-                "GUIAS LONGITUDINAIS E TRANSVERSAIS",
-                "GUIAS VERTICAIS, FUSOS E PORCAS",
-                "REDUTOR VERTICAL",
+                "LUBRIFICAR ROLAMENTOS VERTICAIS DA ARVORE",
                 "CAIXA DE ENGRENAGEM DE AVANSO VERTICAL DA ARVORE",
+                "ROLAMENTO DA POLIA",
                 "ROLAMENTOS DO PARAFUSO DE AVANÇO DA MESA",
+                "ROLAMENTOS DO ENCOSTO DO ELEVADOR DO JOELHO",
                 "ENGRENAGENS CHANFRADAS DO ELEVADOR DO JOELHO",
-                "LUBRIFICADOR AUTOMATICO",
-                "VIAS CORREDIÇAS"
-            ],
-            "TORNOS": [
+                "COPO OLEADOR DA ARVORE VERTICAL",
+                "ROLAMENTO DO EIXO DA MANIVELA",
                 "VIAS CORREDIÇAS",
                 "EIXO DA ARVORE",
                 "MECANISMO DO DESENGATE",
+                "LUBRIFICADOR AUTOMATICO",
                 "PARAFUSOS DE ELEVAÇÃO",
                 "CHAVETAS DA ÁRVORE",
+                "SUPORTE DO BALANCIM DE EIXO E CREMALHEIRA DO SOBRE BRAÇO"
+            ],
+            "RETIFICAS": [
+                "GUIAS LONGITUDINAIS E TRANSVERSAIS",
+                "GUIAS VERTICAIS, FUSOS E PORCAS 2",
+                "CORREIAS DO REBOLO"
+            ],
+            "TORNOS": [
+                "LIMPADORES DO PRISMA",
+                "TENSÃO DAS CORREIAS",
+                "AJUSTE DAS RÉGUAS CONICAS DA MESA",
                 "CABEÇOTE",
                 "CAIXAS DE ROSCA",
-                "AVENTAL"
+                "AVENTAL",
+                "TANQUE DE REFRIGERAÇÃO"
             ]
         };
 
@@ -359,7 +361,7 @@
                 const res = await fetch(URL_DO_SEU_APPS_SCRIPT);
                 const data = await res.json();
 
-                // 1. Processar Tabela de Máquinas com DESDUPLICAÇÃO
+                // 1. Processar Tabela de Máquinas com DESDUPLICAÇÃO AUTOMÁTICA
                 if (data.maquinas && data.maquinas.length > 1) {
                     const rowsM = data.maquinas.slice(1);
                     const uniqueMap = new Map();
@@ -381,7 +383,7 @@
                     rawMachines = Array.from(uniqueMap.values());
                 }
 
-                // 2. Processar Histórico filtrando APENAS os itens pertencentes àquele grupo específico
+                // 2. Processar Histórico de Respostas (Captura dinamicamente os itens que contêm valor na linha)
                 if (data.historico && data.historico.length > 1) {
                     const headersH = data.historico[0];
                     const rowsH = data.historico.slice(1);
@@ -397,7 +399,6 @@
                         }
 
                         const groupKey = getGroupKey(r[1] || machineName);
-                        const expectedItems = CHECKLIST_POR_GRUPO[groupKey] || [];
 
                         let ncVal = "";
                         let descNC = "";
@@ -413,14 +414,10 @@
                             } else if (hUpper.includes("DESCREVER NÃO CONFORMIDADE")) {
                                 descNC = cellVal;
                             } else if (colIdx >= 7 && cellVal !== '' && cellVal.toUpperCase().includes("CONFORME")) {
-                                // Filtra para incluir SOMENTE se o item do cabeçalho pertencer ao checklist oficial daquela categoria de máquina
-                                const isItemValidForGroup = expectedItems.some(itemExp => cleanStr(itemExp) === cleanStr(hText));
-                                if (isItemValidForGroup) {
-                                    items.push({
-                                        item: hText,
-                                        status: cellVal
-                                    });
-                                }
+                                items.push({
+                                    item: hText,
+                                    status: cellVal
+                                });
                             }
                         });
 
