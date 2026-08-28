@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Manutenção Preventiva V1.6</title>
+    <title>Painel de Manutenção Preventiva V1.7</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Lucide Icons -->
@@ -50,7 +50,7 @@
                     <i data-lucide="wrench" class="w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.6</h1>
+                    <h1 class="text-xl font-bold text-white">Painel de Manutenção Preventiva V1.7</h1>
                     <p class="text-xs text-slate-400">Controle de Máquinas & Histórico de Inspeções</p>
                 </div>
             </div>
@@ -233,7 +233,7 @@
                 <div class="space-y-3">
                     <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider">Itens do Checklist de Manutenção</h4>
                     <div id="form-checklist-items" class="space-y-2 bg-slate-900/60 p-3.5 rounded-lg border border-slate-700/70 max-h-64 overflow-y-auto">
-                        <!-- Itens renderizados dinamicamente pelo Grupo da Máquina -->
+                        <!-- Itens renderizados dinamicamente -->
                     </div>
                 </div>
 
@@ -275,7 +275,7 @@
         let rawMachines = [];
         let rawHistory = [];
 
-        // MAPEAMENTO EXCLUSIVO DOS DADOS DO CHECKLIST POR GRUPO
+        // ESTRUTURA RÍGIDA E RIGOROSA DE CHECKLISTS EXCLUSIVOS
         const CHECKLIST_POR_GRUPO = {
             "BROCHAMENTO": [
                 "GUIAS",
@@ -341,6 +341,16 @@
             return val.toString();
         }
 
+        function getGroupKey(grupoStr) {
+            const gUpper = (grupoStr || "").toString().toUpperCase();
+            if (gUpper.includes("AFIA")) return "AFIAÇÃO";
+            if (gUpper.includes("BROCHA")) return "BROCHAMENTO";
+            if (gUpper.includes("FRESA")) return "FRESAS";
+            if (gUpper.includes("RETIFICA")) return "RETIFICAS";
+            if (gUpper.includes("TORNO")) return "TORNOS";
+            return "BROCHAMENTO";
+        }
+
         async function fetchSheetData() {
             const lastUpdateElem = document.getElementById('last-update');
             lastUpdateElem.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span> Sincronizando...`;
@@ -354,12 +364,7 @@
                     const rowsM = data.maquinas.slice(1);
                     rawMachines = rowsM.map(r => {
                         const mId = r[0] ? r[0].toString().trim() : '';
-                        let group = "DIVERSOS";
-                        if (mId.toUpperCase().includes("AFIADORA")) group = "AFIAÇÃO";
-                        else if (mId.toUpperCase().includes("BROCHADEIRA")) group = "BROCHAMENTO";
-                        else if (mId.toUpperCase().includes("FRESA")) group = "FRESAS";
-                        else if (mId.toUpperCase().includes("RETIFICA")) group = "RETIFICAS";
-                        else if (mId.toUpperCase().includes("TORNO")) group = "TORNOS";
+                        let group = getGroupKey(mId);
 
                         return {
                             id: mId,
@@ -372,7 +377,7 @@
                     }).filter(m => m.id !== "" && !m.id.toUpperCase().includes("MAQUINAS"));
                 }
 
-                // 2. Processar Histórico de Respostas
+                // 2. Processar Histórico de Respostas (Filtragem estrita para impedir misturar itens)
                 if (data.historico && data.historico.length > 1) {
                     const headersH = data.historico[0];
                     const rowsH = data.historico.slice(1);
@@ -387,30 +392,38 @@
                             }
                         }
 
+                        const groupKey = getGroupKey(r[1] || machineName);
+                        const expectedItems = CHECKLIST_POR_GRUPO[groupKey] || [];
+
                         let ncVal = "";
                         let descNC = "";
                         const items = [];
 
                         headersH.forEach((headerText, colIdx) => {
-                            const hUpper = headerText ? headerText.toString().toUpperCase().trim() : '';
+                            const hText = headerText ? headerText.toString().trim() : '';
+                            const hUpper = hText.toUpperCase();
                             const cellVal = r[colIdx] ? r[colIdx].toString().trim() : '';
 
                             if (hUpper.includes("TEVE NÃO CONFORMIDADE")) {
                                 ncVal = cellVal;
                             } else if (hUpper.includes("DESCREVER NÃO CONFORMIDADE")) {
                                 descNC = cellVal;
-                            } else if (colIdx >= 7 && cellVal !== '' && (cellVal.toUpperCase().includes("CONFORME"))) {
-                                items.push({
-                                    item: headerText.toString().trim(),
-                                    status: cellVal
-                                });
+                            } else if (colIdx >= 7 && cellVal !== '' && cellVal.toUpperCase().includes("CONFORME")) {
+                                // SÓ ADICIONA SE O ITEM FOR PERTENCENTE AO GRUPO DA MÁQUINA
+                                const isItemFromGroup = expectedItems.some(itemExp => cleanStr(itemExp) === cleanStr(hText));
+                                if (isItemFromGroup) {
+                                    items.push({
+                                        item: hText,
+                                        status: cellVal
+                                    });
+                                }
                             }
                         });
 
                         return {
                             date: formatDate(r[0]),
                             machine: machineName,
-                            group: r[1] ? r[1].toString().trim() : '',
+                            group: groupKey,
                             nc: ncVal.toUpperCase().includes("SIM"),
                             descNC: descNC,
                             items: items
@@ -684,26 +697,17 @@
             document.getElementById('details-modal').classList.add('hidden');
         }
 
-        // SELEÇÃO FILTRADA DOS ITENS DO MODAL PELO GRUPO ESPECÍFICO
         function openAfericaoModal(encodedMachineId) {
             const machineId = decodeURIComponent(encodedMachineId);
             const m = rawMachines.find(x => matchMachine(x.id, machineId)) || { id: machineId, group: "BROCHAMENTO" };
 
-            const grupoClean = (m.group || "").toString().toUpperCase();
-            let itemsToRender = [];
-
-            // Identifica qual lista do checklist usar para este grupo
-            if (grupoClean.includes("AFIA")) itemsToRender = CHECKLIST_POR_GRUPO["AFIAÇÃO"];
-            else if (grupoClean.includes("BROCHA")) itemsToRender = CHECKLIST_POR_GRUPO["BROCHAMENTO"];
-            else if (grupoClean.includes("FRESA")) itemsToRender = CHECKLIST_POR_GRUPO["FRESAS"];
-            else if (grupoClean.includes("RETIFICA")) itemsToRender = CHECKLIST_POR_GRUPO["RETIFICAS"];
-            else if (grupoClean.includes("TORNO")) itemsToRender = CHECKLIST_POR_GRUPO["TORNOS"];
-            else itemsToRender = CHECKLIST_POR_GRUPO["BROCHAMENTO"]; // Fallback padrão
+            const groupKey = getGroupKey(m.group);
+            const itemsToRender = CHECKLIST_POR_GRUPO[groupKey] || CHECKLIST_POR_GRUPO["BROCHAMENTO"];
 
             document.getElementById('afericao-modal-title').innerText = `Lançar Preventiva: ${m.id}`;
-            document.getElementById('afericao-modal-subtitle').innerText = `Grupo: ${m.group}`;
+            document.getElementById('afericao-modal-subtitle').innerText = `Grupo: ${groupKey}`;
             document.getElementById('form-maquina-id').value = m.id;
-            document.getElementById('form-grupo').value = m.group;
+            document.getElementById('form-grupo').value = groupKey;
 
             const container = document.getElementById('form-checklist-items');
             container.innerHTML = '';
