@@ -165,15 +165,13 @@ function doPost(e) {
   let lock;
   try{
     const payload=e&&e.parameter&&e.parameter.payload;
-    if(!payload||payload.length>600000)throw Error("Payload inválido.");
+    if(!payload||payload.length>30*1024*1024)throw Error("Payload inválido ou grande demais.");
     const q=JSON.parse(payload);
     chavePLR_(q.key);
-    if(!["salvarFerias","salvarRegras","alterarBrochamento","enviarRelatorios"].includes(q.acao))
+    if(!["salvarFerias","salvarRegras","alterarBrochamento","enviarPdfsProntos"].includes(q.acao))
       throw Error("Ação não autorizada.");
-    if(q.acao==="enviarRelatorios") {
-      const comp=String(q.competencia||"");
-      if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(comp))throw Error("Competência inválida.");
-      return saidaPLR_(enviarRelatoriosPLR_(comp,true,q.reenviar===true));
+    if(q.acao==="enviarPdfsProntos") {
+      return saidaPLR_(enviarPdfsProntosPLR_(q));
     }
     lock=LockService.getScriptLock();lock.waitLock(25000);
     if(q.acao==="alterarBrochamento") {
