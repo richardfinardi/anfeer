@@ -646,15 +646,9 @@
         }
 
         function dataPrevReal(item) {
-            // Só é permitido consolidar por período se a API trouxer uma data real do apontamento.
-            const chaves = ['data_fim','DATA_FIM','dt_fim','DT_FIM','data_apontamento','DATA_APONTAMENTO',
-                'dt_apontamento','DT_APONTAMENTO','data_realizacao','DATA_REALIZACAO',
-                'dt_realizacao','DT_REALIZACAO','data','DATA','dt_data','DT_DATA'];
-            for (const chave of chaves) {
-                const data = extrairDataIso(item[chave]);
-                if (data) return data;
-            }
-            return '';
+            // Campo efetivo da API /PREV_REAL: DT_FINALIZACAO.
+            // Não usar datas genéricas para evitar misturar competências no PLR.
+            return extrairDataIso(item.DT_FINALIZACAO ?? item.dt_finalizacao);
         }
 
         function dataBr(iso) { return iso ? iso.slice(8,10) + '/' + iso.slice(5,7) + '/' + iso.slice(0,4) : '-'; }
