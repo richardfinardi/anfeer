@@ -59,7 +59,7 @@ try{
       typeof criarPdfIndicadoresPLR==='function' &&
       typeof criarPdfGerencialPLR==='function' &&
       Boolean(window.jspdf?.jsPDF?.API?.autoTable);
-  },{timeout:120000});
+  },null,{timeout:120000});
   // Leitura do banco compartilhado antes de gerar os documentos.
   const snapshot=await pagina.evaluate(async ({url,key})=>{
     const dados=await plrDriveLer({url,key});
