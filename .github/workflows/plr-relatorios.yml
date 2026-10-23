@@ -1,0 +1,52 @@
+name: ANFEER - PLR PDFs originais
+
+on:
+  schedule:
+    # 08:00 em Sao Paulo (UTC-3). Envia competencia do mes anterior.
+    - cron: '0 11 1 * *'
+  workflow_dispatch:
+    inputs:
+      competencia:
+        description: 'Competencia YYYY-MM (vazio = mes anterior)'
+        type: string
+        required: false
+      dry_run:
+        description: 'Testar PDFs sem enviar emails'
+        type: boolean
+        default: true
+      reenviar:
+        description: 'Permitir reenvio de competencia ja enviada'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: anfeer-plr-relatorios
+  cancel-in-progress: false
+
+jobs:
+  relatorios:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      TZ: America/Sao_Paulo
+      ANFEER_PLR_WEBAPP_URL: ${{ secrets.ANFEER_PLR_WEBAPP_URL }}
+      ANFEER_PLR_WEBAPP_KEY: ${{ secrets.ANFEER_PLR_WEBAPP_KEY }}
+      COMPETENCIA: ${{ inputs.competencia }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+      REENVIAR: ${{ github.event_name == 'workflow_dispatch' && inputs.reenviar || false }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Instalar navegador para gerar PDFs originais
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Gerar 4 PDFs pelo mesmo codigo da aplicacao e enviar
+        run: |
+          python3 -m http.server 8123 --bind 127.0.0.1 >/tmp/anfeer-local-http.log 2>&1 &
+          node scripts/enviar-relatorios-plr.mjs
