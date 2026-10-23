@@ -1256,7 +1256,8 @@
             if (f.inicio <= fimVisual) {
                 for (const d = new Date(f.inicio+'T12:00:00'), e = new Date(fimVisual+'T12:00:00'); d <= e; d.setDate(d.getDate()+1)) {
                     const iso = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-                    if (d.getDay() !== 0 && d.getDay() !== 6 || horasPeriodo.some(i => extrairDataIso(i.data_fim) === iso)) diasVisual.push(iso);
+                    // PLR considera somente dias úteis: sábado e domingo não aparecem, mesmo com apontamento.
+                    if (d.getDay() !== 0 && d.getDay() !== 6) diasVisual.push(iso);
                 }
             }
             diasVisual.reverse();
