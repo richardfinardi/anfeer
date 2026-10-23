@@ -694,6 +694,14 @@
 </section>
         <div id="secao-config" class="data-card" style="display:none">
             <div class="card-header"><h2><i class="fa-solid fa-sliders" style="color:var(--anfeer-red)"></i> Cadastro de Status de Apontamento</h2></div>
+            <div style="padding:16px 18px 4px">
+                <div style="border:1px solid #fecaca;background:#fff7f7;border-radius:10px;padding:15px;display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap">
+                    <div><strong style="color:#991b1b">Fator de eficiência — Brochamento</strong>
+                    <p id="brochamento-ef-descricao" style="margin:5px 0 0;color:#52525b;font-size:.81rem;line-height:1.5"></p></div>
+                    <button type="button" id="btn-brochamento-ef" class="cfg-btn" onclick="alternarFatorBrochamento()" style="background:#991b1b;color:white;border-color:#991b1b;min-width:200px">Ativar fator próprio</button>
+                </div>
+                <p style="margin-top:7px;color:#64748b;font-size:.73rem">Padrão atual: Brochamento usa o mesmo fator de eficiência da Ferramentaria. O botão permite voltar a calcular o fator próprio de Brochamento.</p>
+            </div>
             <div class="cfg-content">
                 <p class="cfg-note">Cadastre o período de vigência, a meta diária e as faixas percentuais. As datas são inclusivas e períodos não podem se sobrepor.
                 <br><strong>Aviso:</strong> como esta tela está hospedada no GitHub, as regras são salvas apenas neste navegador.
@@ -753,6 +761,29 @@
         let setorAtivo = "";
         let dadosPLRCarregados = false;
         const CFG_KEY = 'anfeer_status_apontamento_v1';
+        const BROCHA_EF_KEY = 'anfeer_brochamento_fator_proprio_v1';
+        let usarFatorProprioBrochamento = localStorage.getItem(BROCHA_EF_KEY) === '1';
+        function atualizaControleFatorBrochamento() {
+            const texto = document.getElementById('brochamento-ef-descricao');
+            const botao = document.getElementById('btn-brochamento-ef');
+            if (!texto || !botao) return;
+            texto.textContent = usarFatorProprioBrochamento
+                ? 'ATIVADO: Brochamento tem seu próprio fator, calculado pelas horas previstas x realizadas de seus serviços.'
+                : 'DESATIVADO: Brochamento não entra no cálculo de fator próprio. Os funcionários do setor usam exatamente o fator da Ferramentaria.';
+            botao.textContent = usarFatorProprioBrochamento ? 'Desativar fator próprio' : 'Ativar fator próprio';
+            botao.style.background = usarFatorProprioBrochamento ? '#065f46' : '#991b1b';
+            botao.style.borderColor = usarFatorProprioBrochamento ? '#065f46' : '#991b1b';
+        }
+        function alternarFatorBrochamento() {
+            const ligado = !usarFatorProprioBrochamento;
+            if (!confirm(ligado
+                ? 'Reativar o cálculo do fator de eficiência próprio do Brochamento?'
+                : 'Desativar o fator próprio do Brochamento e usar o mesmo fator da Ferramentaria?')) return;
+            usarFatorProprioBrochamento = ligado;
+            localStorage.setItem(BROCHA_EF_KEY, ligado ? '1' : '0');
+            atualizaControleFatorBrochamento();
+            if(dadosPLRCarregados)renderizarPLR();
+        }
         let regrasStatus = [];
         try { regrasStatus = JSON.parse(localStorage.getItem(CFG_KEY) || '[]'); if (!Array.isArray(regrasStatus)) regrasStatus=[]; }
         catch(e) { regrasStatus=[]; }
@@ -1162,7 +1193,8 @@
             const errosSet = new Set(errosPeriodo.map(e => (e.FUNCIONARIO || '').trim() + '_' + extrairDataIso(e.DATA_FIM)));
 
             const prevSemData = rawPrevReal.filter(i => !dataPrevReal(i)).length;
-            const prevPeriodo = rawPrevReal.filter(i => noPeriodo(dataPrevReal(i)) &&
+            const prevTodasServicos = rawPrevReal.filter(i => noPeriodo(dataPrevReal(i)));
+            const prevPeriodo = prevTodasServicos.filter(i =>
                 (!f.servico || textoNormalizado(i.TIPOSERVICO) === textoNormalizado(f.servico)));
 
             if (prevSemData) {
@@ -1177,13 +1209,24 @@
             rawHoras.forEach(i => {
                 if (i.TP_MAQUINA && i.SETOR) mapaServicoSetor[textoNormalizado(i.TP_MAQUINA)] = textoNormalizado(i.SETOR);
             });
-            const prevDoSetor = prevPeriodo.filter(i => !setorAtivo ||
-                setorDoServico(i, mapaServicoSetor) === textoNormalizado(setorAtivo));
+            const origemFerramentaria = prevTodasServicos.filter(i =>
+                setorDoServico(i, mapaServicoSetor) === 'FERRAMENTARIA');
+            const modoBrochamentoEmprestado = !usarFatorProprioBrochamento &&
+                (textoNormalizado(setorAtivo) === 'BROCHAMENTO' ||
+                 (!setorAtivo && textoNormalizado(f.servico).includes('BROCHAMENTO')));
+            // Quando não há setor selecionado, remove os registros de brochamento
+            // da média consolidada. Para consulta do setor Brochamento, mostra o índice da Ferramentaria.
+            const prevDoSetor = modoBrochamentoEmprestado ? origemFerramentaria :
+                prevPeriodo.filter(i =>
+                    (usarFatorProprioBrochamento || setorDoServico(i, mapaServicoSetor) !== 'BROCHAMENTO') &&
+                    (!setorAtivo || setorDoServico(i, mapaServicoSetor) === textoNormalizado(setorAtivo)));
             const efSetorAba = calcularFatorEficienciaEspecificoDoSetor('', prevDoSetor, mapaServicoSetor);
             document.getElementById('metric-eficiencia-setor').textContent = efSetorAba === null ? 'N/D' : efSetorAba.toFixed(1) + '%';
             document.getElementById('metric-eficiencia-status').textContent = efSetorAba === null ?
                 'Sem registros de previsto x realizado com data válida para este período/setor.' :
-                'Previsto x realizado exclusivamente no período selecionado (média dos registros).';
+                (modoBrochamentoEmprestado
+                    ? 'Brochamento: fator da Ferramentaria (fator próprio temporariamente desativado).'
+                    : 'Previsto x realizado no período. ' + (!usarFatorProprioBrochamento ? 'Registros de Brochamento fora do cálculo.' : ''));
 
             const funcSet = new Set();
             horasPeriodo.forEach(i => { if (i.funcionario) funcSet.add(i.funcionario.trim()); });
@@ -1227,7 +1270,10 @@
                 }
                 const media = diasValidos ? horasValidasPLR / diasValidos : null;
                 const efInd = metaIndividual>0 ? Math.min(100,horasValidasPLR/metaIndividual*100) : null;
-                const efSetorFunc = calcularFatorEficienciaEspecificoDoSetor(dados.setor, prevPeriodo, mapaServicoSetor);
+                const fatorBrochamentoDesativado = !usarFatorProprioBrochamento && textoNormalizado(dados.setor) === 'BROCHAMENTO';
+                const efSetorFunc = fatorBrochamentoDesativado ?
+                    calcularFatorEficienciaEspecificoDoSetor('', origemFerramentaria, mapaServicoSetor) :
+                    calcularFatorEficienciaEspecificoDoSetor(dados.setor, prevPeriodo, mapaServicoSetor);
                 const plr = efSetorFunc === null || efInd===null ? null : Math.min(100, efInd * (efSetorFunc/100));
                 const faixa = plr === null ? 'SEM_DADOS' : plr >= 90 ? 'EXCELENTE' : plr >= 70 ? 'ATENCAO' : 'ABAIXO';
                 if (f.aproveitamento && f.aproveitamento !== faixa) return;
@@ -1386,6 +1432,7 @@
 
         novoCadastroRegra();
         listarRegras();
+        atualizaControleFatorBrochamento();
         const vacAno=document.getElementById('vac-ano');
         for(let ano=new Date().getFullYear()-3;ano<=new Date().getFullYear()+4;ano++){
             const opt=document.createElement('option');opt.value=String(ano);opt.textContent=String(ano);vacAno.appendChild(opt);
