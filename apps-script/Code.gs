@@ -14,15 +14,18 @@ const PLR_REV_FUNC = "ANFEER_PLR_REV_FUNC";
 
 function instalarPLR() {
   const p = PropertiesService.getScriptProperties();
+  const ativa=SpreadsheetApp.getActiveSpreadsheet();
+  if(!ativa)throw Error("Abra o Apps Script em Extensões > Apps Script DENTRO da planilha ANFEER_PLR_BANCO.");
+  p.setProperty("ANFEER_PLR_SHEET_ID",ativa.getId());
   if (!p.getProperty(PLR_PROP_CHAVE)) p.setProperty(PLR_PROP_CHAVE,
       Utilities.getUuid().replace(/-/g,"")+Utilities.getUuid().replace(/-/g,""));
   console.log("CHAVE_PLR = "+p.getProperty(PLR_PROP_CHAVE));
-  console.log("Planilha vinculada: "+bancoPLR_().getName());
+  console.log("Planilha vinculada: "+ativa.getName());
 }
 function bancoPLR_() {
-  const ss=SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) throw Error("Vincule o Apps Script diretamente à planilha ANFEER_PLR_BANCO.");
-  return ss;
+  const id=PropertiesService.getScriptProperties().getProperty("ANFEER_PLR_SHEET_ID");
+  if(!id)throw Error("Execute instalarPLR() dentro da planilha ANFEER_PLR_BANCO.");
+  return SpreadsheetApp.openById(id);
 }
 function propPLR_(key) {return PropertiesService.getScriptProperties().getProperty(key)||"0";}
 function chavePLR_(valor) {
