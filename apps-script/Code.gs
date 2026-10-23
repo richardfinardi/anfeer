@@ -58,7 +58,9 @@ function feriasPLR_() {
 function regrasPLR_() {
   const fs={};
   linhasPLR_("FAIXAS",5).filter(r=>r[1]).forEach(r=>{
-    (fs[String(r[1])] ||= []).push({min:Number(r[2]),nome:String(r[3]),cor:String(r[4])});
+    const id=String(r[1]);
+    if (!fs[id]) fs[id]=[];
+    fs[id].push({min:Number(r[2]),nome:String(r[3]),cor:String(r[4])});
   });
   return linhasPLR_("REGRAS",4).filter(r=>r[0]).map(r=>({
     id:String(r[0]),inicio:isoPLR_(r[1]),fim:isoPLR_(r[2]),meta:Number(r[3]),
@@ -107,7 +109,9 @@ function validarFeriasPLR_(lista) {
   lista.forEach(p=>{
     if(!p||!String(p.id||"").trim()||!normPLR_(p.funcionario)||!isoPLR_(p.inicio)||
       !isoPLR_(p.fim)||p.inicio>p.fim)throw Error("Registro de férias inválido.");
-    (mapa[normPLR_(p.funcionario)] ||= []).push(p);
+    const chave=normPLR_(p.funcionario);
+    if (!mapa[chave]) mapa[chave]=[];
+    mapa[chave].push(p);
   });
   Object.values(mapa).forEach(arr=>{
     arr.sort((a,b)=>a.inicio.localeCompare(b.inicio));
