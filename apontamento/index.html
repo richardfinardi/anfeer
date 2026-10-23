@@ -841,12 +841,14 @@
         }
 
         function alternarPainel(painel) {
-            ['ERROS','PLR','CONFIG'].forEach(p=>{
+            ['ERROS','PLR','CONFIG','GERENCIAL','FERIAS'].forEach(p=>{
                 document.getElementById('secao-'+p.toLowerCase()).style.display=p===painel?'block':'none';
                 document.getElementById('btn-'+p.toLowerCase()).classList.toggle('active',p===painel);
             });
             if (painel==='PLR') renderizarPLR();
             if (painel==='CONFIG') listarRegras();
+            if (painel==='FERIAS' && typeof feriasRenderizar==='function') feriasRenderizar();
+            if (painel==='GERENCIAL') { renderizarPLR(); if(typeof gerencialRenderizar==='function')gerencialRenderizar(); }
         }
 
         async function carregarDadosIniciais() {
@@ -879,6 +881,7 @@
                 renderizarErros();
                 dadosPLRCarregados = true;
                 renderizarPLR();
+                if(typeof feriasRenderizar==='function')feriasRenderizar();
             } catch (err) {
                 console.error("Erro ao carregar dados:", err);
                 document.getElementById('loading-erros').innerText = "Erro ao carregar dados da API.";
@@ -1116,16 +1119,17 @@
             return selecionados.reduce((s, i) => s + fatorDoRegistro(i), 0) / selecionados.length;
         }
 
-        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final, diasUteis, periodo, metaTotal) {
+        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final, diasUteis, periodo, metaTotal, diasFerias) {
             const fator = efSetor === null ? 'N/D (API PREV_REAL sem registros datados no período)' : efSetor.toFixed(1) + '%';
             const plr = final === null ? 'N/D' : final.toFixed(1) + '%';
             alert('MEMÓRIA DE CÁLCULO - ' + nome + '\nPeríodo: ' + periodo +
-                '\n\nDias úteis (seg-sex): ' + diasUteis +
-                '\nMédia de horas computadas: ' + hMedia.toFixed(2) + 'h/dia; meta total no período: ' + metaTotal.toFixed(2) + 'h' +
-                '\nEficiência individual: ' + efInd.toFixed(1) + '%' +
+                '\n\nDias úteis elegíveis (seg-sex): ' + diasUteis +
+                '\nDias úteis de férias excluídos: ' + diasFerias +
+                '\nMédia de horas computadas: ' + (hMedia===null ? 'N/D' : hMedia.toFixed(2)+'h/dia') + '; meta individual: ' + metaTotal.toFixed(2) + 'h' +
+                '\nEficiência individual: ' + (efInd===null ? 'N/D' : efInd.toFixed(1)+'%') +
                 '\nEficiência do setor: ' + fator +
                 '\nAproveitamento PLR: ' + plr +
-                '\n\nApontamentos com erro invalidam o dia, seguindo a regra já existente. Feriados não são descontados.');
+                '\n\nApontamentos com erro invalidam o dia. Férias excluem os dias úteis. Feriados não são descontados.');
         }
 
         function renderizarPLR() {
@@ -1204,32 +1208,41 @@
             // O filtro é aplicado APÓS o cálculo do PLR individual, mantendo
             // as médias e a eficiência do setor inalteradas.
             const funcionariosExibidos = [];
+            const modeloFuncionarios = [];
             funcNomes.forEach(nome => {
                 const dados = dadosPorFunc[nome];
                 // Somente as horas até 8h de cada DIA contam para o PLR.
                 // A coluna de apontamentos diários abaixo preserva as horas reais para auditoria.
-                let horasValidasPLR=0;
-                Object.entries(dados.porData).forEach(([dia,horas])=>{
-                    const weekday=new Date(dia+'T12:00:00').getDay();
-                    if(weekday!==0&&weekday!==6)horasValidasPLR+=Math.min(configDia(dia).meta,Math.max(0,horas));
-                });
-                const media = diasUteis ? horasValidasPLR / diasUteis : 0;
-                const efInd = metaTotalPeriodo>0?Math.min(100,horasValidasPLR/metaTotalPeriodo*100):0;
+                let horasValidasPLR=0,diasValidos=0,diasFerias=0,metaIndividual=0;
+                // Dias úteis e metas INDIVIDUAIS: excluir as férias do próprio funcionário.
+                if (f.inicio<=fimContabil) {
+                    for (const d=new Date(f.inicio+'T12:00:00'), limite=new Date(fimContabil+'T12:00:00');d<=limite;d.setDate(d.getDate()+1)) {
+                        if(d.getDay()===0 || d.getDay()===6) continue;
+                        const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+                        if(feriasAtiva(nome,iso)){diasFerias++;continue;}
+                        const meta=configDia(iso).meta;
+                        diasValidos++;metaIndividual+=meta;
+                        horasValidasPLR+=Math.min(meta,Math.max(0,dados.porData[iso]||0));
+                    }
+                }
+                const media = diasValidos ? horasValidasPLR / diasValidos : null;
+                const efInd = metaIndividual>0 ? Math.min(100,horasValidasPLR/metaIndividual*100) : null;
                 const efSetorFunc = calcularFatorEficienciaEspecificoDoSetor(dados.setor, prevPeriodo, mapaServicoSetor);
-                const plr = efSetorFunc === null ? null : Math.min(100, efInd * (efSetorFunc/100));
+                const plr = efSetorFunc === null || efInd===null ? null : Math.min(100, efInd * (efSetorFunc/100));
                 const faixa = plr === null ? 'SEM_DADOS' : plr >= 90 ? 'EXCELENTE' : plr >= 70 ? 'ATENCAO' : 'ABAIXO';
                 if (f.aproveitamento && f.aproveitamento !== faixa) return;
                 funcionariosExibidos.push(nome);
+                modeloFuncionarios.push({nome,setor:dados.setor,porData:dados.porData,horasValidasPLR,media,efInd,efSetorFunc,plr,faixa,diasValidos,diasFerias,metaIndividual});
                 const classe = plr === null ? 'badge-dark' : (plr >= 90 ? 'badge-success' : plr >= 70 ? 'badge-warning' : 'badge-danger');
                 const rotulo = plr === null ? 'N/D' : plr.toFixed(1) + '% (' + (plr >= 90 ? 'Excelente' : plr >= 70 ? 'Atenção' : 'Abaixo') + ')';
                 const tr = document.createElement('tr');
                 tr.innerHTML = '<td><strong>' + escaparHtml(nome) + '</strong></td>' +
                     '<td>' + escaparHtml(dados.setor) + '</td>' +
-                    '<td>' + media.toFixed(2) + 'h/dia</td>' +
-                    '<td><strong>' + efInd.toFixed(1) + '%</strong></td>' +
+                    '<td>' + (media===null ? 'N/D' : media.toFixed(2) + 'h/dia') + '</td>' +
+                    '<td><strong>' + (efInd===null ? 'N/D' : efInd.toFixed(1) + '%') + '</strong></td>' +
                     '<td><div style="display:flex;align-items:center"><span class="badge ' + classe + '">' + rotulo +
                     '</span><button class="btn-calc-info" title="Memória de cálculo">?</button></div></td>';
-                tr.querySelector('button').addEventListener('click', () => mostrarInfoConta(nome,media,efInd,efSetorFunc,plr,diasUteis,intervalo,metaTotalPeriodo));
+                tr.querySelector('button').addEventListener('click', () => mostrarInfoConta(nome,media,efInd,efSetorFunc,plr,diasValidos,intervalo,metaIndividual,diasFerias));
                 trResumo.appendChild(tr);
             });
             document.getElementById('plr-quantidade-funcionarios').textContent = funcionariosExibidos.length + (funcionariosExibidos.length === 1 ? ' funcionário' : ' funcionários');
@@ -1256,8 +1269,10 @@
                     const horas = dados.porData[dia] || 0;
                     const meta=configDia(dia).meta;
                     const status=statusPorMeta(dia,horas);
+                    const emFerias=feriasAtiva(nome,dia);
                     let badge;
-                    if(erro)badge='<span class="badge badge-danger">Erro de apontamento: dia invalidado (0h PLR)</span>';
+                    if(emFerias)badge='<span class="badge badge-dark">Férias — não conta no PLR</span>';
+                    else if(erro)badge='<span class="badge badge-danger">Erro de apontamento: dia invalidado (0h PLR)</span>';
                     else if(status){
                         badge='<span class="badge badge-'+status.faixa.cor+'">'+escaparHtml(status.faixa.nome)+
                             ' ('+status.perc.toFixed(1)+'%)</span>';
@@ -1297,6 +1312,12 @@
             });
             document.getElementById('loading-plr-servico').style.display = 'none';
             document.getElementById('wrapper-plr-servico').style.display = 'block';
+            window.gerencialDadosPLR = {
+                filtros:{...f},funcionarios:modeloFuncionarios,prevDoSetor:[...prevDoSetor],
+                efSetorAba,diasUteis,metaTotalPeriodo
+            };
+            if(typeof gerencialRenderizar==='function' &&
+                document.getElementById('secao-gerencial').style.display!=='none')gerencialRenderizar();
         }
 
         function exportarRelatorioPDF() {
@@ -1364,8 +1385,14 @@
 
         novoCadastroRegra();
         listarRegras();
+        const vacAno=document.getElementById('vac-ano');
+        for(let ano=new Date().getFullYear()-3;ano<=new Date().getFullYear()+4;ano++){
+            const opt=document.createElement('option');opt.value=String(ano);opt.textContent=String(ano);vacAno.appendChild(opt);
+        }
         definirPeriodoMes(0);
         carregarDadosIniciais();
     </script>
+    <script src="./ferias.js"></script>
+    <script src="./gerencial.js"></script>
 </body>
 </html>
