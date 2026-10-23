@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="./jspdf.umd.min.js" defer></script>
     <script src="./jspdf.plugin.autotable.min.js" defer></script>
+    <link rel="stylesheet" href="./gerencial.css">
+    <link rel="stylesheet" href="./ferias.css">
 
     <style>
         :root {
@@ -470,6 +472,12 @@
             <button class="panel-btn" id="btn-config" onclick="alternarPainel('CONFIG')">
                 <i class="fa-solid fa-sliders"></i> 3. Status Apontamento
             </button>
+            <button class="panel-btn" id="btn-gerencial" onclick="alternarPainel('GERENCIAL')">
+                <i class="fa-solid fa-chart-line"></i> 4. Gerencial
+            </button>
+            <button class="panel-btn" id="btn-ferias" onclick="alternarPainel('FERIAS')">
+                <i class="fa-solid fa-umbrella-beach"></i> 5. Férias
+            </button>
         </div>
 
         <!-- PAINEL 1: ERROS DE APONTAMENTO -->
@@ -623,6 +631,67 @@
             </div>
 
         </div>
+
+<section id="secao-gerencial" style="display:none">
+    <div class="g-hero"><div><div class="g-overline">ANFEER • Indicadores e estratégia</div>
+        <h2>Painel Gerencial PLR</h2><p>Visão consolidada de eficiência, produtividade e aproveitamento.<br>
+        <span id="g-subtitulo-periodo">Período selecionado</span></p></div>
+        <button class="g-pdf-button" type="button" onclick="gerencialGerarPDF()"><i class="fa-solid fa-file-pdf"></i> PDF Gerencial</button></div>
+    <div class="g-filters"><div class="g-filters-top"><strong><i class="fa-solid fa-filter"></i> FILTROS DOS INDICADORES PLR</strong>
+        <div class="g-quick"><button onclick="gerencialPeriodoRapido(0)">Mês atual</button><button onclick="gerencialPeriodoRapido(-1)">Mês anterior</button></div></div>
+        <div class="filter-bar"><div class="filter-group"><label for="ger-filtro-inicio">Data inicial</label><input type="date" id="ger-filtro-inicio" onchange="gerencialAplicarFiltros()"></div>
+<div class="filter-group"><label for="ger-filtro-fim">Data final</label><input type="date" id="ger-filtro-fim" onchange="gerencialAplicarFiltros()"></div>
+<div class="filter-group"><label for="ger-filtro-setor">Setor</label><select id="ger-filtro-setor" onchange="gerencialAplicarFiltros()"><option value="">TODOS</option></select></div>
+<div class="filter-group"><label for="ger-filtro-servico">Tipo de serviço</label><select id="ger-filtro-servico" onchange="gerencialAplicarFiltros()"><option value="">TODOS</option></select></div>
+<div class="filter-group"><label for="ger-filtro-funcionario">Funcionário</label><select id="ger-filtro-funcionario" onchange="gerencialAplicarFiltros()"><option value="">TODOS</option></select></div>
+<div class="filter-group"><label for="ger-filtro-aproveitamento">Aproveitamento final</label><select id="ger-filtro-aproveitamento" onchange="gerencialAplicarFiltros()"><option value="">TODOS</option></select></div></div></div>
+    <div class="g-summary"><div class="g-kpi" data-tone="dark"><small>Funcionários filtrados</small><strong id="g-colaboradores">—</strong><span class="g-foot" id="g-foot-colaboradores">Equipe no filtro</span></div>
+<div class="g-kpi" data-tone="red"><small>PLR médio</small><strong id="g-plr-medio">—</strong><span class="g-foot" id="g-foot-plr">Funcionários com PLR apurado</span></div>
+<div class="g-kpi" data-tone="green"><small>Eficiência individual média</small><strong id="g-individual-medio">—</strong><span class="g-foot" id="g-foot-individual-medio">Horas válidas / meta elegível</span></div>
+<div class="g-kpi" data-tone="dark"><small>Eficiência do setor</small><strong id="g-ef-setor">—</strong><span class="g-foot" id="g-foot-ef-setor">Previsto x realizado</span></div>
+<div class="g-kpi" data-tone="amber"><small>Horas válidas PLR</small><strong id="g-horas-validas">—</strong><span class="g-foot" id="g-foot-horas">Soma das horas com limite da meta</span></div>
+<div class="g-kpi" data-tone="green"><small>Funcionários excelentes</small><strong id="g-excelentes">—</strong><span class="g-foot" id="g-foot-excelentes">Porcentagem dos apurados</span></div></div>
+    <div class="g-grid">
+        <article class="g-card"><div class="g-card-header"><h3>Distribuição do aproveitamento</h3><small>Status final PLR</small></div>
+        <div class="g-card-body"><div class="g-donut-wrap"><div class="g-donut" id="g-donut"><div class="g-donut-label">
+        <strong id="g-donut-centro">0</strong><small>Funcionários</small></div></div>
+        <div class="g-legend"><div class="g-legend-line"><i class="g-swatch" style="background:#ef4444"></i><span>Abaixo</span><b id="g-legend-ABAIXO">0</b></div><div class="g-legend-line"><i class="g-swatch" style="background:#f59e0b"></i><span>Atenção</span><b id="g-legend-ATENCAO">0</b></div><div class="g-legend-line"><i class="g-swatch" style="background:#10b981"></i><span>Excelente</span><b id="g-legend-EXCELENTE">0</b></div><div class="g-legend-line"><i class="g-swatch" style="background:#94a3b8"></i><span>Sem dados</span><b id="g-legend-SEM_DADOS">0</b></div></div></div></div></article>
+        <article class="g-card"><div class="g-card-header"><h3>Top 10 — Aproveitamento final</h3><small>Melhores resultados no filtro</small></div><div class="g-card-body"><div id="g-ranking" class="g-bars"></div><div class="g-ranking-note">Ranking pelo PLR final do período.</div></div></article>
+        <article class="g-card"><div class="g-card-header"><h3>Evolução do atingimento da meta</h3><small id="g-evolucao-unidade">Dias úteis</small></div><div class="g-card-body">
+        <div id="g-evolucao" class="g-evolution"></div><p class="g-ranking-note">Horas válidas / metas individuais, descontando férias.</p></div></article>
+        <article class="g-card"><div class="g-card-header"><h3>Comparativo por setor</h3><small>Equipes no filtro</small></div><div class="table-wrapper">
+        <table class="g-table"><thead><tr><th>Setor</th><th>Pessoas</th><th>Eficiência individual</th><th>PLR médio</th></tr></thead><tbody id="g-setores"></tbody></table></div></article>
+    </div>
+    <article class="g-card" style="margin-bottom:15px"><div class="g-card-header"><h3>Serviços com menor eficiência</h3><small>Previsto x realizado, sem vínculo individual</small></div>
+    <div class="table-wrapper" style="max-height:330px"><table class="g-table"><thead><tr><th>Serviço</th><th>Registros</th><th>Eficiência média</th></tr></thead><tbody id="g-servicos"></tbody></table></div></article>
+    <article class="g-card"><div class="g-card-header"><h3>Ranking completo por colaborador</h3><small>PLR final • maior para menor</small></div>
+    <div class="table-wrapper" style="max-height:460px"><table class="g-table"><thead><tr><th>#</th><th>Funcionário</th><th>Setor</th><th>Eficiência individual</th><th>PLR final</th></tr></thead><tbody id="g-colaboradores-tabela"></tbody></table></div></article>
+    <p class="g-footer-info">Todos os dados respeitam os filtros da aba Indicadores PLR. As férias reduzem a meta individual sem punir o funcionário. N/D: sem apuração disponível.</p>
+</section>
+
+<section id="secao-ferias" style="display:none">
+    <div class="vac-intro"><div><h2><i class="fa-solid fa-umbrella-beach"></i> Gestão de Férias</h2>
+    <p>Cadastre os períodos para descontar automaticamente os dias úteis da meta individual de PLR.</p></div></div>
+    <div class="vac-kpis"><div class="vac-kpi"><small>Funcionários identificados</small><strong id="vac-total-funcionarios">0</strong></div>
+    <div class="vac-kpi"><small>De férias hoje</small><strong id="vac-em-ferias">0</strong></div>
+    <div class="vac-kpi"><small>Períodos cadastrados</small><strong id="vac-periodos">0</strong></div></div>
+    <div class="vac-box"><h3>Registrar férias</h3><input type="hidden" id="vac-edicao"><div class="vac-grid">
+        <div class="vac-field"><label for="vac-funcionario">Funcionário</label><select id="vac-funcionario"><option value="">SELECIONE</option></select></div>
+        <div class="vac-field"><label for="vac-inicio">Início das férias</label><input type="date" id="vac-inicio"></div>
+        <div class="vac-field"><label for="vac-fim">Fim das férias</label><input type="date" id="vac-fim"></div>
+    </div><div class="vac-actions">
+        <button class="vac-primary" type="button" onclick="feriasSalvar()">Salvar férias</button>
+        <button type="button" onclick="feriasLimpar()">Novo / Cancelar</button>
+        <button type="button" onclick="feriasCadastrarFuncionario()">+ Adicionar funcionário</button>
+    </div><div class="vac-msg" id="vac-mensagem" role="status"></div>
+    <div class="vac-info"><b>Regra:</b> dias de segunda a sexta durante as férias não entram na meta nem nos dias úteis do funcionário. O apontamento diário exibe “Férias”. Feriados não são descontados.</div>
+    <p class="vac-muted">A lista usa funcionários registrados nas APIs de apontamentos, inclusive os registros com erro, mais os nomes adicionados manualmente. Para obter o quadro completo de funcionários sem apontamentos será necessário integrar um endpoint de cadastro de pessoas.</p></div>
+    <div class="vac-box"><h3>Férias cadastradas <span id="vac-registros" class="badge badge-dark">0</span></h3>
+    <div class="vac-search"><input id="vac-busca" placeholder="Buscar funcionário" oninput="feriasRenderizar()"><select id="vac-ano" onchange="feriasRenderizar()"><option value="">Todos os anos</option></select></div>
+    <div class="table-wrapper" style="max-height:440px"><table><thead><tr><th>Funcionário</th><th>Data inicial</th><th>Data final</th><th>Situação</th><th>Ações</th></tr></thead><tbody id="vac-tbody"></tbody></table></div>
+    <div class="vac-actions"><button type="button" onclick="feriasExportar()">Exportar JSON</button><button type="button" onclick="document.getElementById('vac-importar').click()">Importar JSON</button><input type="file" id="vac-importar" accept=".json,application/json" onchange="feriasImportar(event)" style="display:none"></div>
+    <p class="vac-muted">Importante: a versão atual salva o registro no navegador. Até existir API de persistência, não há sincronização automática entre computadores nem com o envio mensal de e-mails.</p></div>
+</section>
         <div id="secao-config" class="data-card" style="display:none">
             <div class="card-header"><h2><i class="fa-solid fa-sliders" style="color:var(--anfeer-red)"></i> Cadastro de Status de Apontamento</h2></div>
             <div class="cfg-content">
