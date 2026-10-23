@@ -65,10 +65,24 @@ function regrasPLR_() {
 function funcionariosPLR_() {
   return linhasPLR_("FUNCIONARIOS",2).filter(r=>r[1]).map(r=>String(r[1]));
 }
+function fatorBrochamentoConfiguradoPLR_() {
+  const row=linhasPLR_("CONFIG",2).find(r=>String(r[0])==="FATOR_PROPRIO_BROCHAMENTO");
+  return row?String(row[1]).trim()==="1":false;
+}
+function salvarFatorBrochamentoPLR_(ativo) {
+  const sh=abaPLR_("CONFIG");
+  const rows=linhasPLR_("CONFIG",2);
+  const i=rows.findIndex(r=>String(r[0])==="FATOR_PROPRIO_BROCHAMENTO");
+  if(i>=0)sh.getRange(i+2,2).setValue(ativo?"1":"0");
+  else sh.appendRow(["FATOR_PROPRIO_BROCHAMENTO",ativo?"1":"0","Define se Brochamento usa seu fator próprio ou a eficiência da Ferramentaria."]);
+}
 function snapshotPLR_() {
   return {ok:true,ferias:feriasPLR_(),regras:regrasPLR_(),funcionarios:funcionariosPLR_(),
+    fatorBrochamentoProprio:fatorBrochamentoConfiguradoPLR_(),
+    envios:registrosEnvioPLR_().slice(-20),
     revisoes:{ferias:propPLR_(PLR_REV_FERIAS),regras:propPLR_(PLR_REV_REGRAS),
-      funcionarios:propPLR_(PLR_REV_FUNC)},consultadoEm:new Date().toISOString()};
+      funcionarios:propPLR_(PLR_REV_FUNC),fator:propPLR_("ANFEER_PLR_REV_FATOR")},
+    consultadoEm:new Date().toISOString()};
 }
 function saidaPLR_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
@@ -147,8 +161,24 @@ function doPost(e) {
     if(!payload||payload.length>600000)throw Error("Payload inválido.");
     const q=JSON.parse(payload);
     chavePLR_(q.key);
-    if(!["salvarFerias","salvarRegras"].includes(q.acao))throw Error("Ação não autorizada.");
+    if(!["salvarFerias","salvarRegras","alterarBrochamento","enviarRelatorios"].includes(q.acao))
+      throw Error("Ação não autorizada.");
+    if(q.acao==="enviarRelatorios") {
+      const comp=String(q.competencia||"");
+      if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(comp))throw Error("Competência inválida.");
+      return saidaPLR_(enviarRelatoriosPLR_(comp,true,q.reenviar===true));
+    }
     lock=LockService.getScriptLock();lock.waitLock(25000);
+    if(q.acao==="alterarBrochamento") {
+      const prop="ANFEER_PLR_REV_FATOR";
+      if(String(q.revisao)!==propPLR_(prop))throw Error("CONFLITO: o fator foi alterado. Atualize a configuração.");
+      if(typeof q.ativo!=="boolean")throw Error("Informe ativo=true ou false.");
+      salvarFatorBrochamentoPLR_(q.ativo);
+      SpreadsheetApp.flush();
+      const novaF=Utilities.getUuid();
+      PropertiesService.getScriptProperties().setProperty(prop,novaF);
+      return saidaPLR_({ok:true,revisao:novaF});
+    }
     const tipo=q.acao==="salvarFerias"?"ferias":"regras";
     const prop=tipo==="ferias"?PLR_REV_FERIAS:PLR_REV_REGRAS;
     if(String(q.revisao)!==propPLR_(prop))
