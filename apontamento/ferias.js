@@ -44,15 +44,21 @@ function feriasValidar(lista) {
     }
     return '';
 }
-function feriasPersistir(novos, extras=funcionariosExtras) {
+async function feriasPersistir(novos, extras=funcionariosExtras) {
     const erro=feriasValidar(novos);
     if(erro)throw new Error(erro);
     const ordenadas=[...novos].sort((a,b)=>b.inicio.localeCompare(a.inicio));
-    localStorage.setItem(FERIAS_KEY,JSON.stringify({versao:1,periodos:ordenadas,funcionarios:extras}));
-    periodosFerias=ordenadas;
-    funcionariosExtras=[...extras];
-    if (dadosPLRCarregados) renderizarPLR();
-    feriasRenderizar();
+    if(typeof plrDriveAtivo==='function' && plrDriveAtivo()){
+        // Falha no Drive não vira gravação apenas local: evita divergência entre usuários.
+        const confirmado=await plrDriveGravar('ferias',{periodos:ordenadas,funcionarios:extras});
+        if(!confirmado)throw Error('O Drive não confirmou a gravação.');
+    }else{
+        localStorage.setItem(FERIAS_KEY,JSON.stringify({versao:1,periodos:ordenadas,funcionarios:extras}));
+        periodosFerias=ordenadas;
+        funcionariosExtras=[...extras];
+        if (dadosPLRCarregados) renderizarPLR();
+        feriasRenderizar();
+    }
 }
 function feriasMensagem(m,erro=false){
     const el=document.getElementById('vac-mensagem');
@@ -66,7 +72,7 @@ function feriasLimpar() {
     document.getElementById('vac-fim').value='';
     feriasMensagem('');
 }
-function feriasCadastrarFuncionario() {
+async function feriasCadastrarFuncionario() {
     const nome=prompt('Nome completo do funcionário que ainda não aparece na lista:');
     if(!nome)return;
     const padronizado=feriasNome(nome);
@@ -74,19 +80,19 @@ function feriasCadastrarFuncionario() {
     if(feriasFuncionarios().some(n=>feriasChave(n)===feriasChave(padronizado))){
         feriasMensagem('Este funcionário já está cadastrado.',true);return;
     }
-    try{feriasPersistir(periodosFerias,[...funcionariosExtras,padronizado]);feriasMensagem('Funcionário adicionado à lista local.');}
+    try{await feriasPersistir(periodosFerias,[...funcionariosExtras,padronizado]);feriasMensagem('Funcionário adicionado '+(typeof plrDriveAtivo==='function'&&plrDriveAtivo()?'ao Google Drive.':'neste navegador.'));}
     catch(e){feriasMensagem(e.message,true);}
     document.getElementById('vac-funcionario').value=padronizado;
 }
-function feriasSalvar() {
+async function feriasSalvar() {
     const nome=document.getElementById('vac-funcionario').value;
     const inicio=document.getElementById('vac-inicio').value, fim=document.getElementById('vac-fim').value;
     const id=feriasEditorId||'ferias-'+Date.now()+'-'+Math.random().toString(36).slice(2);
     const novos=[...periodosFerias.filter(p=>p.id!==id),{id,funcionario:nome,inicio,fim}];
     try {
-        feriasPersistir(novos);
+        await feriasPersistir(novos);
         feriasLimpar();
-        feriasMensagem('Férias salvas com sucesso neste navegador.');
+        feriasMensagem('Férias salvas com sucesso '+(typeof plrDriveAtivo==='function'&&plrDriveAtivo()?'no Google Drive.':'neste navegador.'));
     }catch(e){feriasMensagem(e.message,true);}
 }
 function feriasEditar(id){
@@ -100,10 +106,10 @@ function feriasEditar(id){
     feriasMensagem('Editando as férias de '+p.funcionario+'.');
     document.getElementById('vac-inicio').focus();
 }
-function feriasExcluir(id){
+async function feriasExcluir(id){
     const p=periodosFerias.find(x=>x.id===id);
     if(!p||!confirm('Excluir as férias de '+p.funcionario+' ('+dataBr(p.inicio)+' a '+dataBr(p.fim)+')?'))return;
-    try{feriasPersistir(periodosFerias.filter(x=>x.id!==id));feriasLimpar();feriasMensagem('Período excluído.');}
+    try{await feriasPersistir(periodosFerias.filter(x=>x.id!==id));feriasLimpar();feriasMensagem('Período excluído.');}
     catch(e){feriasMensagem(e.message,true);}
 }
 function feriasExportar() {
@@ -122,7 +128,7 @@ async function feriasImportar(event){
         if(payload.versao!==1||!Array.isArray(payload.periodos)||!Array.isArray(payload.funcionarios))throw Error('Formato JSON inválido.');
         const erro=feriasValidar(payload.periodos);if(erro)throw Error(erro);
         if(!confirm('Substituir as férias e os funcionários adicionais deste navegador pelo arquivo importado?'))return;
-        feriasPersistir(payload.periodos,payload.funcionarios);
+        await feriasPersistir(payload.periodos,payload.funcionarios);
         feriasLimpar();
         feriasMensagem('Configuração importada.');
     }catch(e){feriasMensagem('Erro: '+e.message,true);}
