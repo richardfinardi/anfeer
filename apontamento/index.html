@@ -637,6 +637,25 @@
         <h2>Painel Gerencial PLR</h2><p>Visão consolidada de eficiência, produtividade e aproveitamento.<br>
         <span id="g-subtitulo-periodo">Período selecionado</span></p></div>
         <button class="g-pdf-button" type="button" onclick="gerencialGerarPDF()"><i class="fa-solid fa-file-pdf"></i> PDF Gerencial</button></div>
+    <div class="g-card" style="margin-bottom:15px">
+        <div class="g-card-body" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+                <strong style="color:#1f2937;font-size:.92rem"><i class="fa-solid fa-envelope"></i> Envio manual dos 4 relatórios mensais</strong>
+                <p style="font-size:.77rem;color:#64748b;line-height:1.5;margin-top:5px">
+                    PDFs de Abaixo, Atenção, Excelente e Gerencial para richard@consultoriarf.net, adriana@anfeer-n.com.br e adriana@anfeer.com.br.
+                    Usa os mesmos dados e regras do disparo automático no dia 1.
+                </p>
+                <p id="plr-email-status" role="status" style="font-size:.77rem;margin-top:6px;color:#92400e"></p>
+            </div>
+            <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+                <label for="plr-email-competencia" style="font-size:.74rem;font-weight:800">Competência</label>
+                <input type="month" id="plr-email-competencia" style="padding:9px;border:1px solid #cbd5e1;border-radius:7px">
+                <button id="plr-btn-email" class="cfg-btn cfg-primary" type="button" onclick="plrDriveEnviarEmail()">
+                    <i class="fa-solid fa-paper-plane"></i> Enviar 4 PDFs por e-mail
+                </button>
+            </div>
+        </div>
+    </div>
     <div class="g-filters"><div class="g-filters-top"><strong><i class="fa-solid fa-filter"></i> FILTROS DOS INDICADORES PLR</strong>
         <div class="g-quick"><button onclick="gerencialPeriodoRapido(0)">Mês atual</button><button onclick="gerencialPeriodoRapido(-1)">Mês anterior</button></div></div>
         <div class="filter-bar"><div class="filter-group"><label for="ger-filtro-inicio">Data inicial</label><input type="date" id="ger-filtro-inicio" onchange="gerencialAplicarFiltros()"></div>
@@ -703,9 +722,30 @@
                 <p style="margin-top:7px;color:#64748b;font-size:.73rem">Padrão atual: Brochamento usa o mesmo fator de eficiência da Ferramentaria. O botão permite voltar a calcular o fator próprio de Brochamento.</p>
             </div>
             <div class="cfg-content">
-                <p class="cfg-note">Cadastre o período de vigência, a meta diária e as faixas percentuais. As datas são inclusivas e períodos não podem se sobrepor.
-                <br><strong>Aviso:</strong> como esta tela está hospedada no GitHub, as regras são salvas apenas neste navegador.
-                Para uso compartilhado entre dispositivos será necessário um endpoint de gravação na API ANFEER.</p>
+                <div style="border:1px solid #bfdbfe;background:#f0f7ff;border-radius:10px;padding:15px;margin-bottom:17px">
+                    <h3 style="font-size:.94rem;color:#1e3a8a;margin:0 0 9px">
+                        <i class="fa-solid fa-cloud"></i> Banco compartilhado — Google Drive
+                        <span class="badge badge-dark" id="plr-drive-badge">Sem Drive configurado</span>
+                    </h3>
+                    <p style="font-size:.76rem;color:#475569;margin-bottom:11px;line-height:1.5">
+                        Planilha ANFEER_PLR_BANCO na pasta BANCO_DADOS. A conexão utiliza o Web App do Apps Script autorizado para gravar férias, metas e regras para todos os usuários.
+                        A chave é armazenada somente no navegador, nunca no GitHub.
+                    </p>
+                    <div class="filter-bar" style="margin-bottom:4px">
+                        <div class="filter-group" style="flex:2 1 260px"><label for="plr-drive-url">URL da implantação Apps Script (/exec)</label>
+                            <input id="plr-drive-url" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
+                        <div class="filter-group" style="flex:1 1 190px"><label for="plr-drive-key">Chave de acesso</label>
+                            <input id="plr-drive-key" type="password" autocomplete="off" placeholder="Cole a chave do Apps Script"></div>
+                    </div>
+                    <div class="cfg-actions">
+                        <button type="button" class="cfg-btn cfg-primary" onclick="plrDriveConectar()">Conectar Drive</button>
+                        <button type="button" class="cfg-btn" onclick="plrDriveAtualizar()">Atualizar cadastros</button>
+                        <button type="button" class="cfg-btn" onclick="plrDriveDesconectar()">Desconectar</button>
+                    </div>
+                    <p id="plr-drive-status" role="status" style="margin:6px 0;font-size:.8rem"></p>
+                </div>
+                <p class="cfg-note">Configure as datas de vigência e as faixas percentuais. As datas são inclusivas e períodos não podem se sobrepor.
+                <br>Enquanto a conexão com o Drive não for configurada, os registros continuam somente neste navegador.</p>
                 <input id="cfg-id" type="hidden">
                 <div class="filter-bar">
                     <div class="filter-group"><label for="cfg-inicio">Início da vigência</label><input type="date" id="cfg-inicio"></div>
@@ -774,15 +814,22 @@
             botao.style.background = usarFatorProprioBrochamento ? '#065f46' : '#991b1b';
             botao.style.borderColor = usarFatorProprioBrochamento ? '#065f46' : '#991b1b';
         }
-        function alternarFatorBrochamento() {
+        async function alternarFatorBrochamento() {
             const ligado = !usarFatorProprioBrochamento;
             if (!confirm(ligado
                 ? 'Reativar o cálculo do fator de eficiência próprio do Brochamento?'
                 : 'Desativar o fator próprio do Brochamento e usar o mesmo fator da Ferramentaria?')) return;
-            usarFatorProprioBrochamento = ligado;
-            localStorage.setItem(BROCHA_EF_KEY, ligado ? '1' : '0');
-            atualizaControleFatorBrochamento();
-            if(dadosPLRCarregados)renderizarPLR();
+            if(typeof plrDriveAtivo==='function' && plrDriveAtivo()){
+                try {
+                    const confirmado=await plrDriveGravar('fator',{ativo:ligado});
+                    if(!confirmado)throw Error('O Drive não confirmou a alteração.');
+                }catch(e){alert('Fator não foi alterado: '+e.message);}
+            }else{
+                usarFatorProprioBrochamento = ligado;
+                localStorage.setItem(BROCHA_EF_KEY, ligado ? '1' : '0');
+                atualizaControleFatorBrochamento();
+                if(dadosPLRCarregados)renderizarPLR();
+            }
         }
         let regrasStatus = [];
         try { regrasStatus = JSON.parse(localStorage.getItem(CFG_KEY) || '[]'); if (!Array.isArray(regrasStatus)) regrasStatus=[]; }
@@ -1076,9 +1123,13 @@
                 {min:70,nome:'Bom',cor:'warning'},{min:90,nome:'Excelente',cor:'success'}]);
             cfgMensagem('');
         }
-        function gravarRegras(lista){
+        async function gravarRegras(lista){
             const erro=validarRegras(lista);
             if(erro){cfgMensagem(erro,true);return false;}
+            if(typeof plrDriveAtivo==='function' && plrDriveAtivo()){
+                try{return await plrDriveGravar('regras',{regras:lista});}
+                catch(e){cfgMensagem('Falha ao salvar no Drive: '+e.message,true);return false;}
+            }
             try{localStorage.setItem(CFG_KEY,JSON.stringify(lista));}
             catch(e){cfgMensagem('Falha ao gravar neste navegador.',true);return false;}
             regrasStatus=[...lista].sort((a,b)=>a.inicio.localeCompare(b.inicio));
@@ -1086,7 +1137,7 @@
             if(dadosPLRCarregados)renderizarPLR();
             return true;
         }
-        function salvarRegra(){
+        async function salvarRegra(){
             const id=document.getElementById('cfg-id').value||'regra-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
             const inicio=document.getElementById('cfg-inicio').value,fim=document.getElementById('cfg-fim').value;
             const meta=Number(document.getElementById('cfg-meta').value);
@@ -1095,8 +1146,9 @@
                 nome:row.querySelector('.cfg-nome').value.trim(),cor:row.querySelector('.cfg-cor').value
             })).sort((a,b)=>a.min-b.min);
             const antes=regrasStatus.filter(r=>r.id!==id);
-            if(gravarRegras([...antes,{id,inicio,fim,meta,faixas}])){
-                novoCadastroRegra();cfgMensagem('Período salvo neste navegador.');
+            if(await gravarRegras([...antes,{id,inicio,fim,meta,faixas}])){
+                novoCadastroRegra();
+                cfgMensagem('Período salvo '+(typeof plrDriveAtivo==='function'&&plrDriveAtivo()?'no Google Drive.':'neste navegador.'));
             }
         }
         function listarRegras(){
@@ -1108,9 +1160,9 @@
                     '<td>'+escaparHtml(r.faixas.map(x=>x.min+'% '+x.nome).join(' | '))+'</td>'+
                     '<td><button type="button" class="cfg-btn cfg-edit">Editar</button> <button type="button" class="cfg-btn cfg-del">Excluir</button></td>';
                 tr.querySelector('.cfg-edit').onclick=()=>editarRegra(r.id);
-                tr.querySelector('.cfg-del').onclick=()=>{
+                tr.querySelector('.cfg-del').onclick=async ()=>{
                     if(confirm('Excluir o período de '+dataBr(r.inicio)+' até '+dataBr(r.fim)+'?')){
-                        if(gravarRegras(regrasStatus.filter(x=>x.id!==r.id))){novoCadastroRegra();cfgMensagem('Período excluído.');}
+                        if(await gravarRegras(regrasStatus.filter(x=>x.id!==r.id))){novoCadastroRegra();cfgMensagem('Período excluído.');}
                     }
                 };
                 tb.appendChild(tr);
@@ -1139,7 +1191,7 @@
                 if(json?.versao!==1||!Array.isArray(json.regras))throw new Error('Formato inválido.');
                 const erro=validarRegras(json.regras);if(erro)throw new Error(erro);
                 if(!confirm('Substituir todos os períodos locais pelo arquivo?'))return;
-                if(gravarRegras(json.regras)){novoCadastroRegra();cfgMensagem('Regras importadas com sucesso.');}
+                if(await gravarRegras(json.regras)){novoCadastroRegra();cfgMensagem('Regras importadas com sucesso.');}
             }catch(e){cfgMensagem('Importação: '+e.message,true);}
         }
 
@@ -1442,5 +1494,6 @@
     </script>
     <script src="./ferias.js"></script>
     <script src="./gerencial.js"></script>
+    <script src="./drive-plr.js"></script>
 </body>
 </html>
