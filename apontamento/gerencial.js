@@ -193,7 +193,7 @@ function gerencialRenderizar() {
         ' • '+gerencialNomeFaixa(x.faixa)+'</span></td></tr>').join(''):
         '<tr><td colspan="5">Nenhum funcionário no filtro escolhido.</td></tr>';
 }
-function gerencialGerarPDF() {
+function criarPdfGerencialPLR() {
     const m=ultimoModeloGerencial;
     if(!dadosPLRCarregados||!m){alert('Aguarde o carregamento dos indicadores.');return;}
     const JS=window.jspdf && window.jspdf.jsPDF;
@@ -266,5 +266,12 @@ function gerencialGerarPDF() {
         txt('ANFEER | Gerencial PLR | Gerado em '+new Date().toLocaleString('pt-BR')+
             ' | Pagina '+p+'/'+paginas,14,doc.internal.pageSize.getHeight()-7);
     }
-    doc.save('ANFEER_Gerencial_PLR_'+filtro.inicio+'_a_'+filtro.fim+'.pdf');
+    return doc;
+}
+function gerencialGerarPDF() {
+    const doc=criarPdfGerencialPLR();
+    if(doc) {
+        const f=obterFiltrosAtivos();
+        doc.save('ANFEER_Gerencial_PLR_'+f.inicio+'_a_'+f.fim+'.pdf');
+    }
 }
