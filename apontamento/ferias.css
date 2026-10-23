@@ -1,0 +1,33 @@
+
+/* Cadastro de férias - ANFEER */
+#secao-ferias { --vac-border:#e2e8f0; --vac-ink:#243045; --vac-muted:#64748b; }
+.vac-intro { background:#24313c; color:#fff; border-radius:12px; padding:20px 22px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap; }
+.vac-intro h2 { font-size:1.3rem; margin:0 0 6px; }
+.vac-intro p { color:#d7e0eb; font-size:.81rem; line-height:1.45; }
+.vac-kpis { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 14px; }
+.vac-kpi {border:1px solid var(--vac-border);border-radius:9px;background:#fff;padding:13px 16px;}
+.vac-kpi small {display:block;text-transform:uppercase;color:var(--vac-muted);font-weight:800;font-size:.66rem;letter-spacing:.04em;}
+.vac-kpi strong {display:block;font-size:1.65rem;margin-top:5px;color:var(--vac-ink);}
+.vac-box {background:#fff;border:1px solid var(--vac-border);border-radius:10px;padding:18px;margin-bottom:14px;}
+.vac-box h3 {font-size:1rem;color:var(--vac-ink);margin-bottom:12px;}
+.vac-grid {display:grid;grid-template-columns:minmax(0,2fr) 1fr 1fr;gap:12px;align-items:end;}
+.vac-field {display:flex;flex-direction:column;gap:5px;}
+.vac-field label {font-weight:800;font-size:.7rem;text-transform:uppercase;color:var(--vac-muted);}
+.vac-field input,.vac-field select {border:1px solid var(--vac-border);border-radius:7px;padding:10px;outline:none;background:#f8fafc;width:100%;font-size:.84rem;}
+.vac-field input:focus,.vac-field select:focus {border-color:#d9231d;}
+.vac-actions {display:flex;flex-wrap:wrap;gap:8px;margin-top:13px;}
+.vac-actions button,.vac-mini {border:1px solid var(--vac-border);background:#f8fafc;border-radius:7px;cursor:pointer;padding:9px 12px;font-weight:700;font-size:.79rem;}
+.vac-actions .vac-primary {background:#d9231d;color:#fff;border-color:#d9231d;}
+.vac-actions button:hover,.vac-mini:hover {border-color:#d9231d;}
+.vac-muted {color:var(--vac-muted);font-size:.76rem;line-height:1.45;margin:10px 0;}
+.vac-info {font-size:.81rem;padding:11px 13px;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;border-radius:7px;line-height:1.45;margin:10px 0;}
+.vac-msg {font-size:.79rem;min-height:20px;font-weight:700;margin-top:8px;}
+.vac-search {display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:13px;}
+.vac-search input {flex:1 1 220px;padding:9px 11px;border:1px solid var(--vac-border);border-radius:6px;min-width:0;}
+.vac-search select {padding:9px;border:1px solid var(--vac-border);border-radius:6px;}
+.vac-status {display:inline-block;padding:4px 8px;border-radius:14px;font-size:.72rem;font-weight:800;white-space:nowrap;}
+.vac-status.agora {color:#065f46;background:#d1fae5;}
+.vac-status.futuro {color:#92400e;background:#fef3c7;}
+.vac-status.passado {color:#475569;background:#e2e8f0;}
+@media(max-width:800px){.vac-grid{grid-template-columns:1fr;}.vac-kpis{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:450px){.vac-kpis{grid-template-columns:1fr;}.vac-box{padding:12px;}.vac-intro{padding:16px;}}
