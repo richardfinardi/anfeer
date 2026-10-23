@@ -68,10 +68,14 @@ function gerencialSerieDiaria(m) {
     for(let d=new Date(f.inicio+'T12:00:00'),final=new Date(fim+'T12:00:00');d<=final;d.setDate(d.getDate()+1)){
         if(d.getDay()===0||d.getDay()===6)continue;
         const dia=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-        const meta=configDia(dia).meta*m.funcionarios.length;
-        let horas=0;
-        m.funcionarios.forEach(x=>{horas+=Math.min(configDia(dia).meta,Math.max(0,x.porData[dia]||0));});
-        lista.push({dia,meta,horas});
+        const metaPorPessoa=configDia(dia).meta;
+        let meta=0,horas=0;
+        m.funcionarios.forEach(x=>{
+            if(feriasAtiva(x.nome,dia))return;
+            meta+=metaPorPessoa;
+            horas+=Math.min(metaPorPessoa,Math.max(0,x.porData[dia]||0));
+        });
+        if(meta>0)lista.push({dia,meta,horas});
     }
     if(lista.length<=31)return lista.map(x=>({...x,rotulo:x.dia.slice(8,10)+'/'+x.dia.slice(5,7)}));
     const modo=lista.length>140?'mes':'semana';
@@ -99,7 +103,7 @@ function gerencialModeloAtual() {
         const key=x.setor||'OUTROS';
         if(!porSetor[key])porSetor[key]={nome:key,funcionarios:0,efInd:[],plr:[]};
         porSetor[key].funcionarios++;
-        porSetor[key].efInd.push(x.efInd);
+        if(x.efInd!==null)porSetor[key].efInd.push(x.efInd);
         if(x.plr!==null)porSetor[key].plr.push(x.plr);
     });
     const setores=Object.values(porSetor).map(x=>({
@@ -119,7 +123,7 @@ function gerencialModeloAtual() {
         filtros:f,funcionarios:funcs,ord,faixaCount,setores,servicos,
         eficienciaSetor:src.efSetorAba,
         mediaPLR:media(conhecidos.map(x=>x.plr)),
-        mediaIndividual:media(funcs.map(x=>x.efInd)),
+        mediaIndividual:media(funcs.map(x=>x.efInd).filter(x=>x!==null)),
         totalHoras:funcs.reduce((s,x)=>s+x.horasValidasPLR,0),
         excelentes:conhecidos.length ? faixaCount.EXCELENTE/conhecidos.length*100 : null,
         diasUteis:src.diasUteis,
