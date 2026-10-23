@@ -143,6 +143,32 @@ async function plrDriveGravar(tipo,payload){
         throw Error('A gravação não foi confirmada no Drive. Verifique se outro usuário alterou os dados e clique Atualizar.');
     }finally{plrDriveSaving=false;}
 }
+async function plrDriveMigrarLocal(){
+    if(!plrDriveAtivo()){plrDriveInfo('Conecte o Drive primeiro.',true);return;}
+    let locaisFerias={periodos:[],funcionarios:[]},locaisRegras=[];
+    try{locaisFerias=JSON.parse(localStorage.getItem(FERIAS_KEY)||'{}')||{};}catch(e){}
+    try{locaisRegras=JSON.parse(localStorage.getItem(CFG_KEY)||'[]')||[];}catch(e){}
+    const ferias=Array.isArray(locaisFerias.periodos)?locaisFerias.periodos:[];
+    const pessoas=Array.isArray(locaisFerias.funcionarios)?locaisFerias.funcionarios:[];
+    const regras=Array.isArray(locaisRegras)?locaisRegras:[];
+    if(!ferias.length&&!pessoas.length&&!regras.length){
+        plrDriveInfo('Não foram encontrados cadastros locais para migrar.');return;
+    }
+    const dados=await plrDriveLer();
+    const existente=(dados.ferias.length+dados.regras.length);
+    const mensagem='Migrar deste navegador '+ferias.length+' período(s) de férias, '+
+        pessoas.length+' funcionário(s) manual(is) e '+regras.length+' regra(s) para o Drive?'+
+        (existente?'\\nATENÇÃO: o Drive já tem registros; a migração substitui os cadastros correspondentes.':'');
+    if(!confirm(mensagem))return;
+    try{
+        if(ferias.length||pessoas.length)
+            await plrDriveGravar('ferias',{periodos:ferias,funcionarios:pessoas});
+        if(regras.length)
+            await plrDriveGravar('regras',{regras});
+        plrDriveInfo('Cadastros locais migrados para o Google Drive.');
+    }catch(e){plrDriveInfo('Migração parcial ou falhou: '+e.message,true);}
+}
+
 function plrDriveCompetenciaAnterior(){
     const d=new Date(),a=d.getFullYear(),m=d.getMonth();
     const anterior=new Date(a,m-1,1);
