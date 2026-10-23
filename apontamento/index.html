@@ -1420,7 +1420,7 @@
                 document.getElementById('secao-gerencial').style.display!=='none')gerencialRenderizar();
         }
 
-        function exportarRelatorioPDF() {
+        function criarPdfIndicadoresPLR() {
             if (!dadosPLRCarregados) { alert('Os indicadores ainda não foram carregados.'); return; }
             const jsPDF = window.jspdf && window.jspdf.jsPDF;
             if (!jsPDF) { alert('Biblioteca PDF indisponível. Atualize a página (Ctrl+F5).'); return; }
@@ -1480,7 +1480,14 @@
                 doc.setFont('helvetica','normal'); doc.setFontSize(8);doc.setTextColor(100);
                 doc.text('ANFEER - PLR | Gerado em '+new Date().toLocaleString('pt-BR')+' | Pagina '+p+'/'+total,14,doc.internal.pageSize.getHeight()-7);
             }
-            doc.save('ANFEER_PLR_'+f.inicio+'_a_'+f.fim+'.pdf');
+            return doc;
+        }
+        function exportarRelatorioPDF() {
+            const doc=criarPdfIndicadoresPLR();
+            if(doc) {
+                const f=obterFiltrosAtivos();
+                doc.save('ANFEER_PLR_'+f.inicio+'_a_'+f.fim+'.pdf');
+            }
         }
 
         novoCadastroRegra();
