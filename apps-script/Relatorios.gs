@@ -111,7 +111,8 @@ function dadosMensaisPLR_(competencia) {
   const porSetor={};
   prevPeriodo.forEach(x=>{
     const setor=nomeSetorPLR_(x,mapaServicos);
-    (porSetor[setor] ||= []).push(indiceRegistroPLR_(x));
+    if (!porSetor[setor]) porSetor[setor]=[];
+    porSetor[setor].push(indiceRegistroPLR_(x));
   });
   const metaRegras=regrasPLR_(),ferias=feriasPLR_();
   const somenteFerramentaria=mediaNumeroPLR_(porSetor.FERRAMENTARIA||[]);
@@ -200,7 +201,7 @@ function anexosPLR_(dados) {
     "Fator Brochamento: "+(dados.fatorBrochamentoAtivo?"Próprio":"Mesmo da Ferramentaria")
   ];
   anexos.push(documentoPdfPLR_("GERENCIAL PLR",mes,"Consolidado de indicadores por funcionário",
-    header,membros.sort((a,b)=>(b.plr??-1)-(a.plr??-1)).map(linha),resumo));
+    header,membros.sort((a,b)=>(b.plr===null?-1:b.plr)-(a.plr===null?-1:a.plr)).map(linha),resumo));
   return anexos;
 }
 function registrosEnvioPLR_(){
