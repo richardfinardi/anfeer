@@ -417,6 +417,17 @@
             border-radius: 4px;
         }
 
+
+        .cfg-content { padding:16px; }
+        .cfg-note { padding:12px; margin-bottom:15px; font-size:.82rem; line-height:1.5; background:#fffbeb; color:#854d0e; border:1px solid #fde68a; border-radius:8px; }
+        .cfg-faixa { display:grid; grid-template-columns:110px minmax(120px,1fr) 135px 40px; gap:8px; margin:8px 0; }
+        .cfg-faixa input,.cfg-faixa select { width:100%; min-width:0; padding:9px; border-radius:6px; border:1px solid var(--anfeer-border); }
+        .cfg-actions { display:flex; gap:8px; flex-wrap:wrap; margin:14px 0; }
+        .cfg-btn { cursor:pointer; padding:9px 12px; border-radius:7px; border:1px solid var(--anfeer-border); background:#f8fafc; font-weight:700; }
+        .cfg-btn:hover { border-color:var(--anfeer-red); }
+        .cfg-primary { background:var(--anfeer-red); color:white; border-color:var(--anfeer-red); }
+        #cfg-msg { min-height:20px; font-size:.82rem; margin:8px 0; }
+        @media (max-width:600px) { .cfg-faixa { grid-template-columns:75px minmax(85px,1fr) 96px 31px; gap:5px; } .cfg-faixa input,.cfg-faixa select {padding:6px 4px;font-size:.75rem;} }
         @media (max-width: 600px) {
             .header-container { justify-content: space-between; }
             .brand-logo-main { height: 38px; }
@@ -455,6 +466,9 @@
             </button>
             <button class="panel-btn" id="btn-plr" onclick="alternarPainel('PLR')">
                 <i class="fa-solid fa-calculator"></i> 2. Indicadores PLR
+            </button>
+            <button class="panel-btn" id="btn-config" onclick="alternarPainel('CONFIG')">
+                <i class="fa-solid fa-sliders"></i> 3. Status Apontamento
             </button>
         </div>
 
@@ -555,7 +569,7 @@
                             <tr>
                                 <th>Funcionário</th>
                                 <th>Setor</th>
-                                <th>Média Horas PLR (máx. 8h/dia)</th>
+                                <th>Média Horas Válidas / Dia</th>
                                 <th>Eficiência Individual</th>
                                 <th>Aproveitamento Final PLR</th>
                             </tr>
@@ -578,7 +592,8 @@
                                 <th>Data</th>
                                 <th>Funcionário</th>
                                 <th>Setor</th>
-                                <th>Horas Apontadas (revisão acima de 8h)</th>
+                                <th>Horas Apontadas</th>
+                                <th>Meta do Dia</th>
                                 <th>Status Apontamento</th>
                             </tr>
                         </thead>
@@ -608,6 +623,39 @@
             </div>
 
         </div>
+        <div id="secao-config" class="data-card" style="display:none">
+            <div class="card-header"><h2><i class="fa-solid fa-sliders" style="color:var(--anfeer-red)"></i> Cadastro de Status de Apontamento</h2></div>
+            <div class="cfg-content">
+                <p class="cfg-note">Cadastre o período de vigência, a meta diária e as faixas percentuais. As datas são inclusivas e períodos não podem se sobrepor.
+                <br><strong>Aviso:</strong> como esta tela está hospedada no GitHub, as regras são salvas apenas neste navegador.
+                Para uso compartilhado entre dispositivos será necessário um endpoint de gravação na API ANFEER.</p>
+                <input id="cfg-id" type="hidden">
+                <div class="filter-bar">
+                    <div class="filter-group"><label for="cfg-inicio">Início da vigência</label><input type="date" id="cfg-inicio"></div>
+                    <div class="filter-group"><label for="cfg-fim">Fim da vigência</label><input type="date" id="cfg-fim"></div>
+                    <div class="filter-group"><label for="cfg-meta">Meta diária (horas)</label><input type="number" id="cfg-meta" min="0.01" max="24" step="0.01" value="8"></div>
+                </div>
+                <h3 style="margin:16px 0 10px;font-size:.93rem">Faixas de percentual — limite inferior incluso</h3>
+                <div class="cfg-faixa" style="font-size:.72rem;font-weight:700"><span>A PARTIR DE (%)</span><span>STATUS</span><span>COR</span></div>
+                <div id="cfg-faixas"></div>
+                <div class="cfg-actions">
+                    <button type="button" class="cfg-btn" onclick="adicionarFaixa()">+ Adicionar status</button>
+                    <button type="button" class="cfg-btn cfg-primary" onclick="salvarRegra()">Salvar período</button>
+                    <button type="button" class="cfg-btn" onclick="novoCadastroRegra()">Novo / Cancelar</button>
+                </div>
+                <div id="cfg-msg" role="status"></div>
+                <h3 style="margin:18px 0 10px;font-size:.93rem">Períodos cadastrados</h3>
+                <div class="table-wrapper" style="max-height:400px">
+                    <table><thead><tr><th>De</th><th>Até</th><th>Meta diária</th><th>Faixas</th><th>Ações</th></tr></thead>
+                    <tbody id="cfg-lista"></tbody></table>
+                </div>
+                <div class="cfg-actions">
+                    <button type="button" class="cfg-btn" onclick="exportarRegras()">Exportar JSON</button>
+                    <button type="button" class="cfg-btn" onclick="document.getElementById('cfg-importar').click()">Importar JSON</button>
+                    <input type="file" accept=".json,application/json" id="cfg-importar" onchange="importarRegras(event)" style="display:none">
+                </div>
+            </div>
+        </div>
     </main>
 
     <footer>
@@ -635,6 +683,10 @@
         let rawPrevReal = [];
         let setorAtivo = "";
         let dadosPLRCarregados = false;
+        const CFG_KEY = 'anfeer_status_apontamento_v1';
+        let regrasStatus = [];
+        try { regrasStatus = JSON.parse(localStorage.getItem(CFG_KEY) || '[]'); if (!Array.isArray(regrasStatus)) regrasStatus=[]; }
+        catch(e) { regrasStatus=[]; }
 
         const mapaErrosPorDataEFunc = new Set();
         const mapaFuncionarioSetor = {};
@@ -720,18 +772,12 @@
         }
 
         function alternarPainel(painel) {
-            if (painel === 'ERROS') {
-                document.getElementById('secao-erros').style.display = 'block';
-                document.getElementById('secao-plr').style.display = 'none';
-                document.getElementById('btn-erros').classList.add('active');
-                document.getElementById('btn-plr').classList.remove('active');
-            } else {
-                document.getElementById('secao-erros').style.display = 'none';
-                document.getElementById('secao-plr').style.display = 'block';
-                document.getElementById('btn-erros').classList.remove('active');
-                document.getElementById('btn-plr').classList.add('active');
-                renderizarPLR();
-            }
+            ['ERROS','PLR','CONFIG'].forEach(p=>{
+                document.getElementById('secao-'+p.toLowerCase()).style.display=p===painel?'block':'none';
+                document.getElementById('btn-'+p.toLowerCase()).classList.toggle('active',p===painel);
+            });
+            if (painel==='PLR') renderizarPLR();
+            if (painel==='CONFIG') listarRegras();
         }
 
         async function carregarDadosIniciais() {
@@ -865,6 +911,135 @@
             document.getElementById('wrapper-erros').style.display = 'block';
         }
 
+
+        function configDia(iso) {
+            const regra=regrasStatus.find(r=>iso>=r.inicio && iso<=r.fim);
+            return {regra,meta:regra?regra.meta:8};
+        }
+        function statusPorMeta(iso,horas) {
+            const {regra,meta}=configDia(iso);
+            if (!regra) return null;
+            const perc=Math.max(0,horas)/meta*100;
+            const faixas=[...regra.faixas].sort((a,b)=>a.min-b.min);
+            let faixa=faixas[0];
+            faixas.forEach(f=>{if(perc>=f.min)faixa=f;});
+            return {perc,faixa,meta};
+        }
+        function validarRegras(lista) {
+            if (!Array.isArray(lista)||lista.length>200) return 'Quantidade de períodos inválida.';
+            const ordenadas=[...lista].sort((a,b)=>a.inicio.localeCompare(b.inicio));
+            for (let i=0;i<ordenadas.length;i++) {
+                const r=ordenadas[i];
+                if (!r||typeof r.id!=='string'||!r.id||!extrairDataIso(r.inicio)||!extrairDataIso(r.fim)||r.inicio>r.fim) return 'Datas inválidas.';
+                if (!Number.isFinite(r.meta)||r.meta<=0||r.meta>24) return 'A meta deve estar entre 0,01h e 24h.';
+                if (!Array.isArray(r.faixas)||!r.faixas.length||r.faixas.length>20) return 'Informe de 1 a 20 status.';
+                const fs=[...r.faixas].sort((a,b)=>a.min-b.min);
+                if(fs[0].min!==0) return 'A primeira faixa deve começar em 0%.';
+                for(let j=0;j<fs.length;j++){
+                    const x=fs[j];
+                    if (!Number.isFinite(x.min)||x.min<0||x.min>100||(j&&x.min<=fs[j-1].min))return 'Os percentuais precisam ser crescentes, únicos, de 0 a 100%.';
+                    if(typeof x.nome!=='string'||!x.nome.trim()||x.nome.length>50||!['danger','warning','success','dark'].includes(x.cor))return 'Verifique o nome e a cor dos status.';
+                }
+                if(i&&ordenadas[i-1].fim>=r.inicio)return 'Períodos de vigência não podem se sobrepor.';
+            }
+            return '';
+        }
+        function cfgMensagem(msg,erro=false){
+            const e=document.getElementById('cfg-msg');e.textContent=msg;e.style.color=erro?'#991b1b':'#065f46';
+        }
+        function adicionarFaixa(f={min:'',nome:'',cor:'warning'}){
+            const row=document.createElement('div');
+            row.className='cfg-faixa';
+            row.innerHTML='<input type="number" class="cfg-min" min="0" max="100" step="0.01" aria-label="Percentual mínimo">' +
+                '<input class="cfg-nome" type="text" maxlength="50" aria-label="Nome do status" placeholder="Status">' +
+                '<select class="cfg-cor" aria-label="Cor"><option value="danger">Vermelho</option><option value="warning">Amarelo</option>' +
+                '<option value="success">Verde</option><option value="dark">Cinza</option></select>' +
+                '<button type="button" class="cfg-btn" title="Remover status" aria-label="Remover status">×</button>';
+            row.querySelector('.cfg-min').value=f.min;
+            row.querySelector('.cfg-nome').value=f.nome;
+            row.querySelector('.cfg-cor').value=f.cor;
+            row.querySelector('button').onclick=()=>row.remove();
+            document.getElementById('cfg-faixas').appendChild(row);
+        }
+        function setFaixas(lista){document.getElementById('cfg-faixas').innerHTML='';lista.forEach(adicionarFaixa);}
+        function novoCadastroRegra(){
+            const d=new Date();
+            const iso=x=>x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');
+            document.getElementById('cfg-id').value='';
+            document.getElementById('cfg-inicio').value=iso(new Date(d.getFullYear(),d.getMonth(),1));
+            document.getElementById('cfg-fim').value=iso(new Date(d.getFullYear(),d.getMonth()+1,0));
+            document.getElementById('cfg-meta').value='8';
+            setFaixas([{min:0,nome:'Péssimo',cor:'danger'},{min:50,nome:'Ruim',cor:'danger'},
+                {min:70,nome:'Bom',cor:'warning'},{min:90,nome:'Excelente',cor:'success'}]);
+            cfgMensagem('');
+        }
+        function gravarRegras(lista){
+            const erro=validarRegras(lista);
+            if(erro){cfgMensagem(erro,true);return false;}
+            try{localStorage.setItem(CFG_KEY,JSON.stringify(lista));}
+            catch(e){cfgMensagem('Falha ao gravar neste navegador.',true);return false;}
+            regrasStatus=[...lista].sort((a,b)=>a.inicio.localeCompare(b.inicio));
+            listarRegras();
+            if(dadosPLRCarregados)renderizarPLR();
+            return true;
+        }
+        function salvarRegra(){
+            const id=document.getElementById('cfg-id').value||'regra-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+            const inicio=document.getElementById('cfg-inicio').value,fim=document.getElementById('cfg-fim').value;
+            const meta=Number(document.getElementById('cfg-meta').value);
+            const faixas=[...document.querySelectorAll('#cfg-faixas .cfg-faixa')].map(row=>({
+                min:row.querySelector('.cfg-min').value===''?NaN:Number(row.querySelector('.cfg-min').value),
+                nome:row.querySelector('.cfg-nome').value.trim(),cor:row.querySelector('.cfg-cor').value
+            })).sort((a,b)=>a.min-b.min);
+            const antes=regrasStatus.filter(r=>r.id!==id);
+            if(gravarRegras([...antes,{id,inicio,fim,meta,faixas}])){
+                novoCadastroRegra();cfgMensagem('Período salvo neste navegador.');
+            }
+        }
+        function listarRegras(){
+            const tb=document.getElementById('cfg-lista');tb.innerHTML='';
+            if(!regrasStatus.length){tb.innerHTML='<tr><td colspan="5">Nenhuma regra cadastrada. Fora de vigência configurada, permanece a meta padrão de 8h/dia.</td></tr>';return;}
+            regrasStatus.forEach(r=>{
+                const tr=document.createElement('tr');
+                tr.innerHTML='<td>'+dataBr(r.inicio)+'</td><td>'+dataBr(r.fim)+'</td><td>'+r.meta.toFixed(2)+'h</td>'+
+                    '<td>'+escaparHtml(r.faixas.map(x=>x.min+'% '+x.nome).join(' | '))+'</td>'+
+                    '<td><button type="button" class="cfg-btn cfg-edit">Editar</button> <button type="button" class="cfg-btn cfg-del">Excluir</button></td>';
+                tr.querySelector('.cfg-edit').onclick=()=>editarRegra(r.id);
+                tr.querySelector('.cfg-del').onclick=()=>{
+                    if(confirm('Excluir o período de '+dataBr(r.inicio)+' até '+dataBr(r.fim)+'?')){
+                        if(gravarRegras(regrasStatus.filter(x=>x.id!==r.id))){novoCadastroRegra();cfgMensagem('Período excluído.');}
+                    }
+                };
+                tb.appendChild(tr);
+            });
+        }
+        function editarRegra(id){
+            const r=regrasStatus.find(x=>x.id===id);if(!r)return;
+            document.getElementById('cfg-id').value=r.id;
+            document.getElementById('cfg-inicio').value=r.inicio;
+            document.getElementById('cfg-fim').value=r.fim;
+            document.getElementById('cfg-meta').value=r.meta;
+            setFaixas(r.faixas);cfgMensagem('Editando '+dataBr(r.inicio)+' a '+dataBr(r.fim));
+            document.getElementById('cfg-inicio').focus();
+        }
+        function exportarRegras(){
+            const blob=new Blob([JSON.stringify({versao:1,regras:regrasStatus},null,2)],{type:'application/json'});
+            const url=URL.createObjectURL(blob),a=document.createElement('a');
+            a.href=url;a.download='ANFEER_status_apontamento.json';document.body.appendChild(a);a.click();a.remove();
+            setTimeout(()=>URL.revokeObjectURL(url),1000);
+        }
+        async function importarRegras(event){
+            const file=event.target.files?.[0];event.target.value='';if(!file)return;
+            try{
+                if(file.size>200000)throw new Error('Arquivo muito grande.');
+                const json=JSON.parse(await file.text());
+                if(json?.versao!==1||!Array.isArray(json.regras))throw new Error('Formato inválido.');
+                const erro=validarRegras(json.regras);if(erro)throw new Error(erro);
+                if(!confirm('Substituir todos os períodos locais pelo arquivo?'))return;
+                if(gravarRegras(json.regras)){novoCadastroRegra();cfgMensagem('Regras importadas com sucesso.');}
+            }catch(e){cfgMensagem('Importação: '+e.message,true);}
+        }
+
         function calcularFatorEficienciaEspecificoDoSetor(nomeSetor, lista, mapaServicos) {
             const selecionados = nomeSetor ?
                 lista.filter(i => setorDoServico(i, mapaServicos) === textoNormalizado(nomeSetor)) : lista;
@@ -872,12 +1047,12 @@
             return selecionados.reduce((s, i) => s + fatorDoRegistro(i), 0) / selecionados.length;
         }
 
-        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final, diasUteis, periodo) {
+        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final, diasUteis, periodo, metaTotal) {
             const fator = efSetor === null ? 'N/D (API PREV_REAL sem registros datados no período)' : efSetor.toFixed(1) + '%';
             const plr = final === null ? 'N/D' : final.toFixed(1) + '%';
             alert('MEMÓRIA DE CÁLCULO - ' + nome + '\nPeríodo: ' + periodo +
                 '\n\nDias úteis (seg-sex): ' + diasUteis +
-                '\nMédia de horas computadas: ' + hMedia.toFixed(2) + 'h/dia (máximo de 8h por dia)' +
+                '\nMédia de horas computadas: ' + hMedia.toFixed(2) + 'h/dia; meta total no período: ' + metaTotal.toFixed(2) + 'h' +
                 '\nEficiência individual: ' + efInd.toFixed(1) + '%' +
                 '\nEficiência do setor: ' + fator +
                 '\nAproveitamento PLR: ' + plr +
@@ -897,6 +1072,17 @@
 
             const noPeriodo = d => d && d >= f.inicio && d <= f.fim;
             const diasUteis = diasUteisNoPeriodo(f.inicio, f.fim);
+            const hojeMeta=new Date();
+            const limiteHoje=hojeMeta.getFullYear()+'-'+String(hojeMeta.getMonth()+1).padStart(2,'0')+'-'+String(hojeMeta.getDate()).padStart(2,'0');
+            const fimContabil=f.fim<limiteHoje?f.fim:limiteHoje;
+            let metaTotalPeriodo=0;
+            if(f.inicio<=fimContabil){
+                for(const d=new Date(f.inicio+'T12:00:00'),fim=new Date(fimContabil+'T12:00:00');d<=fim;d.setDate(d.getDate()+1)){
+                    if(d.getDay()===0||d.getDay()===6)continue;
+                    const iso=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+                    metaTotalPeriodo+=configDia(iso).meta;
+                }
+            }
             const horasPeriodo = rawHoras.filter(i => noPeriodo(extrairDataIso(i.data_fim)) &&
                 (!f.servico || textoNormalizado(i.TP_MAQUINA) === textoNormalizado(f.servico)));
             const errosPeriodo = rawErros.filter(i => noPeriodo(extrairDataIso(i.DATA_FIM)));
@@ -953,9 +1139,13 @@
                 const dados = dadosPorFunc[nome];
                 // Somente as horas até 8h de cada DIA contam para o PLR.
                 // A coluna de apontamentos diários abaixo preserva as horas reais para auditoria.
-                const horasValidasPLR = Object.values(dados.porData).reduce((s,h) => s + Math.min(8, Math.max(0,h)),0);
+                let horasValidasPLR=0;
+                Object.entries(dados.porData).forEach(([dia,horas])=>{
+                    const weekday=new Date(dia+'T12:00:00').getDay();
+                    if(weekday!==0&&weekday!==6)horasValidasPLR+=Math.min(configDia(dia).meta,Math.max(0,horas));
+                });
                 const media = diasUteis ? horasValidasPLR / diasUteis : 0;
-                const efInd = Math.min(100, (media / 8) * 100);
+                const efInd = metaTotalPeriodo>0?Math.min(100,horasValidasPLR/metaTotalPeriodo*100):0;
                 const efSetorFunc = calcularFatorEficienciaEspecificoDoSetor(dados.setor, prevPeriodo, mapaServicoSetor);
                 const plr = efSetorFunc === null ? null : Math.min(100, efInd * (efSetorFunc/100));
                 const faixa = plr === null ? 'SEM_DADOS' : plr >= 90 ? 'EXCELENTE' : plr >= 70 ? 'ATENCAO' : 'ABAIXO';
@@ -970,7 +1160,7 @@
                     '<td><strong>' + efInd.toFixed(1) + '%</strong></td>' +
                     '<td><div style="display:flex;align-items:center"><span class="badge ' + classe + '">' + rotulo +
                     '</span><button class="btn-calc-info" title="Memória de cálculo">?</button></div></td>';
-                tr.querySelector('button').addEventListener('click', () => mostrarInfoConta(nome,media,efInd,efSetorFunc,plr,diasUteis,intervalo));
+                tr.querySelector('button').addEventListener('click', () => mostrarInfoConta(nome,media,efInd,efSetorFunc,plr,diasUteis,intervalo,metaTotalPeriodo));
                 trResumo.appendChild(tr);
             });
             document.getElementById('plr-quantidade-funcionarios').textContent = funcionariosExibidos.length + (funcionariosExibidos.length === 1 ? ' funcionário' : ' funcionários');
@@ -995,15 +1185,23 @@
                     const dados = dadosPorFunc[nome];
                     const erro = errosSet.has(nome + '_' + dia);
                     const horas = dados.porData[dia] || 0;
+                    const meta=configDia(dia).meta;
+                    const status=statusPorMeta(dia,horas);
                     let badge;
-                    if (erro) badge = '<span class="badge badge-danger">Erro de apontamento: dia invalidado (0h PLR)</span>';
-                    else if (horas > 8) badge = '<span class="badge badge-warning">Acima de 8h: revisar (PLR limitado a 8h)</span>';
-                    else if (horas === 8) badge = '<span class="badge badge-success">Meta atingida</span>';
-                    else if (horas > 0) badge = '<span class="badge badge-warning">Abaixo da meta</span>';
-                    else badge = '<span class="badge badge-dark">Sem apontamento</span>';
+                    if(erro)badge='<span class="badge badge-danger">Erro de apontamento: dia invalidado (0h PLR)</span>';
+                    else if(status){
+                        badge='<span class="badge badge-'+status.faixa.cor+'">'+escaparHtml(status.faixa.nome)+
+                            ' ('+status.perc.toFixed(1)+'%)</span>';
+                        if(horas>meta)badge+=' <span class="badge badge-warning">Acima da meta: revisar</span>';
+                    }
+                    else if(horas>meta)badge='<span class="badge badge-warning">Acima de 8h: revisar (PLR limitado a 8h)</span>';
+                    else if(horas===meta)badge='<span class="badge badge-success">Meta atingida</span>';
+                    else if(horas>0)badge='<span class="badge badge-warning">Abaixo da meta</span>';
+                    else badge='<span class="badge badge-dark">Sem apontamento</span>';
                     const tr = document.createElement('tr');
                     tr.innerHTML = '<td>' + dataBr(dia) + '</td><td><strong>' + escaparHtml(nome) + '</strong></td>' +
-                        '<td>' + escaparHtml(dados.setor) + '</td><td><strong>' + horas.toFixed(2) + 'h</strong></td><td>' + badge + '</td>';
+                        '<td>' + escaparHtml(dados.setor) + '</td><td><strong>' + horas.toFixed(2) + 'h</strong></td>'+
+                        '<td>'+meta.toFixed(2)+'h</td><td>' + badge + '</td>';
                     tbodyFunc.appendChild(tr);
                 });
             });
@@ -1082,7 +1280,7 @@
                 y = doc.lastAutoTable.finalY+11;
             };
             secao('Resumo por funcionario',['Funcionario','Setor','Media horas PLR (max 8h/dia)','Efic. individual','PLR final'],'tbody-plr-resumo-func');
-            secao('Apontamentos diarios',['Data','Funcionario','Setor','Horas apontadas','Status'],'tbody-plr-func');
+            secao('Apontamentos diarios',['Data','Funcionario','Setor','Horas apontadas','Meta do dia','Status'],'tbody-plr-func');
             // Eficiência por serviço é global do período/setor: a API não associa
             // esses registros a funcionários, portanto não recebe o filtro de faixa.
             secao('Eficiencia por tipo de servico (independente da faixa PLR)',['Servico','Desempenho','Eficiencia media'],'tbody-plr-servico');
@@ -1095,6 +1293,8 @@
             doc.save('ANFEER_PLR_'+f.inicio+'_a_'+f.fim+'.pdf');
         }
 
+        novoCadastroRegra();
+        listarRegras();
         definirPeriodoMes(0);
         carregarDadosIniciais();
     </script>
