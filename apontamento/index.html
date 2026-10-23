@@ -11,6 +11,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" defer></script>
 
     <style>
         :root {
@@ -215,7 +217,7 @@
             text-transform: uppercase;
         }
 
-        .filter-group select {
+        .filter-group select, .filter-group input {
             padding: 10px 12px;
             border-radius: 6px;
             border: 1px solid var(--anfeer-border);
@@ -226,10 +228,17 @@
             width: 100%;
         }
 
-        .filter-group select:focus {
+        .filter-group select:focus, .filter-group input:focus {
             border-color: var(--anfeer-red);
         }
 
+        .filter-actions { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; grid-column: 1 / -1; }
+        .filter-action-btn { border: 1px solid var(--anfeer-border); background: #f8fafc; color: var(--anfeer-dark); border-radius: 6px; cursor: pointer; font-weight: 700; padding: 9px 13px; font-size: .82rem; min-height: 39px; }
+        .filter-action-btn:hover { border-color: var(--anfeer-red); color: var(--anfeer-red); }
+        .filter-action-btn.pdf { margin-left: auto; background: var(--anfeer-red); border-color: var(--anfeer-red); color: #fff; }
+        .filter-action-btn.pdf:hover { background: var(--anfeer-red-hover); }
+        .plr-period-alert { margin: -3px 0 16px; border: 1px solid #fbbf24; background: #fffbeb; color: #92400e; font-size: .82rem; line-height: 1.5; border-radius: 8px; padding: 11px 14px; }
+        @media(max-width:600px) { .filter-action-btn.pdf { margin-left: 0; } .filter-actions { flex-direction: row; } }
         .data-card {
             background: var(--anfeer-card-bg);
             border-radius: 8px;
@@ -486,8 +495,16 @@
                 </button>
             </div>
 
-            <!-- BARRA DE FILTROS -->
+            <!-- FILTROS EXCLUSIVOS DOS INDICADORES PLR -->
             <div class="filter-bar">
+                <div class="filter-group">
+                    <label for="filtro-data-inicio"><i class="fa-regular fa-calendar"></i> Data inicial</label>
+                    <input type="date" id="filtro-data-inicio" onchange="aplicarFiltros()">
+                </div>
+                <div class="filter-group">
+                    <label for="filtro-data-fim"><i class="fa-regular fa-calendar"></i> Data final</label>
+                    <input type="date" id="filtro-data-fim" onchange="aplicarFiltros()">
+                </div>
                 <div class="filter-group">
                     <label for="filtro-servico"><i class="fa-solid fa-gears"></i> Tipo de Serviço</label>
                     <select id="filtro-servico" onchange="aplicarFiltros()">
@@ -500,7 +517,13 @@
                         <option value="">TODOS OS FUNCIONÁRIOS</option>
                     </select>
                 </div>
+                <div class="filter-actions">
+                    <button type="button" class="filter-action-btn" onclick="definirPeriodoMes(0)">Mês atual</button>
+                    <button type="button" class="filter-action-btn" onclick="definirPeriodoMes(-1)">Mês anterior</button>
+                    <button type="button" class="filter-action-btn pdf" id="btn-exportar-plr" onclick="exportarRelatorioPDF()"><i class="fa-solid fa-file-pdf"></i> Exportar PDF filtrado</button>
+                </div>
             </div>
+            <div class="plr-period-alert" id="aviso-plr-periodo" style="display:none" role="status"></div>
 
             <div class="metrics-grid">
                 <div class="metric-card" style="border-left-color: #10B981;">
@@ -522,7 +545,7 @@
                             <tr>
                                 <th>Funcionário</th>
                                 <th>Setor</th>
-                                <th>Média Horas Válidas</th>
+                                <th>Média Horas PLR (máx. 8h/dia)</th>
                                 <th>Eficiência Individual</th>
                                 <th>Aproveitamento Final PLR</th>
                             </tr>
@@ -545,7 +568,7 @@
                                 <th>Data</th>
                                 <th>Funcionário</th>
                                 <th>Setor</th>
-                                <th>Horas Apontadas Válidas</th>
+                                <th>Horas Apontadas (revisão acima de 8h)</th>
                                 <th>Status Apontamento</th>
                             </tr>
                         </thead>
@@ -601,25 +624,81 @@
         let rawHoras = [];
         let rawPrevReal = [];
         let setorAtivo = "";
+        let dadosPLRCarregados = false;
 
         const mapaErrosPorDataEFunc = new Set();
         const mapaFuncionarioSetor = {};
 
-        function calcularDiasUteisDecorridos() {
-            const hoje = new Date();
-            const ano = hoje.getFullYear();
-            const mes = hoje.getMonth();
-            const diaHoje = hoje.getDate();
-
-            let diasUteis = 0;
-            for (let d = 1; d <= diaHoje; d++) {
-                const dataCheck = new Date(ano, mes, d);
-                const diaSemana = dataCheck.getDay();
-                if (diaSemana !== 0 && diaSemana !== 6) {
-                    diasUteis++;
-                }
+        // Datas comparadas como YYYY-MM-DD, sem converter para fuso UTC.
+        function extrairDataIso(valor) {
+            if (!valor) return '';
+            const s = String(valor).trim();
+            let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            let iso = m ? m[1] + '-' + m[2] + '-' + m[3] : '';
+            if (!iso) {
+                m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+                if (m) iso = m[3] + '-' + m[2] + '-' + m[1];
             }
-            return diasUteis > 0 ? diasUteis : 1;
+            if (!iso) return '';
+            const d = new Date(iso + 'T12:00:00');
+            return !Number.isNaN(d.getTime()) && d.getFullYear() === Number(iso.slice(0,4)) &&
+                d.getMonth()+1 === Number(iso.slice(5,7)) && d.getDate() === Number(iso.slice(8,10)) ? iso : '';
+        }
+
+        function dataPrevReal(item) {
+            // Só é permitido consolidar por período se a API trouxer uma data real do apontamento.
+            const chaves = ['data_fim','DATA_FIM','dt_fim','DT_FIM','data_apontamento','DATA_APONTAMENTO',
+                'dt_apontamento','DT_APONTAMENTO','data_realizacao','DATA_REALIZACAO',
+                'dt_realizacao','DT_REALIZACAO','data','DATA','dt_data','DT_DATA'];
+            for (const chave of chaves) {
+                const data = extrairDataIso(item[chave]);
+                if (data) return data;
+            }
+            return '';
+        }
+
+        function dataBr(iso) { return iso ? iso.slice(8,10) + '/' + iso.slice(5,7) + '/' + iso.slice(0,4) : '-'; }
+
+        function definirPeriodoMes(deslocamento) {
+            const h = new Date();
+            const primeiro = new Date(h.getFullYear(), h.getMonth() + deslocamento, 1);
+            const ultimo = deslocamento === 0 ? h : new Date(h.getFullYear(), h.getMonth() + deslocamento + 1, 0);
+            const isoLocal = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+            document.getElementById('filtro-data-inicio').value = isoLocal(primeiro);
+            document.getElementById('filtro-data-fim').value = isoLocal(ultimo);
+            if (dadosPLRCarregados) renderizarPLR();
+        }
+
+        function diasUteisNoPeriodo(inicio, fim) {
+            if (!inicio || !fim || inicio > fim) return 0;
+            const hoje = new Date();
+            const limiteHoje = [hoje.getFullYear(),String(hoje.getMonth()+1).padStart(2,'0'),String(hoje.getDate()).padStart(2,'0')].join('-');
+            const fimEfetivo = fim < limiteHoje ? fim : limiteHoje;
+            if (inicio > fimEfetivo) return 0;
+            let count = 0, d = new Date(inicio + 'T12:00:00'), e = new Date(fimEfetivo + 'T12:00:00');
+            for (; d <= e; d.setDate(d.getDate()+1)) {
+                if (d.getDay() !== 0 && d.getDay() !== 6) count++;
+            }
+            return count;
+        }
+
+        function escaparHtml(valor) {
+            return String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
+        function textoNormalizado(valor) { return String(valor || '').trim().toLocaleUpperCase('pt-BR'); }
+
+        function fatorDoRegistro(item) {
+            const prev = Number(item.PREVISTO) || 0, real = Number(item.REALIZADO) || 0;
+            if (real > prev && prev > 0) return (prev / real) * 100;
+            return (prev <= 0 && real > 0) ? 0 : 100;
+        }
+
+        function setorDoServico(item, mapaServicos) {
+            const tipo = textoNormalizado(item.TIPOSERVICO);
+            if (mapaServicos[tipo]) return mapaServicos[tipo];
+            if (tipo.includes('BROCHAMENTO')) return 'BROCHAMENTO';
+            return 'FERRAMENTARIA';
         }
 
         function formatarDataHoraPtBr(dataIso, horaIso) {
@@ -679,7 +758,8 @@
 
                 montarAbasSetoresEDropdowns();
                 renderizarErros();
-
+                dadosPLRCarregados = true;
+                renderizarPLR();
             } catch (err) {
                 console.error("Erro ao carregar dados:", err);
                 document.getElementById('loading-erros').innerText = "Erro ao carregar dados da API.";
@@ -737,15 +817,14 @@
             });
         }
 
-        function aplicarFiltros() {
-            renderizarErros();
-            renderizarPLR();
-        }
+        function aplicarFiltros() { if (dadosPLRCarregados) renderizarPLR(); }
 
         function obterFiltrosAtivos() {
             return {
                 servico: document.getElementById('filtro-servico').value,
-                func: document.getElementById('filtro-funcionario').value
+                func: document.getElementById('filtro-funcionario').value,
+                inicio: document.getElementById('filtro-data-inicio').value,
+                fim: document.getElementById('filtro-data-fim').value
             };
         }
 
@@ -781,214 +860,224 @@
             document.getElementById('wrapper-erros').style.display = 'block';
         }
 
-        function calcularFatorEficienciaEspecificoDoSetor(nomeSetor) {
-            let filtrados = rawPrevReal;
-            if (nomeSetor === 'BROCHAMENTO') {
-                filtrados = rawPrevReal.filter(item => (item.TIPOSERVICO || '').includes('BROCHAMENTO'));
-            } else if (nomeSetor === 'FERRAMENTARIA') {
-                filtrados = rawPrevReal.filter(item => !(item.TIPOSERVICO || '').includes('BROCHAMENTO'));
-            }
-
-            let soma = 0;
-            let qtd = 0;
-            filtrados.forEach(item => {
-                const prev = parseFloat(item.PREVISTO || 0);
-                const real = parseFloat(item.REALIZADO || 0);
-
-                let ef = 100.0;
-                if (real > prev && prev > 0) {
-                    ef = (prev / real) * 100;
-                } else if (prev === 0 && real > 0) {
-                    ef = 0;
-                }
-                soma += ef;
-                qtd++;
-            });
-
-            return qtd > 0 ? (soma / qtd) : 100.0;
+        function calcularFatorEficienciaEspecificoDoSetor(nomeSetor, lista, mapaServicos) {
+            const selecionados = nomeSetor ?
+                lista.filter(i => setorDoServico(i, mapaServicos) === textoNormalizado(nomeSetor)) : lista;
+            if (!selecionados.length) return null;
+            return selecionados.reduce((s, i) => s + fatorDoRegistro(i), 0) / selecionados.length;
         }
 
-        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final, diasUteis) {
-            alert(`MEMÓRIA DE CÁLCULO - ${nome}\n\n1. Eficiência Individual (Assiduidade):\n   Dias Úteis Decorridos do Mês: ${diasUteis} dias\n   Média Diária: (${hMedia.toFixed(2)}h / 8.00h) = ${efInd.toFixed(1)}%\n\n2. Fator Previsto x Realizado do Próprio Setor: ${efSetor.toFixed(1)}%\n\n3. CÁLCULO DO PLR FINAL:\n   ${efInd.toFixed(1)}% (Individ.) x ${efSetor.toFixed(1)}% (Setor) = ${final.toFixed(1)}%`);
+        function mostrarInfoConta(nome, hMedia, efInd, efSetor, final, diasUteis, periodo) {
+            const fator = efSetor === null ? 'N/D (API PREV_REAL sem registros datados no período)' : efSetor.toFixed(1) + '%';
+            const plr = final === null ? 'N/D' : final.toFixed(1) + '%';
+            alert('MEMÓRIA DE CÁLCULO - ' + nome + '\nPeríodo: ' + periodo +
+                '\n\nDias úteis (seg-sex): ' + diasUteis +
+                '\nMédia de horas computadas: ' + hMedia.toFixed(2) + 'h/dia (máximo de 8h por dia)' +
+                '\nEficiência individual: ' + efInd.toFixed(1) + '%' +
+                '\nEficiência do setor: ' + fator +
+                '\nAproveitamento PLR: ' + plr +
+                '\n\nApontamentos com erro invalidam o dia, seguindo a regra já existente. Feriados não são descontados.');
         }
 
         function renderizarPLR() {
+            if (!dadosPLRCarregados) return;
             const f = obterFiltrosAtivos();
-            const qtdDiasUteisDecorridos = calcularDiasUteisDecorridos();
+            const aviso = document.getElementById('aviso-plr-periodo');
+            const obs = [];
+            if (!f.inicio || !f.fim || f.inicio > f.fim) {
+                aviso.style.display = 'block';
+                aviso.textContent = 'Informe uma data inicial e final válidas, com início menor ou igual ao fim.';
+                return;
+            }
 
-            const todasDatasSet = new Set();
-            rawHoras.forEach(i => { if (i.data_fim) todasDatasSet.add(i.data_fim.split('T')[0]); });
-            const listaDatasOrdenadas = Array.from(todasDatasSet).sort().reverse();
+            const noPeriodo = d => d && d >= f.inicio && d <= f.fim;
+            const diasUteis = diasUteisNoPeriodo(f.inicio, f.fim);
+            const horasPeriodo = rawHoras.filter(i => noPeriodo(extrairDataIso(i.data_fim)) &&
+                (!f.servico || textoNormalizado(i.TP_MAQUINA) === textoNormalizado(f.servico)));
+            const errosPeriodo = rawErros.filter(i => noPeriodo(extrairDataIso(i.DATA_FIM)));
+            const errosSet = new Set(errosPeriodo.map(e => (e.FUNCIONARIO || '').trim() + '_' + extrairDataIso(e.DATA_FIM)));
 
-            const efSetorAbaAtiva = calcularFatorEficienciaEspecificoDoSetor(setorAtivo);
-            document.getElementById('metric-eficiencia-setor').innerText = `${efSetorAbaAtiva.toFixed(1)}%`;
+            const prevSemData = rawPrevReal.filter(i => !dataPrevReal(i)).length;
+            const prevPeriodo = rawPrevReal.filter(i => noPeriodo(dataPrevReal(i)) &&
+                (!f.servico || textoNormalizado(i.TIPOSERVICO) === textoNormalizado(f.servico)));
 
-            const tbodyResumo = document.getElementById('tbody-plr-resumo-func');
-            tbodyResumo.innerHTML = "";
+            if (prevSemData) {
+                obs.push('A API PREV_REAL devolveu ' + prevSemData + ' registro(s) sem data identificável: foram excluídos dos cálculos por período. A API precisa disponibilizar a data do apontamento para calcular a eficiência/PLR desses registros.');
+            }
+            if (!diasUteis) obs.push('O período selecionado não contém dias úteis decorridos. A média individual ficou em 0%.');
+            if (f.servico) obs.push('Os apontamentos com erro não identificam o serviço; continuam invalidando o dia do funcionário conforme a regra existente.');
+            aviso.style.display = obs.length ? 'block' : 'none';
+            aviso.textContent = obs.join(' ');
 
-            const todosFuncionariosSet = new Set();
-            rawHoras.forEach(i => { if (i.funcionario) todosFuncionariosSet.add(i.funcionario.trim()); });
-            rawErros.forEach(e => { if (e.FUNCIONARIO) todosFuncionariosSet.add(e.FUNCIONARIO.trim()); });
-
-            const agrupadoFunc = {};
-
-            todosFuncionariosSet.forEach(funcName => {
-                const setorDoFunc = mapaFuncionarioSetor[funcName] || 'OUTROS';
-                if (!setorAtivo || setorDoFunc === setorAtivo) {
-                    if (!f.func || funcName === f.func) {
-                        agrupadoFunc[funcName] = {
-                            setor: setorDoFunc,
-                            horasPorData: {}
-                        };
-                    }
-                }
-            });
-
+            const mapaServicoSetor = {};
             rawHoras.forEach(i => {
-                const func = i.funcionario ? i.funcionario.trim() : '';
-                const dataIso = i.data_fim ? i.data_fim.split('T')[0] : '';
-                const chaveErro = `${func}_${dataIso}`;
-                const ehApontamentoErro = mapaErrosPorDataEFunc.has(chaveErro);
+                if (i.TP_MAQUINA && i.SETOR) mapaServicoSetor[textoNormalizado(i.TP_MAQUINA)] = textoNormalizado(i.SETOR);
+            });
+            const prevDoSetor = prevPeriodo.filter(i => !setorAtivo ||
+                setorDoServico(i, mapaServicoSetor) === textoNormalizado(setorAtivo));
+            const efSetorAba = calcularFatorEficienciaEspecificoDoSetor('', prevDoSetor, mapaServicoSetor);
+            document.getElementById('metric-eficiencia-setor').textContent = efSetorAba === null ? 'N/D' : efSetorAba.toFixed(1) + '%';
+            document.getElementById('metric-eficiencia-status').textContent = efSetorAba === null ?
+                'Sem registros de previsto x realizado com data válida para este período/setor.' :
+                'Previsto x realizado exclusivamente no período selecionado (média dos registros).';
 
-                if (agrupadoFunc[func] && dataIso && !ehApontamentoErro) {
-                    if (!agrupadoFunc[func].horasPorData[dataIso]) {
-                        agrupadoFunc[func].horasPorData[dataIso] = 0;
-                    }
-                    agrupadoFunc[func].horasPorData[dataIso] += parseFloat(i.horas || 0);
-                }
+            const funcSet = new Set();
+            horasPeriodo.forEach(i => { if (i.funcionario) funcSet.add(i.funcionario.trim()); });
+            if (!f.servico) errosPeriodo.forEach(i => { if (i.FUNCIONARIO) funcSet.add(i.FUNCIONARIO.trim()); });
+            const funcNomes = [...funcSet].filter(nome => (!f.func || textoNormalizado(nome) === textoNormalizado(f.func)) &&
+                (!setorAtivo || textoNormalizado(mapaFuncionarioSetor[nome] || 'OUTROS') === textoNormalizado(setorAtivo))).sort();
+
+            const dadosPorFunc = {};
+            funcNomes.forEach(nome => {
+                dadosPorFunc[nome] = { setor: mapaFuncionarioSetor[nome] || 'OUTROS', porData: {} };
+            });
+            horasPeriodo.forEach(i => {
+                const nome = (i.funcionario || '').trim(), dia = extrairDataIso(i.data_fim);
+                if (!dadosPorFunc[nome] || !dia || errosSet.has(nome + '_' + dia)) return;
+                const qtd = Number(i.horas) || 0;
+                if (qtd > 0) dadosPorFunc[nome].porData[dia] = (dadosPorFunc[nome].porData[dia] || 0) + qtd;
             });
 
-            Object.keys(agrupadoFunc).forEach(funcName => {
-                const dadosF = agrupadoFunc[funcName];
-                
-                let somaH = 0;
-                Object.values(dadosF.horasPorData).forEach(h => somaH += h);
-
-                const mediaHorasDiarias = somaH / qtdDiasUteisDecorridos;
-                let efIndividual = (mediaHorasDiarias >= 8.0 ? 100.0 : (mediaHorasDiarias / 8.0) * 100.0);
-
-                const efSetorProprioDoFunc = calcularFatorEficienciaEspecificoDoSetor(dadosF.setor);
-
-                let aproveitamentoFinal = efIndividual * (efSetorProprioDoFunc / 100);
-                if (aproveitamentoFinal > 100) aproveitamentoFinal = 100;
-
-                let badgeAproveitamento = '';
-                if (aproveitamentoFinal >= 90) {
-                    badgeAproveitamento = `<span class="badge badge-success">${aproveitamentoFinal.toFixed(1)}% (Excelente)</span>`;
-                } else if (aproveitamentoFinal >= 70) {
-                    badgeAproveitamento = `<span class="badge badge-warning">${aproveitamentoFinal.toFixed(1)}% (Atenção)</span>`;
-                } else {
-                    badgeAproveitamento = `<span class="badge badge-danger">${aproveitamentoFinal.toFixed(1)}% (Abaixo)</span>`;
-                }
-
-                const btnInfo = `<button class="btn-calc-info" onclick="mostrarInfoConta('${funcName}', ${mediaHorasDiarias}, ${efIndividual}, ${efSetorProprioDoFunc}, ${aproveitamentoFinal}, ${qtdDiasUteisDecorridos})" title="Clique para ver a memória de cálculo">?</button>`;
-
+            const trResumo = document.getElementById('tbody-plr-resumo-func');
+            trResumo.innerHTML = '';
+            const intervalo = dataBr(f.inicio) + ' a ' + dataBr(f.fim);
+            funcNomes.forEach(nome => {
+                const dados = dadosPorFunc[nome];
+                // Somente as horas até 8h de cada DIA contam para o PLR.
+                // A coluna de apontamentos diários abaixo preserva as horas reais para auditoria.
+                const horasValidasPLR = Object.values(dados.porData).reduce((s,h) => s + Math.min(8, Math.max(0,h)),0);
+                const media = diasUteis ? horasValidasPLR / diasUteis : 0;
+                const efInd = Math.min(100, (media / 8) * 100);
+                const efSetorFunc = calcularFatorEficienciaEspecificoDoSetor(dados.setor, prevPeriodo, mapaServicoSetor);
+                const plr = efSetorFunc === null ? null : Math.min(100, efInd * (efSetorFunc/100));
+                const classe = plr === null ? 'badge-dark' : (plr >= 90 ? 'badge-success' : plr >= 70 ? 'badge-warning' : 'badge-danger');
+                const rotulo = plr === null ? 'N/D' : plr.toFixed(1) + '% (' + (plr >= 90 ? 'Excelente' : plr >= 70 ? 'Atenção' : 'Abaixo') + ')';
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${funcName}</strong></td>
-                    <td>${dadosF.setor}</td>
-                    <td>${mediaHorasDiarias.toFixed(2)}h /dia</td>
-                    <td><strong>${efIndividual.toFixed(1)}%</strong></td>
-                    <td>
-                        <div style="display: flex; align-items: center;">
-                            ${badgeAproveitamento}
-                            ${btnInfo}
-                        </div>
-                    </td>
-                `;
-                tbodyResumo.appendChild(tr);
+                tr.innerHTML = '<td><strong>' + escaparHtml(nome) + '</strong></td>' +
+                    '<td>' + escaparHtml(dados.setor) + '</td>' +
+                    '<td>' + media.toFixed(2) + 'h/dia</td>' +
+                    '<td><strong>' + efInd.toFixed(1) + '%</strong></td>' +
+                    '<td><div style="display:flex;align-items:center"><span class="badge ' + classe + '">' + rotulo +
+                    '</span><button class="btn-calc-info" title="Memória de cálculo">?</button></div></td>';
+                tr.querySelector('button').addEventListener('click', () => mostrarInfoConta(nome,media,efInd,efSetorFunc,plr,diasUteis,intervalo));
+                trResumo.appendChild(tr);
             });
-
             document.getElementById('loading-plr-resumo-func').style.display = 'none';
             document.getElementById('wrapper-plr-resumo-func').style.display = 'block';
 
+            const hoje = new Date();
+            const hojeIso = hoje.getFullYear() + '-' + String(hoje.getMonth()+1).padStart(2,'0') + '-' + String(hoje.getDate()).padStart(2,'0');
+            const fimVisual = f.fim < hojeIso ? f.fim : hojeIso;
+            const diasVisual = [];
+            if (f.inicio <= fimVisual) {
+                for (const d = new Date(f.inicio+'T12:00:00'), e = new Date(fimVisual+'T12:00:00'); d <= e; d.setDate(d.getDate()+1)) {
+                    const iso = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                    if (d.getDay() !== 0 && d.getDay() !== 6 || horasPeriodo.some(i => extrairDataIso(i.data_fim) === iso)) diasVisual.push(iso);
+                }
+            }
+            diasVisual.reverse();
             const tbodyFunc = document.getElementById('tbody-plr-func');
-            tbodyFunc.innerHTML = "";
-
-            listaDatasOrdenadas.forEach(dataIso => {
-                const dataPtBr = dataIso.split('-').reverse().join('/');
-
-                Object.keys(agrupadoFunc).forEach(funcName => {
-                    const dadosF = agrupadoFunc[funcName];
-                    const chaveErro = `${funcName}_${dataIso}`;
-                    const ehApontamentoErro = mapaErrosPorDataEFunc.has(chaveErro);
-                    const hrsDia = dadosF.horasPorData[dataIso] || 0.0;
-
-                    let statusBadge = '';
-                    if (ehApontamentoErro) {
-                        statusBadge = `<span class="badge badge-danger"><i class="fa-solid fa-triangle-exclamation"></i> Apontamento Errado (0.0h)</span>`;
-                    } else if (hrsDia >= 8.0) {
-                        statusBadge = `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Normal (${hrsDia.toFixed(1)}h)</span>`;
-                    } else if (hrsDia > 0) {
-                        statusBadge = `<span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> Baixo (${hrsDia.toFixed(1)}h)</span>`;
-                    } else {
-                        statusBadge = `<span class="badge badge-dark"><i class="fa-solid fa-minus"></i> Sem Apontamento (0.0h)</span>`;
-                    }
-
+            tbodyFunc.innerHTML = '';
+            diasVisual.forEach(dia => {
+                funcNomes.forEach(nome => {
+                    const dados = dadosPorFunc[nome];
+                    const erro = errosSet.has(nome + '_' + dia);
+                    const horas = dados.porData[dia] || 0;
+                    let badge;
+                    if (erro) badge = '<span class="badge badge-danger">Erro de apontamento: dia invalidado (0h PLR)</span>';
+                    else if (horas > 8) badge = '<span class="badge badge-warning">Acima de 8h: revisar (PLR limitado a 8h)</span>';
+                    else if (horas === 8) badge = '<span class="badge badge-success">Meta atingida</span>';
+                    else if (horas > 0) badge = '<span class="badge badge-warning">Abaixo da meta</span>';
+                    else badge = '<span class="badge badge-dark">Sem apontamento</span>';
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${dataPtBr}</td>
-                        <td><strong>${funcName}</strong></td>
-                        <td>${dadosF.setor}</td>
-                        <td><strong>${hrsDia.toFixed(2)}h</strong></td>
-                        <td>${statusBadge}</td>
-                    `;
+                    tr.innerHTML = '<td>' + dataBr(dia) + '</td><td><strong>' + escaparHtml(nome) + '</strong></td>' +
+                        '<td>' + escaparHtml(dados.setor) + '</td><td><strong>' + horas.toFixed(2) + 'h</strong></td><td>' + badge + '</td>';
                     tbodyFunc.appendChild(tr);
                 });
             });
-
             document.getElementById('loading-plr-func').style.display = 'none';
             document.getElementById('wrapper-plr-func').style.display = 'block';
 
-            let prevRealFiltrados = rawPrevReal.filter(i => {
-                const matchServ = !f.servico || i.TIPOSERVICO === f.servico;
-                return matchServ;
+            const servicos = {};
+            prevDoSetor.forEach(i => {
+                const nome = String(i.TIPOSERVICO || 'OUTROS').trim();
+                if (!servicos[nome]) servicos[nome] = {soma:0,qtde:0};
+                servicos[nome].soma += fatorDoRegistro(i);
+                servicos[nome].qtde++;
             });
-
-            const servicosAgrupados = {};
-            prevRealFiltrados.forEach(item => {
-                const servico = item.TIPOSERVICO || 'OUTROS';
-                const prev = parseFloat(item.PREVISTO || 0);
-                const real = parseFloat(item.REALIZADO || 0);
-
-                let efCalculada = 100.0;
-                if (real > prev && prev > 0) {
-                    efCalculada = (prev / real) * 100;
-                } else if (prev === 0 && real > 0) {
-                    efCalculada = 0;
-                }
-
-                if (!servicosAgrupados[servico]) {
-                    servicosAgrupados[servico] = { somaEficiencia: 0, qtdOcorrencias: 0 };
-                }
-                servicosAgrupados[servico].somaEficiencia += efCalculada;
-                servicosAgrupados[servico].qtdOcorrencias += 1;
-            });
-
             const tbodyServ = document.getElementById('tbody-plr-servico');
-            tbodyServ.innerHTML = "";
-
-            Object.keys(servicosAgrupados).forEach(servName => {
-                const dadosS = servicosAgrupados[servName];
-                const efMediaServico = dadosS.somaEficiencia / dadosS.qtdOcorrencias;
-
-                const badgeComp = efMediaServico >= 100.0 
-                    ? `<span class="badge badge-success"><i class="fa-solid fa-check"></i> Dentro do Prazo</span>`
-                    : `<span class="badge badge-danger"><i class="fa-solid fa-xmark"></i> Estourou Tempo</span>`;
-
+            tbodyServ.innerHTML = '';
+            Object.keys(servicos).sort().forEach(nome => {
+                const indice = servicos[nome].soma / servicos[nome].qtde;
+                const badge = indice >= 100 ? '<span class="badge badge-success">Dentro do prazo</span>' :
+                    '<span class="badge badge-danger">Estourou tempo</span>';
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${servName}</strong></td>
-                    <td>${badgeComp}</td>
-                    <td><strong>${efMediaServico.toFixed(1)}%</strong></td>
-                `;
+                tr.innerHTML = '<td><strong>' + escaparHtml(nome) + '</strong></td><td>' + badge +
+                    '</td><td><strong>' + indice.toFixed(1) + '%</strong></td>';
                 tbodyServ.appendChild(tr);
             });
-
             document.getElementById('loading-plr-servico').style.display = 'none';
             document.getElementById('wrapper-plr-servico').style.display = 'block';
         }
 
+        function exportarRelatorioPDF() {
+            if (!dadosPLRCarregados) { alert('Os indicadores ainda não foram carregados.'); return; }
+            const jsPDF = window.jspdf && window.jspdf.jsPDF;
+            if (!jsPDF) { alert('Não foi possível carregar a biblioteca PDF. Verifique a conexão e atualize a página.'); return; }
+            const f = obterFiltrosAtivos();
+            if (!f.inicio || !f.fim || f.inicio > f.fim) { alert('Escolha um período válido.'); return; }
+            renderizarPLR();
+            const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+            const pageWidth = doc.internal.pageSize.getWidth();
+            let y = 15;
+            doc.setFillColor(217,35,29);
+            doc.rect(0,0,pageWidth,4,'F');
+            doc.setFont('helvetica','bold'); doc.setFontSize(17);
+            doc.text('ANFEER | Indicadores PLR',14,y);
+            y += 8;
+            doc.setFont('helvetica','normal'); doc.setFontSize(10);
+            doc.text('Periodo: '+dataBr(f.inicio)+' a '+dataBr(f.fim),14,y); y += 6;
+            const setor = setorAtivo || 'TODOS';
+            doc.text('Setor: '+setor+'  |  Servico: '+(f.servico||'TODOS')+'  |  Funcionario: '+(f.func||'TODOS'),14,y,{maxWidth:pageWidth-28});
+            y += 7;
+            doc.setFont('helvetica','bold'); doc.setFontSize(11);
+            doc.text('Eficiencia do setor: '+document.getElementById('metric-eficiencia-setor').textContent,14,y);
+            y += 7;
+            const aviso = document.getElementById('aviso-plr-periodo');
+            if (aviso.style.display !== 'none') {
+                doc.setTextColor(150,75,0); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+                const linhas = doc.splitTextToSize(aviso.textContent,pageWidth-28);
+                doc.text(linhas,14,y); y += linhas.length*4+3;
+                doc.setTextColor(0,0,0);
+            }
+            if (typeof doc.autoTable !== 'function') { alert('Biblioteca de tabelas PDF não carregada. Atualize a página.'); return; }
+            const secao = (titulo, cabecalhos, tbodyId) => {
+                const linhas = [...document.querySelectorAll('#'+tbodyId+' tr')].map(tr => [...tr.cells].map(td => td.innerText.replace(/\s+/g,' ').trim()));
+                if (y > 175) { doc.addPage(); y = 16; }
+                doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.text(titulo,14,y);
+                y += 3;
+                doc.autoTable({
+                    head:[cabecalhos],body:linhas.length?linhas:[['Sem registros no periodo.']],
+                    startY:y,margin:{left:14,right:14,top:15,bottom:14},
+                    theme:'grid',styles:{font:'helvetica',fontSize:8,cellPadding:2.4,overflow:'linebreak'},
+                    headStyles:{fillColor:[43,45,47],textColor:255},
+                    alternateRowStyles:{fillColor:[248,250,252]}
+                });
+                y = doc.lastAutoTable.finalY+11;
+            };
+            secao('Resumo por funcionario',['Funcionario','Setor','Media horas PLR (max 8h/dia)','Efic. individual','PLR final'],'tbody-plr-resumo-func');
+            secao('Apontamentos diarios',['Data','Funcionario','Setor','Horas apontadas','Status'],'tbody-plr-func');
+            secao('Eficiencia por tipo de servico',['Servico','Desempenho','Eficiencia media'],'tbody-plr-servico');
+            const total = doc.internal.getNumberOfPages();
+            for (let p=1;p<=total;p++) {
+                doc.setPage(p);
+                doc.setFont('helvetica','normal'); doc.setFontSize(8);doc.setTextColor(100);
+                doc.text('ANFEER - PLR | Gerado em '+new Date().toLocaleString('pt-BR')+' | Pagina '+p+'/'+total,14,doc.internal.pageSize.getHeight()-7);
+            }
+            doc.save('ANFEER_PLR_'+f.inicio+'_a_'+f.fim+'.pdf');
+        }
+
+        definirPeriodoMes(0);
         carregarDadosIniciais();
     </script>
 </body>
