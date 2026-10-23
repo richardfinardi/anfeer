@@ -1,25 +1,14 @@
 /**
- * ANFEER PLR • relatórios e envio automático.
- * Colar como segundo arquivo "Relatorios.gs" no mesmo projeto Apps Script de Code.gs.
- * Dependências: bancoPLR_(), regrasPLR_(), feriasPLR_() e chavePLR_().
- * Execute instalarAgendamentoPLR() uma vez após a implantação.
+ * ANFEER PLR - recebe os PDFs ORIGINAIS produzidos pelo navegador (jsPDF).
+ * O Apps Script NÃO fabrica o PDF: apenas valida, envia e registra na aba ENVIOS.
+ * Execute instalarAgendamentoPLR() depois de atualizar para apagar o gatilho
+ * antigo que usava Google Docs. O novo mensal roda pelo GitHub Actions.
  */
-const DESTINATARIOS_ANFEER = [
+const DESTINATARIOS_ANFEER=[
   "richard@consultoriarf.net",
   "adriana@anfeer-n.com.br",
   "adriana@anfeer.com.br"
 ];
-const URL_API_ANFEER = "https://anfeer.consultoriarf.net";
-const ZONA_PLR = "America/Sao_Paulo";
-
-function competenciaAnteriorPLR_() {
-  const hoje = new Date();
-  const ano = Number(Utilities.formatDate(hoje,ZONA_PLR,"yyyy"));
-  const mes = Number(Utilities.formatDate(hoje,ZONA_PLR,"MM"));
-  const anterior = new Date(ano,mes-2,15);
-  return Utilities.formatDate(anterior,ZONA_PLR,"yyyy-MM");
-}
-// Não gerar PDFs no Apps Script: os quatro documentos vêm do mesmo jsPDF do painel.
 
 function registrosEnvioPLR_(){
   return linhasPLR_("ENVIOS",6).filter(r=>r[0]).map(r=>({
