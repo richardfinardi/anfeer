@@ -1,30 +1,42 @@
-# ANFEER PLR — ativação da conexão Google Drive e e-mails
+# ANFEER — PDFs originais no e-mail (mesmo layout do site)
 
-O banco **ANFEER_PLR_BANCO**, na pasta **BANCO_DADOS**, já existe e contém: `FERIAS`, `REGRAS`, `FAIXAS`, `FUNCIONARIOS`, `ENVIOS`, `CONFIG`.
+O sistema usa **exatamente os mesmos geradores jsPDF** da página ANFEER para download, e-mail manual e e-mail mensal automático. A geração antiga no Google Docs foi removida.
 
-## Implantação obrigatória no Google Apps Script
+## Ativar a versão atualizada do Apps Script
 
-O conector Google Drive desta integração não disponibiliza ações para criar/implantar projetos Apps Script. O responsável pela conta Google precisa fazer **uma implantação**, sem instalar nada no servidor ANFEER:
+1. Na planilha `ANFEER_PLR_BANCO`, clique em **Extensões > Apps Script**.
+2. Substitua os arquivos existentes pelos conteúdos atualizados do GitHub:
+   - [Code.gs](../apps-script/Code.gs)
+   - [Relatorios.gs](../apps-script/Relatorios.gs)
+3. Salve. Execute `instalarAgendamentoPLR` **uma única vez para remover o gatilho ANTIGO**, que enviava PDFs simples.
+4. Em **Implantar > Gerenciar implantações > Editar**, crie uma **nova versão** do Web App. A URL `/exec` normalmente permanece a mesma.
 
-1. Abra **ANFEER_PLR_BANCO** no Google Drive e use **Extensões > Apps Script**.
-2. Substitua o conteúdo de `Code.gs` pelo arquivo deste repositório `apps-script/Code.gs`. Adicione um segundo arquivo chamado `Relatorios.gs` com o conteúdo de `apps-script/Relatorios.gs`. Salve.
-3. Execute a função **instalarPLR()** e autorize o acesso a Sheets, Docs, Drive, Gmail e URL Fetch solicitado pelo projeto. Copie a **CHAVE_PLR** exibida no registro de execução. **Não publique a chave**.
-4. Execute **instalarAgendamentoPLR()** e autorize, criando o disparo mensal por volta de 08:00 de São Paulo, no dia 1.
-5. Clique **Implantar > Nova implantação > Aplicativo da Web**, escolha **Executar como eu** e **Quem tem acesso: Qualquer pessoa**. Publique e copie a URL terminada em `/exec`. Não compartilhe URL e chave publicamente.
-6. Abra a aplicação ANFEER na aba **Status Apontamento**, insira URL e chave e clique **Conectar Drive**. Se existirem férias e metas cadastradas anteriormente apenas no navegador, clique **Migrar meus cadastros locais**.
-7. Na aba **Gerencial**, selecione o mês encerrado e use **Enviar 4 PDFs por e-mail** para testar. Confira a aba **ENVIOS** e os e-mails recebidos.
+## Ativar o disparo do dia 1 pelo GitHub Actions
 
-## O que fica integrado
+Abra as configurações do repositório **Settings > Secrets and variables > Actions**. Cadastre dois **Repository secrets**:
+- `ANFEER_PLR_WEBAPP_URL` = URL `/exec` do Apps Script.
+- `ANFEER_PLR_WEBAPP_KEY` = chave retornada por `instalarPLR()` (não cole a chave em arquivos públicos).
 
-- Férias e funcionários: cadastro compartilhado, edição, exclusão e migração dos registros locais.
-- Meta diária, status e vigência: leitura/gravação compartilhada.
-- Brochamento: **fator próprio desativado inicialmente** (usa a eficiência da Ferramentaria), com botão para reativar/desativar. Depois da conexão com o Drive, o modo é compartilhado.
-- E-mails: quatro relatórios (Abaixo, Atenção, Excelente, Gerencial), para os três destinatários especificados, com histórico na aba ENVIOS e prevenção de duplicidade no envio automático.
+Depois, na aba **Actions > ANFEER - PLR PDFs originais > Run workflow**, faça primeiro um teste com **dry_run=true**. O teste gera e valida os quatro PDFs, sem enviar e-mails. Depois marque **dry_run=false** e execute o envio de teste, se desejar. O automático ocorre no **dia 1 de cada mês às 08h (São Paulo)**, com os dados do mês anterior.
 
-## Segurança e limites
+> **Atenção:** enquanto os dois secrets não forem configurados e o Web App atualizado não for implantado, o automático não poderá enviar. Não há envio de relatórios substitutos ou com layout diferente.
 
-- A aplicação pública não traz senhas ou tokens no repositório; a chave fica em Script Properties no Google e no armazenamento do navegador autorizado.
-- O Apps Script precisa ser implantado/autorizado para as rotinas funcionarem. Apenas criar a planilha não ativa o envio.
-- Os PDFs gerados pelo Apps Script são relatórios consolidados por funcionário, com tabelas e indicadores do mês anterior; o layout **não é idêntico** ao PDF interativo exportado pelo navegador.
-- Enquanto não houver implantação, a geração de PDF local e os cálculos PLR permanecem operacionais, mas o e-mail manual e a sincronização de cadastros ainda não funcionam.
-- O teste definitivo (login, gravação por outra máquina, disparo/recebimento de e-mail, validação dos quatro anexos) deve ser realizado após a implantação.
+## O que os PDFs apresentam
+
+- **ABAIXO:** Indicadores PLR filtrados no próprio painel por aproveitamento abaixo de 70%.
+- **ATENÇÃO:** Indicadores PLR filtrados entre 70% e menos de 90%.
+- **EXCELENTE:** Indicadores PLR filtrados em 90% ou mais.
+- **GERENCIAL:** PDF Gerencial completo do painel, sem filtro de faixa.
+
+As férias, metas, faixas de status e fator próprio de Brochamento vêm da planilha **ANFEER_PLR_BANCO**. O sistema consulta os dados da API ANFEER em tempo real ao gerar os relatórios. Após o envio de quatro PDFs válidos, o Apps Script envia para os três destinatários cadastrados e registra o resultado na aba **ENVIOS**, impedindo disparo duplicado da mesma competência.
+
+## Manual
+
+Na aba **Gerencial**, selecione a competência e clique **Enviar 4 PDFs por e-mail**. O mesmo código jsPDF da aplicação gera os arquivos, e o Apps Script só os encaminha. O sistema confere a planilha ENVIOS antes de reenviar.
+
+## Segurança e observações
+
+- Não armazene URL de Web App nem chave em código público.
+- GitHub Actions precisa do Chrome headless via Playwright; o workflow já instala o navegador.
+- O antigo `enviarRelatoriosMensaisPLR` foi desativado para não gerar PDFs em formato inadequado.
+- Não foi realizado envio de teste nesta alteração. A verificação real depende da nova implantação e dos Secrets.
