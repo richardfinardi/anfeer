@@ -175,43 +175,56 @@ function plrDriveCompetenciaAnterior(){
     return anterior.getFullYear()+'-'+String(anterior.getMonth()+1).padStart(2,'0');
 }
 async function plrDriveEnviarEmail(){
-    if(!plrDriveAtivo()){alert('Configure e conecte o Google Drive na aba Status Apontamento antes de enviar relatórios por e-mail.');return;}
-    const campo=document.getElementById('plr-email-competencia');
-    const competencia=campo.value;
-    const referencia=plrDriveCompetenciaAnterior();
-    if(!/^\d{4}-\d{2}$/.test(competencia)||competencia>referencia){
-        alert('Escolha uma competência mensal encerrada (até o mês anterior).');return;
+    if(!plrDriveAtivo()){
+        alert('Configure e conecte o Google Drive na aba Status Apontamento antes do envio por e-mail.');
+        return;
     }
-    const anteriores=plrDriveEnvios.filter(x=>x.competencia===competencia&&x.status==='ENVIADO');
-    const reenviar=anteriores.length>0;
-    const destinatarios='richard@consultoriarf.net, adriana@anfeer-n.com.br e adriana@anfeer.com.br';
-    const pergunta=(reenviar?'Esta competência JÁ FOI ENVIADA. Deseja REENVIAR os quatro PDFs?':
-        'Enviar os quatro PDFs do PLR (Abaixo, Atenção, Excelente e Gerencial)?')+
-        '\nCompetência: '+competencia+'\nDestinatários: '+destinatarios;
-    if(!confirm(pergunta))return;
+    const competencia=document.getElementById('plr-email-competencia').value;
+    const referencia=plrDriveCompetenciaAnterior();
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(competencia)||competencia>referencia){
+        alert('Escolha um mês encerrado, até o mês anterior.');
+        return;
+    }
     const msg=document.getElementById('plr-email-status');
     const btn=document.getElementById('plr-btn-email');
     btn.disabled=true;
-    msg.textContent='Preparando PDFs e processando o envio no Google Apps Script...';
-    const antes=plrDriveEnvios.length;
     try{
-        await plrDrivePOST({acao:'enviarRelatorios',competencia,reenviar});
-        for(let n=0;n<25;n++){
-            await new Promise(r=>setTimeout(r,1500+n*250));
-            const snapshot=await plrDriveLer();
-            const registros=(snapshot.envios||[]).filter(x=>x.competencia===competencia);
-            const antigos=plrDriveEnvios.filter(x=>x.competencia===competencia);
-            // O backend cria um novo registro em ENVIOS somente após concluir o processo.
-            if(registros.length>antigos.length){
-                plrDriveAplicar(snapshot);
-                const ultimo=registros[registros.length-1];
-                if(ultimo.status==='ENVIADO'){msg.textContent='Enviado com sucesso: 4 PDFs para os três destinatários.';return;}
-                throw Error('Falha no envio: '+(ultimo.observacao||'consulte ENVIOS no Drive'));
+        msg.textContent='Conferindo os dados e o histórico do Drive...';
+        const dados=await plrDriveLer();
+        plrDriveAplicar(dados);
+        const anteriores=(dados.envios||[]).filter(x=>x.competencia===competencia&&x.status==='ENVIADO');
+        const reenviar=anteriores.length>0;
+        const destinatarios='richard@consultoriarf.net, adriana@anfeer-n.com.br, adriana@anfeer.com.br';
+        const pergunta=(reenviar?'Este mês JÁ FOI ENVIADO. Confirma o reenvio dos mesmos quatro PDFs do site?':
+            'Enviar os mesmos quatro PDFs do site: Abaixo, Atenção, Excelente e Gerencial?')+
+            '\nCompetência: '+competencia+'\nDestinatários: '+destinatarios;
+        if(!confirm(pergunta)){msg.textContent='Envio cancelado.';return;}
+        msg.textContent='Gerando quatro PDFs idênticos aos exportados na aplicação...';
+        const arquivos=plrGerarQuatroPdfs(competencia);
+        if(arquivos.length!==4)throw Error('Não foi possível produzir os quatro PDFs.');
+        const ultimaData=(dados.envios||[]).filter(x=>x.competencia===competencia)
+            .map(x=>x.enviadoEm).sort().at(-1)||'';
+        msg.textContent='Enviando os PDFs originais pelo Google Drive...';
+        await plrDrivePOST({acao:'enviarPdfsProntos',competencia,reenviar,arquivos});
+        for(let n=0;n<35;n++){
+            await new Promise(r=>setTimeout(r,1200+n*300));
+            const snap=await plrDriveLer();
+            const novos=(snap.envios||[]).filter(x=>x.competencia===competencia&&x.enviadoEm>ultimaData)
+                .sort((a,b)=>a.enviadoEm.localeCompare(b.enviadoEm));
+            if(!novos.length)continue;
+            const ultimo=novos[novos.length-1];
+            plrDriveAplicar(snap);
+            if(ultimo.status==='ENVIADO'){
+                msg.textContent='Enviado: quatro PDFs originais da aplicação para os três destinatários.';
+                return;
             }
+            throw Error('Erro registrado no Drive: '+(ultimo.observacao||'verifique ENVIOS'));
         }
-        throw Error('O envio não foi confirmado. Confira ENVIOS na planilha antes de tentar novamente.');
-    }catch(e){msg.textContent='Envio não confirmado: '+e.message;}
-    finally{btn.disabled=false;}
+        throw Error('Não houve confirmação. Verifique a aba ENVIOS antes de tentar novamente.');
+    }catch(e){
+        console.error('Falha no envio dos relatórios originais:',e);
+        msg.textContent='Não confirmado: '+e.message;
+    }finally{btn.disabled=false;}
 }
 (function iniciarDrivePLR(){
     const cfg=plrDriveConn;
