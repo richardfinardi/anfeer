@@ -11,8 +11,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js" defer></script>
+    <script src="./jspdf.umd.min.js" defer></script>
+    <script src="./jspdf.plugin.autotable.min.js" defer></script>
 
     <style>
         :root {
@@ -1017,7 +1017,7 @@
         function exportarRelatorioPDF() {
             if (!dadosPLRCarregados) { alert('Os indicadores ainda não foram carregados.'); return; }
             const jsPDF = window.jspdf && window.jspdf.jsPDF;
-            if (!jsPDF) { alert('Não foi possível carregar a biblioteca PDF. Verifique a conexão e atualize a página.'); return; }
+            if (!jsPDF) { alert('Biblioteca PDF indisponível. Atualize a página (Ctrl+F5).'); return; }
             const f = obterFiltrosAtivos();
             if (!f.inicio || !f.fim || f.inicio > f.fim) { alert('Escolha um período válido.'); return; }
             renderizarPLR();
@@ -1044,7 +1044,7 @@
                 doc.text(linhas,14,y); y += linhas.length*4+3;
                 doc.setTextColor(0,0,0);
             }
-            if (typeof doc.autoTable !== 'function') { alert('Biblioteca de tabelas PDF não carregada. Atualize a página.'); return; }
+            if (typeof doc.autoTable !== 'function') { alert('Recurso de tabelas PDF indisponível. Atualize a página (Ctrl+F5).'); return; }
             const secao = (titulo, cabecalhos, tbodyId) => {
                 const linhas = [...document.querySelectorAll('#'+tbodyId+' tr')].map(tr => [...tr.cells].map(td => td.innerText.replace(/\s+/g,' ').trim()));
                 if (y > 175) { doc.addPage(); y = 16; }
