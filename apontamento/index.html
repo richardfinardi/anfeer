@@ -1192,9 +1192,9 @@
                     else if(status){
                         badge='<span class="badge badge-'+status.faixa.cor+'">'+escaparHtml(status.faixa.nome)+
                             ' ('+status.perc.toFixed(1)+'%)</span>';
-                        if(horas>meta)badge+=' <span class="badge badge-warning">Acima da meta: revisar</span>';
+
                     }
-                    else if(horas>meta)badge='<span class="badge badge-warning">Acima de 8h: revisar (PLR limitado a 8h)</span>';
+                    else if(horas>meta)badge='<span class="badge badge-success">Meta atingida</span>';
                     else if(horas===meta)badge='<span class="badge badge-success">Meta atingida</span>';
                     else if(horas>0)badge='<span class="badge badge-warning">Abaixo da meta</span>';
                     else badge='<span class="badge badge-dark">Sem apontamento</span>';
