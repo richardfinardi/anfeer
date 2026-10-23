@@ -517,6 +517,15 @@
                         <option value="">TODOS OS FUNCIONÁRIOS</option>
                     </select>
                 </div>
+                <div class="filter-group">
+                    <label for="filtro-aproveitamento"><i class="fa-solid fa-gauge-high"></i> Aproveitamento Final PLR</label>
+                    <select id="filtro-aproveitamento" onchange="aplicarFiltros()">
+                        <option value="">TODOS OS APROVEITAMENTOS</option>
+                        <option value="ABAIXO">ABAIXO (&lt; 70%)</option>
+                        <option value="ATENCAO">ATENÇÃO (70% A &lt; 90%)</option>
+                        <option value="EXCELENTE">EXCELENTE (≥ 90%)</option>
+                    </select>
+                </div>
                 <div class="filter-actions">
                     <button type="button" class="filter-action-btn" onclick="definirPeriodoMes(0)">Mês atual</button>
                     <button type="button" class="filter-action-btn" onclick="definirPeriodoMes(-1)">Mês anterior</button>
@@ -537,6 +546,7 @@
             <div class="data-card">
                 <div class="card-header">
                     <h2><i class="fa-solid fa-id-card" style="color: var(--anfeer-red);"></i> Resumo por Funcionário (Aproveitamento PLR)</h2>
+                    <span class="badge badge-dark" id="plr-quantidade-funcionarios">0 funcionários</span>
                 </div>
                 <div id="loading-plr-resumo-func" class="loading-container"><div class="spinner"></div>Calculando notas dos colaboradores...</div>
                 <div id="wrapper-plr-resumo-func" class="table-wrapper" style="display:none;">
@@ -817,6 +827,7 @@
             return {
                 servico: document.getElementById('filtro-servico').value,
                 func: document.getElementById('filtro-funcionario').value,
+                aproveitamento: document.getElementById('filtro-aproveitamento').value,
                 inicio: document.getElementById('filtro-data-inicio').value,
                 fim: document.getElementById('filtro-data-fim').value
             };
@@ -935,6 +946,9 @@
             const trResumo = document.getElementById('tbody-plr-resumo-func');
             trResumo.innerHTML = '';
             const intervalo = dataBr(f.inicio) + ' a ' + dataBr(f.fim);
+            // O filtro é aplicado APÓS o cálculo do PLR individual, mantendo
+            // as médias e a eficiência do setor inalteradas.
+            const funcionariosExibidos = [];
             funcNomes.forEach(nome => {
                 const dados = dadosPorFunc[nome];
                 // Somente as horas até 8h de cada DIA contam para o PLR.
@@ -944,6 +958,9 @@
                 const efInd = Math.min(100, (media / 8) * 100);
                 const efSetorFunc = calcularFatorEficienciaEspecificoDoSetor(dados.setor, prevPeriodo, mapaServicoSetor);
                 const plr = efSetorFunc === null ? null : Math.min(100, efInd * (efSetorFunc/100));
+                const faixa = plr === null ? 'SEM_DADOS' : plr >= 90 ? 'EXCELENTE' : plr >= 70 ? 'ATENCAO' : 'ABAIXO';
+                if (f.aproveitamento && f.aproveitamento !== faixa) return;
+                funcionariosExibidos.push(nome);
                 const classe = plr === null ? 'badge-dark' : (plr >= 90 ? 'badge-success' : plr >= 70 ? 'badge-warning' : 'badge-danger');
                 const rotulo = plr === null ? 'N/D' : plr.toFixed(1) + '% (' + (plr >= 90 ? 'Excelente' : plr >= 70 ? 'Atenção' : 'Abaixo') + ')';
                 const tr = document.createElement('tr');
@@ -956,6 +973,7 @@
                 tr.querySelector('button').addEventListener('click', () => mostrarInfoConta(nome,media,efInd,efSetorFunc,plr,diasUteis,intervalo));
                 trResumo.appendChild(tr);
             });
+            document.getElementById('plr-quantidade-funcionarios').textContent = funcionariosExibidos.length + (funcionariosExibidos.length === 1 ? ' funcionário' : ' funcionários');
             document.getElementById('loading-plr-resumo-func').style.display = 'none';
             document.getElementById('wrapper-plr-resumo-func').style.display = 'block';
 
@@ -973,7 +991,7 @@
             const tbodyFunc = document.getElementById('tbody-plr-func');
             tbodyFunc.innerHTML = '';
             diasVisual.forEach(dia => {
-                funcNomes.forEach(nome => {
+                funcionariosExibidos.forEach(nome => {
                     const dados = dadosPorFunc[nome];
                     const erro = errosSet.has(nome + '_' + dia);
                     const horas = dados.porData[dia] || 0;
@@ -1033,6 +1051,10 @@
             doc.text('Periodo: '+dataBr(f.inicio)+' a '+dataBr(f.fim),14,y); y += 6;
             const setor = setorAtivo || 'TODOS';
             doc.text('Setor: '+setor+'  |  Servico: '+(f.servico||'TODOS')+'  |  Funcionario: '+(f.func||'TODOS'),14,y,{maxWidth:pageWidth-28});
+            y += 6;
+            const nomesFaixas = { ABAIXO: 'ABAIXO (< 70%)', ATENCAO: 'ATENCAO (70-89,9%)', EXCELENTE: 'EXCELENTE (>= 90%)' };
+            doc.text('Aproveitamento final: '+(nomesFaixas[f.aproveitamento] || 'TODOS')+
+                '  |  '+document.getElementById('plr-quantidade-funcionarios').textContent,14,y);
             y += 7;
             doc.setFont('helvetica','bold'); doc.setFontSize(11);
             doc.text('Eficiencia do setor: '+document.getElementById('metric-eficiencia-setor').textContent,14,y);
@@ -1061,7 +1083,9 @@
             };
             secao('Resumo por funcionario',['Funcionario','Setor','Media horas PLR (max 8h/dia)','Efic. individual','PLR final'],'tbody-plr-resumo-func');
             secao('Apontamentos diarios',['Data','Funcionario','Setor','Horas apontadas','Status'],'tbody-plr-func');
-            secao('Eficiencia por tipo de servico',['Servico','Desempenho','Eficiencia media'],'tbody-plr-servico');
+            // Eficiência por serviço é global do período/setor: a API não associa
+            // esses registros a funcionários, portanto não recebe o filtro de faixa.
+            secao('Eficiencia por tipo de servico (independente da faixa PLR)',['Servico','Desempenho','Eficiencia media'],'tbody-plr-servico');
             const total = doc.internal.getNumberOfPages();
             for (let p=1;p<=total;p++) {
                 doc.setPage(p);
