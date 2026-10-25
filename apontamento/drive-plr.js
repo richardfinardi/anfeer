@@ -13,7 +13,9 @@ function plrDriveInfo(msg,erro=false){
     const s=document.getElementById('plr-drive-status');
     if(s){s.textContent=msg;s.style.color=erro?'#991b1b':'#065f46';}
     const badge=document.getElementById('plr-drive-badge');
-    if(badge)badge.textContent=plrDriveAtivo()?'Drive configurado':'Sem Drive configurado';
+    if(badge)badge.textContent=plrDriveAtivo()?'Conectado':'Não conectado';
+    const detalhes=document.getElementById('plr-drive-advanced');
+    if(detalhes && !plrDriveAtivo()) detalhes.open=true;
 }
 function plrDriveJSONP(config){
     return new Promise((resolve,reject)=>{
@@ -62,7 +64,9 @@ function plrDriveAplicar(dados){
     if(typeof atualizaControleFatorBrochamento==='function')atualizaControleFatorBrochamento();
     listarRegras();feriasRenderizar();
     if(dadosPLRCarregados)renderizarPLR();
-    plrDriveInfo('Google Drive conectado — férias, regras e fator sincronizados.');
+    plrDriveInfo('Conectado. Férias, metas e fator de eficiência sincronizados.');
+    const detalhes=document.getElementById('plr-drive-advanced');
+    if(detalhes)detalhes.open=false;
 }
 async function plrDriveConectar(){
     const inputUrl=document.getElementById('plr-drive-url').value.trim();
@@ -229,7 +233,8 @@ async function plrDriveEnviarEmail(){
 (function iniciarDrivePLR(){
     const cfg=plrDriveConn;
     const input=document.getElementById('plr-drive-url');
-    if(input)input.value=cfg?.url||'';
+    // Não exibir o endereço salvo no formulário: URL e chave ficam ocultos na tela.
+    if(input)input.value='';
     const competencia=document.getElementById('plr-email-competencia');
     if(competencia)competencia.value=plrDriveCompetenciaAnterior();
     plrDriveInfo(cfg?'Drive configurado, verificando acesso...':'Drive não configurado. Cadastros ainda são locais.');
