@@ -725,28 +725,39 @@
                 <div style="border:1px solid #bfdbfe;background:#f0f7ff;border-radius:10px;padding:15px;margin-bottom:17px">
                     <h3 style="font-size:.94rem;color:#1e3a8a;margin:0 0 9px">
                         <i class="fa-solid fa-cloud"></i> Banco compartilhado — Google Drive
-                        <span class="badge badge-dark" id="plr-drive-badge">Sem Drive configurado</span>
+                        <span class="badge badge-dark" id="plr-drive-badge">Verificando conexão</span>
                     </h3>
-                    <p style="font-size:.76rem;color:#475569;margin-bottom:11px;line-height:1.5">
-                        Planilha ANFEER_PLR_BANCO na pasta BANCO_DADOS. A conexão utiliza o Web App do Apps Script autorizado para gravar férias, metas e regras para todos os usuários.
-                        A chave é armazenada somente no navegador, nunca no GitHub.
-                    </p>
-                    <div class="filter-bar" style="margin-bottom:4px">
-                        <div class="filter-group" style="flex:2 1 260px"><label for="plr-drive-url">URL da implantação Apps Script (/exec)</label>
-                            <input id="plr-drive-url" type="url" placeholder="https://script.google.com/macros/s/.../exec"></div>
-                        <div class="filter-group" style="flex:1 1 190px"><label for="plr-drive-key">Chave de acesso</label>
-                            <input id="plr-drive-key" type="password" autocomplete="off" placeholder="Cole a chave do Apps Script"></div>
+                    <p id="plr-drive-status" role="status" style="margin:6px 0 12px;font-size:.82rem"></p>
+                    <div class="cfg-actions" style="margin:0">
+                        <button type="button" class="cfg-btn" onclick="plrDriveAtualizar()">
+                            <i class="fa-solid fa-rotate"></i> Atualizar cadastros
+                        </button>
                     </div>
-                    <div class="cfg-actions">
-                        <button type="button" class="cfg-btn cfg-primary" onclick="plrDriveConectar()">Conectar Drive</button>
-                        <button type="button" class="cfg-btn" onclick="plrDriveAtualizar()">Atualizar cadastros</button>
-                        <button type="button" class="cfg-btn" onclick="plrDriveMigrarLocal()">Migrar meus cadastros locais</button>
-                        <button type="button" class="cfg-btn" onclick="plrDriveDesconectar()">Desconectar</button>
-                    </div>
-                    <p id="plr-drive-status" role="status" style="margin:6px 0;font-size:.8rem"></p>
+                    <details id="plr-drive-advanced" style="margin-top:12px;border-top:1px solid #dbeafe;padding-top:10px">
+                        <summary style="cursor:pointer;color:#64748b;font-size:.76rem;font-weight:600;user-select:none">
+                            Configuração da conexão (somente se precisar reconectar)
+                        </summary>
+                        <p style="font-size:.75rem;color:#64748b;margin:10px 0">
+                            A conexão atual é mantida no navegador. Não altere estes dados se estiver funcionando.
+                        </p>
+                        <div class="filter-bar" style="margin-bottom:4px">
+                            <div class="filter-group" style="flex:2 1 260px">
+                                <label for="plr-drive-url">URL do Apps Script (/exec)</label>
+                                <input id="plr-drive-url" type="url" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
+                            </div>
+                            <div class="filter-group" style="flex:1 1 190px">
+                                <label for="plr-drive-key">Chave de acesso</label>
+                                <input id="plr-drive-key" type="password" autocomplete="off" placeholder="Informe a chave para reconectar">
+                            </div>
+                        </div>
+                        <div class="cfg-actions">
+                            <button type="button" class="cfg-btn cfg-primary" onclick="plrDriveConectar()">Conectar Drive</button>
+                            <button type="button" class="cfg-btn" onclick="plrDriveMigrarLocal()">Migrar meus cadastros locais</button>
+                            <button type="button" class="cfg-btn" onclick="plrDriveDesconectar()">Desconectar</button>
+                        </div>
+                    </details>
                 </div>
-                <p class="cfg-note">Configure as datas de vigência e as faixas percentuais. As datas são inclusivas e períodos não podem se sobrepor.
-                <br>Enquanto a conexão com o Drive não for configurada, os registros continuam somente neste navegador.</p>
+                <p class="cfg-note">Cadastre os períodos de vigência, a meta diária e as faixas percentuais. As datas são inclusivas e períodos não podem se sobrepor.</p>
                 <input id="cfg-id" type="hidden">
                 <div class="filter-bar">
                     <div class="filter-group"><label for="cfg-inicio">Início da vigência</label><input type="date" id="cfg-inicio"></div>
