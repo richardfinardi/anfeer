@@ -3,17 +3,54 @@
  */
 const PLR_DRIVE_LOCAL='anfeer_plr_webapp_v1';
 let plrDriveConn=null;
+let plrDriveOnline=false;
+const PLR_DRIVE_URL_RE=/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec\/?$/;
+function plrDriveConfigValida(cfg){
+    return !!(cfg&&typeof cfg.url==='string'&&PLR_DRIVE_URL_RE.test(cfg.url)&&
+        typeof cfg.key==='string'&&cfg.key.length>=20);
+}
+// Cópia local de recuperação quando a preferência do localStorage some.
+// Não é enviada ao GitHub, e nunca substitui validação do Apps Script.
+const PLR_DRIVE_DB='anfeer_plr_conexao_local_v1';
+function plrDriveAbrirBackup(){
+    return new Promise((resolve,reject)=>{
+        if(!('indexedDB' in window)){resolve(null);return;}
+        const req=indexedDB.open(PLR_DRIVE_DB,1);
+        req.onupgradeneeded=()=>req.result.createObjectStore('config');
+        req.onsuccess=()=>resolve(req.result);
+        req.onerror=()=>reject(req.error);
+    });
+}
+async function plrDriveBackupOperar(acao,valor){
+    let db;
+    try{
+        db=await plrDriveAbrirBackup();
+        if(!db)return null;
+        return await new Promise((resolve,reject)=>{
+            const tx=db.transaction('config',acao==='ler'?'readonly':'readwrite');
+            const store=tx.objectStore('config');
+            const req=acao==='ler'?store.get('drive'):
+                acao==='apagar'?store.delete('drive'):store.put(valor,'drive');
+            let resultado=null;
+            req.onsuccess=()=>{resultado=req.result;};
+            tx.oncomplete=()=>resolve(resultado);
+            tx.onerror=()=>reject(tx.error);
+            tx.onabort=()=>reject(tx.error);
+        });
+    }catch(e){console.warn('Backup local do Drive indisponível:',e);return null;}
+    finally{if(db)db.close();}
+}
 let plrDriveRevision={ferias:'0',regras:'0',funcionarios:'0',fator:'0'};
 let plrDriveEnvios=[];
 let plrDriveSaving=false;
 try{const x=JSON.parse(localStorage.getItem(PLR_DRIVE_LOCAL)||'null');
-    if(x?.url&&x?.key)plrDriveConn=x;}catch(e){console.warn('PLR Drive configuração inválida.');}
+    if(plrDriveConfigValida(x))plrDriveConn=x;}catch(e){console.warn('PLR Drive configuração inválida.');}
 function plrDriveAtivo(){return Boolean(plrDriveConn?.url&&plrDriveConn?.key);}
 function plrDriveInfo(msg,erro=false){
     const s=document.getElementById('plr-drive-status');
     if(s){s.textContent=msg;s.style.color=erro?'#991b1b':'#065f46';}
     const badge=document.getElementById('plr-drive-badge');
-    if(badge)badge.textContent=plrDriveAtivo()?'Conectado':'Não conectado';
+    if(badge)badge.textContent=plrDriveOnline?'Conectado':(plrDriveAtivo()?'Sem acesso':'Não conectado');
     const detalhes=document.getElementById('plr-drive-advanced');
     if(detalhes && !plrDriveAtivo()) detalhes.open=true;
 }
@@ -61,6 +98,7 @@ function plrDriveAplicar(dados){
         fator:String(dados.revisoes?.fator||'0')
     };
     plrDriveEnvios=dados.envios||[];
+    plrDriveOnline=true;
     if(typeof atualizaControleFatorBrochamento==='function')atualizaControleFatorBrochamento();
     listarRegras();feriasRenderizar();
     if(dadosPLRCarregados)renderizarPLR();
@@ -71,7 +109,7 @@ function plrDriveAplicar(dados){
 async function plrDriveConectar(){
     const inputUrl=document.getElementById('plr-drive-url').value.trim();
     const key=document.getElementById('plr-drive-key').value.trim();
-    if(!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec\/?$/.test(inputUrl)){
+    if(!PLR_DRIVE_URL_RE.test(inputUrl)){
         plrDriveInfo('Informe o link /exec da implantação do Apps Script.',true);return;
     }
     if(key.length<20){plrDriveInfo('Informe a chave criada pela função instalarPLR().',true);return;}
@@ -81,20 +119,30 @@ async function plrDriveConectar(){
         const dados=await plrDriveLer(config);
         plrDriveConn=config;
         localStorage.setItem(PLR_DRIVE_LOCAL,JSON.stringify(config));
+        await plrDriveBackupOperar('salvar',config);
         plrDriveAplicar(dados);
         document.getElementById('plr-drive-key').value='';
         document.getElementById('plr-drive-key').placeholder='Chave salva neste navegador';
-    }catch(e){plrDriveInfo('Conexão não ativada: '+e.message,true);}
+    }catch(e){
+        plrDriveOnline=false;
+        plrDriveInfo('Conexão não ativada: '+e.message,true);
+    }
 }
 async function plrDriveAtualizar(){
     if(!plrDriveAtivo()){plrDriveInfo('O Drive ainda não está configurado.',true);return;}
     try{plrDriveInfo('Buscando dados compartilhados...');plrDriveAplicar(await plrDriveLer());}
-    catch(e){plrDriveInfo('Falha ao atualizar: '+e.message,true);}
+    catch(e){
+        plrDriveOnline=false;
+        plrDriveInfo('Falha ao atualizar: '+e.message+'. Configuração preservada para nova tentativa.',true);
+    }
 }
-function plrDriveDesconectar(){
+async function plrDriveDesconectar(){
     if(!confirm('Desconectar o Drive deste navegador? Os dados da planilha serão preservados.'))return;
     localStorage.removeItem(PLR_DRIVE_LOCAL);
-    plrDriveConn=null;plrDriveInfo('Drive desconectado. Modo local ativo.');
+    await plrDriveBackupOperar('apagar');
+    plrDriveConn=null;
+    plrDriveOnline=false;
+    plrDriveInfo('Drive desconectado. Modo local ativo.');
 }
 function plrDriveIgual(tipo,dados,pedido) {
     if(tipo==='ferias'){
@@ -231,12 +279,36 @@ async function plrDriveEnviarEmail(){
     }finally{btn.disabled=false;}
 }
 (function iniciarDrivePLR(){
-    const cfg=plrDriveConn;
     const input=document.getElementById('plr-drive-url');
-    // Não exibir o endereço salvo no formulário: URL e chave ficam ocultos na tela.
-    if(input)input.value='';
+    const chave=document.getElementById('plr-drive-key');
+    // Evita que gerenciadores de senha preencham RICHARD e a senha do login
+    // nos campos de configuração do Apps Script.
+    function limparPreenchimentoAutomatico(){
+        if(input && input.value && !PLR_DRIVE_URL_RE.test(input.value.trim()))input.value='';
+        if(chave && !plrDriveConn && chave.value)chave.value='';
+    }
+    limparPreenchimentoAutomatico();
+    window.addEventListener('pageshow',limparPreenchimentoAutomatico);
     const competencia=document.getElementById('plr-email-competencia');
     if(competencia)competencia.value=plrDriveCompetenciaAnterior();
-    plrDriveInfo(cfg?'Drive configurado, verificando acesso...':'Drive não configurado. Cadastros ainda são locais.');
-    if(cfg)plrDriveAtualizar();
+    (async()=>{
+        // Prefere a configuração atual. Se o navegador perdeu localStorage,
+        // tenta recuperar a última conexão validada do IndexedDB.
+        if(!plrDriveConn){
+            plrDriveInfo('Procurando conexão anterior salva neste navegador...');
+            const backup=await plrDriveBackupOperar('ler');
+            if(plrDriveConfigValida(backup)){
+                plrDriveConn=backup;
+                try{localStorage.setItem(PLR_DRIVE_LOCAL,JSON.stringify(backup));}catch(e){}
+            }
+        }else{
+            plrDriveBackupOperar('salvar',plrDriveConn);
+        }
+        if(plrDriveConn){
+            plrDriveInfo('Configuração recuperada. Verificando acesso ao Drive...');
+            await plrDriveAtualizar();
+        }else{
+            plrDriveInfo('Conexão não encontrada neste navegador. Reconecte uma vez com a URL /exec e a chave do Apps Script.',true);
+        }
+    })().catch(e=>plrDriveInfo('Não foi possível recuperar a conexão: '+e.message,true));
 })();
