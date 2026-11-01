@@ -738,16 +738,16 @@
                             Configuração da conexão (somente se precisar reconectar)
                         </summary>
                         <p style="font-size:.75rem;color:#64748b;margin:10px 0">
-                            A conexão atual é mantida no navegador. Não altere estes dados se estiver funcionando.
+                            A conexão fica salva neste navegador, com cópia local de recuperação. Não altere se estiver funcionando. Se aparecer RICHARD no campo da URL, é preenchimento automático do navegador, não o Apps Script.
                         </p>
                         <div class="filter-bar" style="margin-bottom:4px">
                             <div class="filter-group" style="flex:2 1 260px">
                                 <label for="plr-drive-url">URL do Apps Script (/exec)</label>
-                                <input id="plr-drive-url" type="url" autocomplete="off" placeholder="https://script.google.com/macros/s/.../exec">
+                                <input id="plr-drive-url" name="anfeer_plr_endpoint_config" type="url" autocomplete="off" spellcheck="false" readonly onfocus="this.removeAttribute('readonly')" onpointerdown="this.removeAttribute('readonly')" placeholder="https://script.google.com/macros/s/.../exec">
                             </div>
                             <div class="filter-group" style="flex:1 1 190px">
                                 <label for="plr-drive-key">Chave de acesso</label>
-                                <input id="plr-drive-key" type="password" autocomplete="off" placeholder="Informe a chave para reconectar">
+                                <input id="plr-drive-key" name="anfeer_plr_access_config" type="password" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')" onpointerdown="this.removeAttribute('readonly')" placeholder="Informe a chave para reconectar">
                             </div>
                         </div>
                         <div class="cfg-actions">
