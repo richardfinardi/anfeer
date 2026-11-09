@@ -81,12 +81,34 @@ async function loadMachines(){
  }catch(e){$('machines').innerHTML='<div class="note error">'+esc(e.message)+'</div>'}
 }
 async function openMachine(x){
- selected=x;currentResults=new Map();pendingRequestId=null;plano=null;showStep(3);$('machineTitle').textContent=x.MAQUINA||x.COD_MAQUINA;$('machineDetail').textContent='Peça '+x.COD_PECAS+' • '+x.TITULO+' • '+x.FUNCIONARIO;$('form').innerHTML='<div class="note">Carregando plano e instrumentos…</div>';$('history').textContent='Carregando…';
+ selected=x;currentResults=new Map();pendingRequestId=null;plano=null;
+ showStep(3);
+ $('machineTitle').textContent=x.MAQUINA||x.COD_MAQUINA;
+ $('machineDetail').textContent='Peça '+x.COD_PECAS+' • '+x.TITULO+' • '+x.FUNCIONARIO;
+ $('planVersion').textContent='Consultando…';
+ $('form').innerHTML='<div class="note">Localizando plano de inspeção…</div>';
+ $('history').textContent='Carregando…';
+ loadHistory();
  try{
- const [res,ins]=await Promise.all([InspecaoAPI.get('plano_operador',{peca:x.COD_PECAS,processo}),InspecaoAPI.cps('INSTRUMENTOS')]);instruments=ins;plano=res.plano||null;
- if(!plano){$('form').innerHTML='<div class="note error">Peça sem plano de inspeção ativo cadastrado para '+esc(processo)+'.</div>';$('planVersion').textContent='Sem plano';return}
- $('planVersion').textContent='Plano v'+plano.VERSAO;renderForm();$('footer').classList.remove('hidden');loadHistory();
- }catch(e){$('form').innerHTML='<div class="note error">'+esc(e.message)+'</div>'}
+   const selectedPlan=await InspecaoAPI.operatorPlan(x.COD_PECAS,processo);
+   if(selected!==x)return;
+   plano=selectedPlan;
+   if(!plano){
+     $('form').innerHTML='<div class="note error">Peça sem plano de inspeção ativo cadastrado para '+esc(processo)+'.</div>';
+     $('planVersion').textContent='Sem plano';
+     return;
+   }
+   $('planVersion').textContent='Plano v'+plano.VERSAO;
+   $('form').innerHTML='<div class="note">Plano encontrado. Carregando instrumentos válidos…</div>';
+   instruments=await InspecaoAPI.cps('INSTRUMENTOS');
+   if(selected!==x)return;
+   renderForm();
+   $('footer').classList.remove('hidden');
+ }catch(e){
+   if(selected!==x)return;
+   $('form').innerHTML='<div class="note error">'+esc(e.message)+'</div><button type="button" onclick="openMachine(selected)" style="width:100%">TENTAR NOVAMENTE</button>';
+   $('planVersion').textContent='Falha na consulta';
+ }
 }
 function renderForm(){
  $('form').innerHTML=plano.parametros.map((p,i)=>{
