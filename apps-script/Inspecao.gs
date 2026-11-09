@@ -178,7 +178,8 @@ function insSaveInspection(d){
   const id=String(d.requisicaoId||Utilities.getUuid());
   if(insRows('INSPECOES').some(x=>x.ID_INSPECAO===id))return {ok:true,id,jaRegistrada:true};
   const result=rows.every(x=>x.RESULTADO==='APROVADO')?'APROVADO':'REPROVADO';
-  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:String(d.titulo||''),PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:insNowLocalISO(),RESULTADO:result}]);
+  const dataHora=insNowLocalISO();
+  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:String(d.titulo||''),PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:dataHora,RESULTADO:result}]);
   insAppend('RESULTADOS',rows.map(r=>({...r,ID_INSPECAO:id})));
-  return {ok:true,id,resultado:result};
+  return {ok:true,id,resultado:result,dataHora};
 }
