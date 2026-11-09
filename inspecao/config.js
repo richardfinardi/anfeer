@@ -7,18 +7,58 @@ window.InspecaoAPI={
  
  ready(){return !!window.ANFEER_INSPECAO.API_SHEETS},
  async get(action,params={}){
+  const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const first=mobile?this.getBridge.bind(this):this.getJsonp.bind(this);
+  const second=mobile?this.getJsonp.bind(this):this.getBridge.bind(this);
+  try { return await first(action,params) }
+  catch(firstError){
+    try { return await second(action,params) }
+    catch(secondError){
+      throw new Error('Não foi possível acessar o Google Apps Script. Método 1: '+firstError.message+'; método 2: '+secondError.message);
+    }
+  }
+ },
+ async getJsonp(action,params={}){
   const url=window.ANFEER_INSPECAO.API_SHEETS;
-  if(!url)throw Error('Integração Google Sheets ainda não configurada (inspecao/config.js).');
+  if(!url)throw Error('Integração Google Sheets não configurada.');
   return new Promise((resolve,reject)=>{
    const cb='ins_cb_'+Date.now()+'_'+Math.floor(Math.random()*99999);
    const s=document.createElement('script');
-   const timer=setTimeout(()=>finish(new Error('Tempo esgotado ao consultar o Google Sheets')),18000);
-   const finish=(e,v)=>{clearTimeout(timer);delete window[cb];s.remove();e?reject(e):v.ok?resolve(v):reject(Error(v.error||'Falha na API'))};
+   let done=false;
+   const finish=(e,v)=>{if(done)return;done=true;clearTimeout(timer);delete window[cb];s.remove();e?reject(e):v&&v.ok?resolve(v):reject(Error(v?.error||'Resposta inválida da API'))};
+   const timer=setTimeout(()=>finish(new Error('Tempo esgotado na consulta JSONP')),9500);
    window[cb]=v=>finish(null,v);
-   s.onerror=()=>finish(Error('Não foi possível consultar o Apps Script'));
+   s.onerror=()=>finish(Error('O navegador bloqueou o carregamento JSONP'));
    s.src=url+(url.includes('?')?'&':'?')+new URLSearchParams({...params,action,callback:cb});
    document.head.appendChild(s);
-  })
+  });
+ },
+ async getBridge(action,params={}){
+  const url=window.ANFEER_INSPECAO.API_SHEETS;
+  if(!url)throw Error('Integração Google Sheets não configurada.');
+  return new Promise((resolve,reject)=>{
+   const token='ins'+Date.now()+'_'+Math.floor(Math.random()*99999999);
+   const frame=document.createElement('iframe');
+   frame.title='Consulta de inspeção ANFEER';
+   frame.setAttribute('aria-hidden','true');
+   frame.style.cssText='position:absolute;left:-10000px;top:0;width:1px;height:1px;border:0;';
+   let done=false;
+   const finish=(e,v)=>{
+    if(done)return;done=true;clearTimeout(timer);
+    window.removeEventListener('message',onMessage);frame.remove();
+    e?reject(e):v&&v.ok?resolve(v):reject(Error(v?.error||'Resposta inválida da API'));
+   };
+   const onMessage=(event)=>{
+    if(!['https://script.googleusercontent.com','https://script.google.com'].includes(event.origin))return;
+    const msg=event.data;
+    if(!msg||msg.channel!=='ANFEER_INSPECAO_BRIDGE'||msg.token!==token)return;
+    finish(null,msg.data);
+   };
+   const timer=setTimeout(()=>finish(new Error('Tempo esgotado na consulta por iframe')),14000);
+   window.addEventListener('message',onMessage);
+   frame.src=url+(url.includes('?')?'&':'?')+new URLSearchParams({...params,action:'bridge',read_action:action,token});
+   document.body.appendChild(frame);
+  });
  },
  async post(payload){
   if(!this.ready())throw Error('Configure API_SHEETS em inspecao/config.js');
