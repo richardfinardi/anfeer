@@ -1,7 +1,49 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>ANFEER | Inspeção</title><link rel="icon" href="../LOGO%20MINIMALISTA.png"><style>
 :root{color-scheme:dark;--bg:#0b0e13;--panel:#171b22;--line:#343d49;--muted:#a9b3c2;--red:#d9231d}*{box-sizing:border-box}body{background:var(--bg);color:#fff;margin:0;font:16px system-ui,-apple-system,Segoe UI,sans-serif}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:12px 15px;gap:10px}header img{height:34px;max-width:145px;object-fit:contain}a{color:#d6e3f5;text-decoration:none}main{max-width:720px;margin:auto;padding:15px 13px 110px}h1{font-size:24px;margin:8px 0}h2{font-size:19px}p{color:var(--muted)}button{min-height:54px;border-radius:13px;border:1px solid #515b69;background:#242e3b;color:#fff;font:inherit;font-weight:750;padding:13px 15px;cursor:pointer;touch-action:manipulation}button:disabled{opacity:.45;cursor:wait}.primary{background:var(--red);border-color:var(--red)}.process{display:grid;gap:13px;margin-top:26px}.process button{min-height:100px;font-size:24px}.machine{background:var(--panel);border:1px solid var(--line);display:block;width:100%;text-align:left;margin:10px 0;padding:18px}.machine strong{font-size:19px;display:block;margin-bottom:7px}.machine small{font-size:14px;color:var(--muted);display:block;line-height:1.6}.bar{display:flex;align-items:center;justify-content:space-between;gap:9px;margin:14px 0}.bar button{min-height:43px}.card{background:var(--panel);padding:17px;border:1px solid var(--line);border-radius:16px;margin:13px 0}.card h3{font-size:19px;margin:0 0 14px}.meta{color:var(--muted);font-size:14px;line-height:1.65}.badge{font-size:12px;padding:4px 9px;border:1px solid #586272;border-radius:30px;color:#d9e2ef}.label{font-size:13px;color:var(--muted);font-weight:700;margin:12px 0 7px;display:block}input,select{display:block;min-height:56px;width:100%;font:inherit;color:#fff;border:1px solid #596473;border-radius:12px;padding:12px;background:#0e151e}input[type=number]{font-size:26px;font-weight:700}.choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}.choice button{background:#18252a;border:2px solid #395a4a}.choice button.no{background:#291b20;border-color:#703b46}.choice button.sel{background:#146438;border-color:#64ef97}.choice button.no.sel{background:#a32435;border-color:#ff8b98}.sticky{position:fixed;bottom:0;left:0;right:0;background:#0b0e13ee;border-top:1px solid var(--line);padding:10px max(13px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom));z-index:10}.sticky button{max-width:720px;margin:auto;display:block;width:100%;min-height:62px}.note{padding:12px;border-radius:12px;background:#293141;margin:12px 0;color:#eef2ff}.error{background:#62252a}.good{background:#184832}.hidden{display:none!important}.history{font-size:14px;padding:10px 0;border-bottom:1px solid var(--line)}.muted{color:var(--muted)}@media(min-width:660px){.process{grid-template-columns:1fr 1fr}main{padding:22px 18px 120px}}@media(max-width:420px){.process button{min-height:110px}.card{padding:14px}}
 </style></head><body><header><a href="../"><img src="../ANFEER%20BR%20FUNDO%20TRANSPARENTE.png" alt="ANFEER"></a><a href="../plano_inspecao/">Planos</a></header><main><div id="notice" class="note hidden"></div><section id="step1"><h1>Inspeção de qualidade</h1><p>Selecione o processo</p><div class="process"><button class="primary" onclick="choose('BROCHA')">BROCHA</button><button class="primary" onclick="choose('BROCHAMENTO')">BROCHAMENTO</button></div></section><section id="step2" class="hidden"><div class="bar"><button onclick="showStep(1)">← Processo</button><span class="badge" id="processLabel"></span></div><h1>Máquinas com apontamento aberto</h1><div id="machines"></div><button onclick="loadMachines()" style="width:100%">Atualizar apontamentos</button></section><section id="step3" class="hidden"><div class="bar"><button onclick="showStep(2)">← Máquinas</button><span class="badge" id="planVersion"></span></div><div class="card"><h2 id="machineTitle"></h2><div class="meta" id="machineDetail"></div></div><div id="form"></div><section class="card"><h2>Histórico desta peça</h2><div id="history" class="muted">Carregando...</div></section></section></main><div class="sticky hidden" id="footer"><button class="primary" id="saveBtn" onclick="saveInspection()">SALVAR INSPEÇÃO</button></div>
-<script src="config.js"></script><script>
+<script>
+window.ANFEER_INSPECAO={
+ API_CPS:'https://anfeer.consultoriarf.net',
+ // Cole a URL /exec do deployment Apps Script aqui. Não publique PIN neste arquivo.
+ API_SHEETS:'https://script.google.com/macros/s/AKfycbyhvjEly4JGYXKPybayZCizhcl6afl-xpA6ICQfHRAUbGAjFqxFkaPuyrVI5Gx8Y_qV/exec'
+};
+window.InspecaoAPI={
+ pin(){return sessionStorage.getItem('anfeer_inspecao_pin')||''},
+ ready(){return !!window.ANFEER_INSPECAO.API_SHEETS},
+ async get(action,params={}){
+  const url=window.ANFEER_INSPECAO.API_SHEETS;
+  if(!url)throw Error('Integração Google Sheets ainda não configurada (inspecao/config.js).');
+  return new Promise((resolve,reject)=>{
+   const cb='ins_cb_'+Date.now()+'_'+Math.floor(Math.random()*99999);
+   const s=document.createElement('script');
+   const timer=setTimeout(()=>finish(new Error('Tempo esgotado ao consultar o Google Sheets')),18000);
+   const finish=(e,v)=>{clearTimeout(timer);delete window[cb];s.remove();e?reject(e):v.ok?resolve(v):reject(Error(v.error||'Falha na API'))};
+   window[cb]=v=>finish(null,v);
+   s.onerror=()=>finish(Error('Não foi possível consultar o Apps Script'));
+   s.src=url+(url.includes('?')?'&':'?')+new URLSearchParams({...params,action,pin:this.pin(),callback:cb});
+   document.head.appendChild(s);
+  })
+ },
+ async post(payload){
+  if(!this.ready())throw Error('Configure API_SHEETS em inspecao/config.js');
+  // Apps Script não envia cabeçalhos CORS. POST simples com resposta opaca.
+  // A escrita é conferida com leitura subsequente pelo identificador salvo.
+  await fetch(window.ANFEER_INSPECAO.API_SHEETS,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...payload,pin:this.pin()})});
+ },
+ async cps(path){
+  const r=await fetch(window.ANFEER_INSPECAO.API_CPS+'/'+path,{cache:'no-store'});
+  if(!r.ok)throw Error('Falha no endpoint '+path+': '+r.status);
+  const j=await r.json();return Array.isArray(j)?j:Array.isArray(j.dados)?j.dados:Array.isArray(j.items)?j.items:[]
+ }
+};
+window.insLogin=function(){if(!sessionStorage.getItem('anfeer_inspecao_pin')){const v=prompt('PIN de inspeção ANFEER:');if(!v)return false;sessionStorage.setItem('anfeer_inspecao_pin',v)}return true};
+window.insEscape=function(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))};
+window.insDate=function(v){const s=String(v||'');return s.slice(0,10)};
+window.insVence=function(v){const s=String(v||'').trim();if(!s)return false;const date=s.match(/^(\d{4})-(\d{2})-(\d{2})/)?s.slice(0,10):s.match(/^(\d{2})\/(\d{2})\/(\d{4})/)?s.slice(6,10)+'-'+s.slice(3,5)+'-'+s.slice(0,2):'';return date&&date>=new Date().toLocaleDateString('sv-SE',{timeZone:'America/Sao_Paulo'})};
+window.insFamilia=function(i){return String(i.FAMILIA||'').trim()};
+window.insInstrumentos=function(items,familia){return items.filter(i=>insFamilia(i)===String(familia||'').trim()&&String(i.VALIDADE||'').toUpperCase()==='OK'&&insVence(i.DT_VENCIMENTO))};
+
+</script><script>
 const $=x=>document.getElementById(x);let processo='',selected=null,plano=null,instruments=[],inspections=[],currentResults=new Map(),saving=false,pendingRequestId=null;const esc=insEscape;
 function note(msg,kind=''){const el=$('notice');el.className='note '+kind;el.textContent=msg;el.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})}
 function clearNote(){$('notice').classList.add('hidden')}
