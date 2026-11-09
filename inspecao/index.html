@@ -19,7 +19,7 @@ async function loadMachines(){
 async function openMachine(x){
  selected=x;currentResults=new Map();pendingRequestId=null;plano=null;showStep(3);$('machineTitle').textContent=x.MAQUINA||x.COD_MAQUINA;$('machineDetail').textContent='Peça '+x.COD_PECAS+' • '+x.TITULO+' • '+x.FUNCIONARIO;$('form').innerHTML='<div class="note">Carregando plano e instrumentos…</div>';$('history').textContent='Carregando…';
  try{
- const [res,ins]=await Promise.all([InspecaoAPI.get('planos'),InspecaoAPI.cps('INSTRUMENTOS')]);instruments=ins;const found=res.planos.filter(p=>String(p.COD_PECAS).trim().toUpperCase()===String(x.COD_PECAS||'').trim().toUpperCase()&&String(p.PROCESSO).trim().toUpperCase()===processo&&String(p.ATIVO).toLowerCase()==='true').sort((a,b)=>Number(b.VERSAO)-Number(a.VERSAO));plano=found[0]||null;
+ const [res,ins]=await Promise.all([InspecaoAPI.get('plano_operador',{peca:x.COD_PECAS,processo}),InspecaoAPI.cps('INSTRUMENTOS')]);instruments=ins;plano=res.plano||null;
  if(!plano){$('form').innerHTML='<div class="note error">Peça sem plano de inspeção ativo cadastrado para '+esc(processo)+'.</div>';$('planVersion').textContent='Sem plano';return}
  $('planVersion').textContent='Plano v'+plano.VERSAO;renderForm();$('footer').classList.remove('hidden');loadHistory();
  }catch(e){$('form').innerHTML='<div class="note error">'+esc(e.message)+'</div>'}
