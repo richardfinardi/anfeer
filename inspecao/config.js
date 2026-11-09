@@ -1,7 +1,7 @@
 window.ANFEER_INSPECAO={
  API_CPS:'https://anfeer.consultoriarf.net',
  // Cole a URL /exec do deployment Apps Script aqui. Não publique PIN neste arquivo.
- API_SHEETS:''
+ API_SHEETS:'https://script.google.com/macros/s/AKfycbyhvjEly4JGYXKPybayZCizhcl6afl-xpA6ICQfHRAUbGAjFqxFkaPuyrVI5Gx8Y_qV/exec'
 };
 window.InspecaoAPI={
  pin(){return sessionStorage.getItem('anfeer_inspecao_pin')||''},
