@@ -45,6 +45,13 @@ function doGet(e){
     if(action==='ping')return insJson({ok:true},q.callback);
     insAuth(q.pin);
     if(action==='planos')return insJson({ok:true,planos:insPlanos()},q.callback);
+    if(action==='plano_operador'){
+      const peca=insCode(q.peca),processo=insProcess(q.processo);
+      const plano=insPlanos().filter(p=>p.COD_PECAS===peca&&p.PROCESSO===processo&&String(p.ATIVO).toLowerCase()==='true').sort((a,b)=>Number(b.VERSAO)-Number(a.VERSAO))[0];
+      if(!plano)return insJson({ok:true,plano:null},q.callback);
+      const {parametros,...cabecalho}=plano;
+      return insJson({ok:true,plano:{...cabecalho,parametros:parametros.map(({ID_PARAMETRO,ORDEM,TIPO,NOME,FAMILIA,OBRIGATORIO})=>({ID_PARAMETRO,ORDEM,TIPO,NOME,FAMILIA,OBRIGATORIO}))}},q.callback);
+    }
     if(action==='historico')return insJson({ok:true,inspecoes:insRows('INSPECOES').filter(x=>x.COD_PECAS===insCode(q.peca)&&x.PROCESSO===insProcess(q.processo)).slice(-100).reverse()},q.callback);
     throw Error('Ação desconhecida');
   }catch(err){return insJson({ok:false,error:err.message},q.callback)}
