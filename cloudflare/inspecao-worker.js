@@ -156,9 +156,65 @@ async function omniNotify(env, payload, saved){
   }));
 }
 
+
+// Webhook de status de entrega da Omni (assinatura HMAC-SHA256 oficial).
+// O segredo de assinatura NÃO é a OMNI_SECRET_KEY de envio.
+async function omniWebhook(request, env){
+  const secret=String(env.OMNI_WEBHOOK_SIGNING_SECRET||'').trim();
+  if(!secret)return new Response('Webhook ainda não configurado',{status:503});
+  const signature=request.headers.get('x-webhook-signature')||'';
+  const idem=request.headers.get('x-idempotency-key')||'';
+  const mt=signature.match(/(?:^|,)\s*t=(\d+)(?:,|$)/);
+  const mv=signature.match(/(?:^|,)\s*v1=([a-fA-F0-9]{64})(?:,|$)/);
+  const parts=idem.match(/^(.*):([^:]+):([^:]+)$/);
+  if(!mt||!mv||!parts||Math.abs(Date.now()/1000-Number(mt[1]))>300){
+    return new Response('Assinatura ausente ou expirada',{status:401});
+  }
+  let body=new Uint8Array(await request.arrayBuffer());
+  if(request.headers.get('content-encoding')?.toLowerCase()==='gzip'){
+    const stream=new Blob([body]).stream().pipeThrough(new DecompressionStream('gzip'));
+    body=new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  if(body.length>200_000)return new Response('Corpo muito grande',{status:413});
+  const prefix=new TextEncoder().encode([mt[1],parts[1],parts[2],parts[3],''].join('\n'));
+  const canonical=new Uint8Array(prefix.length+body.length);
+  canonical.set(prefix,0);
+  canonical.set(body,prefix.length);
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  const digest=new Uint8Array(await crypto.subtle.sign('HMAC',key,canonical));
+  const sig=mv[1].toLowerCase();
+  const expected=Array.from(digest,b=>b.toString(16).padStart(2,'0')).join('');
+  let diff=0;
+  for(let i=0;i<64;i++)diff|=expected.charCodeAt(i)^sig.charCodeAt(i);
+  if(diff!==0)return new Response('Assinatura inválida',{status:401});
+  let data;
+  try{data=JSON.parse(new TextDecoder().decode(body))}catch(e){return new Response('JSON inválido',{status:400})}
+  const events=Array.isArray(data)?data:[data];
+  for(const event of events.slice(0,40)){
+    const message=event?.message||event?.data?.message||event?.data||{};
+    const items=[...(Array.isArray(message.contents)?message.contents:[]),...(Array.isArray(message.attachments)?message.attachments:[])];
+    const states=items.flatMap(x=>Array.isArray(x.state_items)?x.state_items:[])
+      .map(x=>String(x?.state?.name||x?.state||'')).filter(Boolean);
+    const messageId=String(message._id||message.messageId||event?.messageId||message.id||'').slice(0,80);
+    const recipient=String(message?.recipient?.identifier||event?.recipient?.identifier||'').replace(/\D/g,'');
+    const state=String(event?.status||event?.state?.name||message?.status||states.at(-1)||'SEM_STATUS').slice(0,80);
+    const eventType=String(event?.messageEventType||event?.event||event?.type||'STATUS').slice(0,80);
+    console.log('ANFEER OMNI WEBHOOK STATUS',JSON.stringify({
+      messageId,recipientFinal:recipient.slice(-4),state,eventType,
+      deliveryId:(request.headers.get('x-webhook-delivery-id')||'').slice(0,100),
+      states
+    }));
+  }
+  return new Response('ok',{status:200});
+}
+
 export default {
  async fetch(request,env,ctx){
   const u=new URL(request.url),origin=request.headers.get('Origin')||'';
+  if(u.pathname==='/omni-webhook' && request.method==='POST'){
+    try{return await omniWebhook(request,env)}
+    catch(e){console.error('ANFEER OMNI WEBHOOK ERRO',String(e));return new Response('Falha ao receber webhook',{status:500})}
+  }
   if(request.method==='OPTIONS') {
     if(!ALLOWED_ORIGINS.has(origin))return response({ok:false,error:'Origem não permitida'},403,origin);
     return new Response(null,{status:204,headers:{
