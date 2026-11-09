@@ -161,13 +161,20 @@ async function omniNotify(env, payload, saved){
 // O segredo de assinatura NÃO é a OMNI_SECRET_KEY de envio.
 async function omniWebhook(request, env){
   const secret=String(env.OMNI_WEBHOOK_SIGNING_SECRET||'').trim();
-  if(!secret)return new Response('Webhook ainda não configurado',{status:503});
+  if(!secret){console.error('ANFEER OMNI WEBHOOK SEM SECRET',JSON.stringify({motivo:'OMNI_WEBHOOK_SIGNING_SECRET_AUSENTE'}));return new Response('Webhook ainda não configurado',{status:503})}
   const signature=request.headers.get('x-webhook-signature')||'';
   const idem=request.headers.get('x-idempotency-key')||'';
   const mt=signature.match(/(?:^|,)\s*t=(\d+)(?:,|$)/);
   const mv=signature.match(/(?:^|,)\s*v1=([a-fA-F0-9]{64})(?:,|$)/);
   const parts=idem.match(/^(.*):([^:]+):([^:]+)$/);
-  if(!mt||!mv||!parts||Math.abs(Date.now()/1000-Number(mt[1]))>300){
+  const eventId=(request.headers.get('x-webhook-event-id')||'').slice(0,100);
+  const deliveryId=(request.headers.get('x-webhook-delivery-id')||'').slice(0,100);
+  const skew=mt?Math.abs(Math.floor(Date.now()/1000)-Number(mt[1])):null;
+  if(!mt||!mv||!parts||skew>300){
+    console.error('ANFEER OMNI WEBHOOK 401',JSON.stringify({
+      motivo: !mt?'TIMESTAMP_AUSENTE':!mv?'ASSINATURA_AUSENTE':!parts?'IDEMPOTENCIA_INVALIDA':'TIMESTAMP_FORA_DA_JANELA',
+      eventId,deliveryId,skew,encoding:request.headers.get('content-encoding')||'none'
+    }));
     return new Response('Assinatura ausente ou expirada',{status:401});
   }
   let body=new Uint8Array(await request.arrayBuffer());
@@ -186,7 +193,16 @@ async function omniWebhook(request, env){
   const expected=Array.from(digest,b=>b.toString(16).padStart(2,'0')).join('');
   let diff=0;
   for(let i=0;i<64;i++)diff|=expected.charCodeAt(i)^sig.charCodeAt(i);
-  if(diff!==0)return new Response('Assinatura inválida',{status:401});
+  if(diff!==0){
+    console.error('ANFEER OMNI WEBHOOK 401',JSON.stringify({
+      motivo:'HMAC_DIVERGENTE',
+      eventId,deliveryId,skew,
+      encoding:request.headers.get('content-encoding')||'none',
+      bodyBytes:body.length,
+      secretPresente:true
+    }));
+    return new Response('Assinatura inválida',{status:401});
+  }
   let data;
   try{data=JSON.parse(new TextDecoder().decode(body))}catch(e){return new Response('JSON inválido',{status:400})}
   const events=Array.isArray(data)?data:[data];
