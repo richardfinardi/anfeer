@@ -136,6 +136,11 @@ window.InspecaoAPI={
 };
 window.insLogin=function(){return true};
 window.insEscape=function(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))};
+window.insFormatDateBr=function(value){
+  const date=new Date(value);
+  if(!value||isNaN(date.getTime()))return String(value||'');
+  return new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);
+};
 window.insDate=function(v){const s=String(v||'');return s.slice(0,10)};
 window.insVence=function(v){const s=String(v||'').trim();if(!s)return false;const date=s.match(/^(\d{4})-(\d{2})-(\d{2})/)?s.slice(0,10):s.match(/^(\d{2})\/(\d{2})\/(\d{4})/)?s.slice(6,10)+'-'+s.slice(3,5)+'-'+s.slice(0,2):'';return date&&date>=new Date().toLocaleDateString('sv-SE',{timeZone:'America/Sao_Paulo'})};
 window.insFamilia=function(i){return String(i.FAMILIA||'').trim()};
@@ -197,7 +202,7 @@ function renderForm(){
  }).join('');
 }
 function selectResult(button,id,result){const card=button.closest('.card');card.querySelectorAll('.choice button').forEach(b=>b.classList.remove('sel'));button.classList.add('sel');currentResults.set(id,result)}
-async function loadHistory(){try{const r=await InspecaoAPI.get('historico',{peca:selected.COD_PECAS,processo});inspections=r.inspecoes;const own=r.inspecoes.filter(x=>String(x.COD_MAQUINA)===String(selected.COD_MAQUINA)&&String(x.FUNCIONARIO)===String(selected.FUNCIONARIO));$('history').innerHTML=own.length?own.slice(0,12).map(x=>'<div class="history">'+esc(x.DATA_HORA).replace('T',' ').slice(0,16)+' • <b>'+esc(x.RESULTADO)+'</b> • v'+esc(x.VERSAO)+'</div>').join(''):'Nenhuma inspeção anterior para esta máquina/funcionário.'}catch(e){$('history').textContent='Não foi possível carregar histórico: '+e.message}}
+async function loadHistory(){try{const r=await InspecaoAPI.get('historico',{peca:selected.COD_PECAS,processo});inspections=r.inspecoes;const own=r.inspecoes.filter(x=>String(x.COD_MAQUINA)===String(selected.COD_MAQUINA)&&String(x.FUNCIONARIO)===String(selected.FUNCIONARIO));$('history').innerHTML=own.length?own.slice(0,12).map(x=>'<div class="history">'+esc(insFormatDateBr(x.DATA_HORA))+' • <b>'+esc(x.RESULTADO)+'</b> • v'+esc(x.VERSAO)+'</div>').join(''):'Nenhuma inspeção anterior para esta máquina/funcionário.'}catch(e){$('history').textContent='Não foi possível carregar histórico: '+e.message}}
 function resultPayload(){
  return plano.parametros.map(p=>{
  const card=[...document.querySelectorAll('.card[data-p]')].find(x=>x.dataset.p===p.ID_PARAMETRO);
