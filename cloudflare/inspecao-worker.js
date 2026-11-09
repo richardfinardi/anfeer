@@ -80,12 +80,18 @@ function fmtTimeBrasil(dateString){
   return new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(dt);
 }
 function rejectionMessage(request, saved){
-  const clean=v=>String(v??'').replace(/[<>]/g,'').slice(0,180);
-  const falhas=Array.isArray(saved.falhas)?saved.falhas.slice(0,12):[];
+  const clean=v=>String(v??'').replace(/[<>*]/g,'').slice(0,180);
+  const numero=v=>{
+    const n=typeof v==='number'?v:Number(String(v??'').replace(',','.'));
+    return Number.isFinite(n)?new Intl.NumberFormat('pt-BR',{maximumFractionDigits:8}).format(n):clean(v);
+  };
+  const falhas=Array.isArray(saved.falhas)?saved.falhas.slice(0,30):[];
+  const titulo=clean(saved.titulo||request.titulo||'');
   const corpo=[
     '*ANFEER | INSPEÇÃO REPROVADA*',
     '',
     '*Peça:* '+clean(request.peca),
+    ...(titulo?['*Nome:* '+titulo]:[]),
     '*Processo:* '+clean(request.processo),
     '*Máquina:* '+clean(request.maquina),
     '*Funcionário:* '+clean(request.funcionario),
@@ -94,8 +100,21 @@ function rejectionMessage(request, saved){
   if(falhas.length){
     corpo.push('','*Parâmetros reprovados:*');
     for(const f of falhas){
-      corpo.push('• '+clean(f.parametro)+(f.medida!==null&&f.medida!==undefined?' | medido: '+clean(f.medida):''));
+      const tipo=String(f.tipo||'').toUpperCase();
+      const nome=clean(f.parametro);
+      if(tipo==='COTA'){
+        corpo.push('','• *'+nome+'* (COTA)');
+        if(f.nominal!==null && f.nominal!==undefined && f.nominal!=='')corpo.push('   Padrão: '+numero(f.nominal));
+        if(f.minimo!==null && f.minimo!==undefined && f.maximo!==null && f.maximo!==undefined){
+          corpo.push('   Permitido: '+numero(f.minimo)+' a '+numero(f.maximo));
+        }
+        corpo.push('   Encontrado: '+numero(f.medida));
+      }else{
+        corpo.push('• *'+nome+'* ('+clean(tipo||'VISUAL')+'): REPROVADO');
+      }
     }
+  }else{
+    corpo.push('','*Resultado:* REPROVADO');
   }
   corpo.push('','Verificar a não conformidade no controle de inspeções.');
   return corpo.join('\n');
@@ -267,14 +286,16 @@ export default {
    try{data=JSON.parse(raw)}catch(e){return response({ok:false,error:'JSON inválido'},400,origin)}
    if(!WRITES.has(data?.action))return response({ok:false,error:'Ação não autorizada'},400,origin);
    const saved=await upstream('POST',new URLSearchParams(),JSON.stringify(data),ctx);
+   // Não devolver nominal/tolerâncias à tela do operador: são usados somente pelo Worker.
+   const {falhas:__falhas,titulo:__titulo,...publicResult}=saved||{};
    if(data.action==='salvar_inspecao'&&saved?.ok&&saved.resultado==='REPROVADO'&&!saved.jaRegistrada){
      if(omniReady(env)){
        ctx.waitUntil(omniNotify(env,data,saved).catch(err=>console.error('Erro ao notificar inspeção',saved.id,String(err))));
-       return response({...saved,alertaWhatsapp:'envio_solicitado'},200,origin);
+       return response({...publicResult,alertaWhatsapp:'envio_solicitado'},200,origin);
      }
-     return response({...saved,alertaWhatsapp:'nao_configurado'},200,origin);
+     return response({...publicResult,alertaWhatsapp:'nao_configurado'},200,origin);
    }
-   return response(saved,200,origin);
+   return response(publicResult,200,origin);
   }catch(e){return response({ok:false,error:String(e?.message||e)},502,origin)}
  }
 };
