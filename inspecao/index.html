@@ -53,7 +53,7 @@ window.InspecaoAPI={
     e?reject(e):v&&v.ok?resolve(v):reject(Error(v?.error||'Resposta inválida da API'));
    };
    const onMessage=(event)=>{
-    if(!['https://script.googleusercontent.com','https://script.google.com'].includes(event.origin))return;
+    if(event.origin!=='null'){let host;try{const u=new URL(event.origin);if(u.protocol!=='https:')return;host=u.hostname}catch(e){return}if(host!=='script.google.com'&&host!=='script.googleusercontent.com'&&!host.endsWith('.googleusercontent.com'))return;}
     const msg=event.data;
     if(!msg||msg.channel!=='ANFEER_INSPECAO_BRIDGE'||msg.token!==token)return;
     finish(null,msg.data);
