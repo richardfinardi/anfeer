@@ -29,3 +29,6 @@ Banco Google Sheets: https://docs.google.com/spreadsheets/d/1bpVNM857IN_ymqF_zV3
 - O endpoint `/aponta_aberto` da amostra não inclui identificador único do apontamento. O sistema vincula por máquina, funcionário, peça e processo; se houver ID no futuro, integrar `ID_APONTAMENTO` ou `GUID_APONTAMENTO`.
 - O Google Sheets foi criado na pasta `BANCO_DADOS` do Drive.
 - A URL do backend está vazia propositalmente. Até implantar e configurar, os formulários exibem aviso e não gravam dados.
+
+## Correção de leitura em celulares (09/11/2026)
+O operador agora tenta uma ponte HTML do Apps Script (`action=bridge`) quando o JSONP não carrega. **A ponte exige copiar a versão atualizada de `apps-script/Inspecao.gs` e reimplantar uma nova versão mantendo a mesma URL `/exec`.** Sem reimplantar, o celular seguirá mostrando erro. Para verificar o acesso público, abra em navegação anônima no celular a URL `/exec?action=ping`; deve retornar `{"ok":true}` e não uma tela de login.
