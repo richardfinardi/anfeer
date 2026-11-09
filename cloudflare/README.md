@@ -1,5 +1,9 @@
 # ANFEER - Proxy de inspeções para celular
 
+## Atualização: conexão direta sem precisar de rota (09/11/2026)
+O site publicado em GitHub Pages retornou HTTP 404 na URL `consultoriarf.net/anfeer/inspecao-api`, apesar de a route estar cadastrada no Cloudflare. Isso é consistente com DNS sem proxy Cloudflare ou zona sem delegação efetiva. **Para não alterar DNS do site existente, as telas agora usam diretamente `https://anfeer-inspecao-api.apicolumbia.workers.dev/`.** O Worker já permite via CORS a origem `https://consultoriarf.net`. A rota `consultoriarf.net/anfeer/inspecao-api*` deixa de ser necessária nesse arranjo; pode ser excluída sem interferir no aplicativo. Teste a URL do Worker com `?action=ping` e, depois, o formulário no celular.
+
+
 ## Por que existe
 No Android, a leitura direta do Google Apps Script via `<script>` (JSONP) e via `iframe` pode ser barrada por autenticação/cookies/restrições do navegador. Este Worker consulta o Apps Script do lado do servidor e responde no **mesmo domínio** `consultoriarf.net`, evitando dependência dessas chamadas de terceiros.
 
