@@ -26,6 +26,28 @@ window.InspecaoAPI={
   // A escrita é conferida com leitura subsequente pelo identificador salvo.
   await fetch(window.ANFEER_INSPECAO.API_SHEETS,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({...payload,})});
  },
+ async operatorPlan(peca,processo){
+  let primaryError=null;
+  try {
+   const r=await this.get('plano_operador',{peca,processo});
+   if(r.plano)return r.plano;
+  }catch(e){primaryError=e}
+  // Compatibilidade com implantações anteriores do Apps Script.
+  // Nunca colocar nominal/tolerâncias no HTML do formulário.
+  try{
+   const r=await this.get('planos');
+   const p=(r.planos||[]).filter(x=>String(x.COD_PECAS||'').trim().toUpperCase()===String(peca||'').trim().toUpperCase()&&
+     String(x.PROCESSO||'').trim().toUpperCase()===String(processo||'').trim().toUpperCase()&&
+     String(x.ATIVO||'').trim().toLowerCase()==='true')
+    .sort((a,b)=>Number(b.VERSAO)-Number(a.VERSAO))[0];
+   if(!p)return null;
+   const {parametros,...cabecalho}=p;
+   return {...cabecalho,parametros:(parametros||[]).map(({ID_PARAMETRO,ORDEM,TIPO,NOME,FAMILIA,OBRIGATORIO})=>
+    ({ID_PARAMETRO,ORDEM,TIPO,NOME,FAMILIA,OBRIGATORIO}))};
+  }catch(e){
+   throw new Error('Falha ao carregar plano pelo Apps Script. Consulta direta: '+(primaryError?.message||'sem plano')+'; consulta alternativa: '+e.message);
+  }
+ },
  async cps(path){
   const r=await fetch(window.ANFEER_INSPECAO.API_CPS+'/'+path,{cache:'no-store'});
   if(!r.ok)throw Error('Falha no endpoint '+path+': '+r.status);
