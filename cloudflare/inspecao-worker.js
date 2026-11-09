@@ -108,14 +108,19 @@ async function omniNotify(env, payload, saved){
   const endpoint='https://api.omni.z-api.io/v1/channels/'+encodeURIComponent(channel)+'/messages';
   const message=rejectionMessage(payload,saved);
   console.log('ANFEER WhatsApp: iniciando envio', {inspecao:saved.id, resultado:saved.resultado, destinos:recipients.length});
-  for(const recipient of recipients){
+  // Envie para todos em paralelo: waitUntil tem janela limitada depois da resposta.
+  // Uma API lenta não deve bloquear o segundo ou terceiro destinatário.
+  const attempts=recipients.map(async recipient=>{
+    const dest=recipient.slice(-4); // Os logs nunca exibem o telefone completo.
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),12000);
     try{
       const res=await fetch(endpoint,{
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+env.OMNI_SECRET_KEY},
-        body:JSON.stringify({recipient:{identifier:recipient},content:{type:'TEXT',body:{message}}})
+        body:JSON.stringify({recipient:{identifier:recipient},content:{type:'TEXT',body:{message}}}),
+        signal:ctrl.signal
       });
-      // HTTP 200 confirma aceite da API, não necessariamente entrega no WhatsApp.
       const raw=(await res.text()).slice(0,4000);
       let info=null;
       try{info=raw?JSON.parse(raw):null}catch(_){}
@@ -123,19 +128,32 @@ async function omniNotify(env, payload, saved){
       const messageId=body.messageId||body.data?.messageId||body.id||body.data?.id||null;
       const status=body.status||body.data?.status||null;
       const error=body.error||body.message||body.data?.error||null;
-      const trace={inspecao:saved.id,recipientFinal:recipient.slice(-4),http:res.status,messageId,status};
+      const trace={inspecao:saved.id,destinoFinal:dest,http:res.status,messageId,status};
       if(!res.ok||body.success===false||body.ok===false){
         console.error('ANFEER WhatsApp RECUSADO',JSON.stringify({...trace,error:String(error||'Sem detalhe').slice(0,180)}));
-      }else if(!messageId){
+        return {dest,aceito:false,http:res.status};
+      }
+      if(!messageId){
         console.warn('ANFEER WhatsApp ACEITO SEM ID - entrega não confirmada',JSON.stringify({...trace,camposResposta:Object.keys(body).slice(0,12)}));
       }else{
         console.log('ANFEER WhatsApp ACEITO PELA OMNI (não confirma entrega)',JSON.stringify(trace));
       }
+      return {dest,aceito:true,http:res.status};
     }catch(err){
-      // Uma falha de rede em um destinatário não deve impedir os demais.
-      console.error('ANFEER WhatsApp ERRO DE ENVIO',JSON.stringify({inspecao:saved.id,recipientFinal:recipient.slice(-4),erro:String(err)}));
+      console.error('ANFEER WhatsApp ERRO DE ENVIO',JSON.stringify({inspecao:saved.id,destinoFinal:dest,erro:String(err)}));
+      return {dest,aceito:false,erro:String(err)};
+    }finally{
+      clearTimeout(timer);
     }
-  }
+  });
+  const resultados=await Promise.all(attempts);
+  console.log('ANFEER WhatsApp RESUMO',JSON.stringify({
+    inspecao:saved.id,
+    previstos:recipients.length,
+    aceitos:resultados.filter(x=>x.aceito).length,
+    falhas:resultados.filter(x=>!x.aceito).map(x=>x.dest),
+    lembrete:'Aceito pela API não é confirmação de entrega no WhatsApp.'
+  }));
 }
 
 export default {
