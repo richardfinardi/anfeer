@@ -12,9 +12,10 @@ const INSPECAO_TABS = {
   HISTORICO:['ID_EVENTO','DATA_HORA','ACAO','ID_PLANO','COD_PECAS','PROCESSO','VERSAO','DETALHES']
 };
 function insTab(name){return SpreadsheetApp.openById(INSPECAO_SHEET_ID).getSheetByName(name)}
+function insFlag(v){return ['TRUE','VERDADEIRO','1','SIM'].includes(String(v??'').trim().toUpperCase())}
 function insRows(name){
   const tab=insTab(name), values=tab.getDataRange().getDisplayValues(), head=values.shift()||[];
-  return values.filter(a=>a.some(v=>v!=='')).map(a=>Object.fromEntries(head.map((h,i)=>[h,a[i]])));
+  return values.filter(a=>a.some(v=>v!=='')).map(a=>Object.fromEntries(head.map((h,i)=>[h,['ATIVO','VISIVEL_CLIENTE','OBRIGATORIO'].includes(h)?String(insFlag(a[i])):a[i]])));
 }
 function insAppend(name,objects){
   if(!objects.length)return;
@@ -86,7 +87,7 @@ function insSavePlan(d){
   const old=insRows('PLANOS').filter(x=>x.COD_PECAS===peca&&x.PROCESSO===processo);
   const version=Math.max(0,...old.map(x=>Number(x.VERSAO)||0))+1;
   const sheet=insTab('PLANOS'),grid=sheet.getDataRange().getValues(),headers=grid[0],activeCol=headers.indexOf('ATIVO');
-  for(let i=1;i<grid.length;i++){if(String(grid[i][1]).trim().toUpperCase()===peca&&String(grid[i][2]).trim().toUpperCase()===processo&&String(grid[i][4]).toUpperCase()==='TRUE')sheet.getRange(i+1,activeCol+1).setValue(false)}
+  for(let i=1;i<grid.length;i++){if(String(grid[i][1]).trim().toUpperCase()===peca&&String(grid[i][2]).trim().toUpperCase()===processo&&insFlag(grid[i][4]))sheet.getRange(i+1,activeCol+1).setValue(false)}
   const id=Utilities.getUuid(),now=new Date().toISOString();
   insAppend('PARAMETROS',sanitized.map(x=>({...x,ID_PLANO:id})));
   insAppend('PLANOS',[{ID_PLANO:id,COD_PECAS:peca,PROCESSO:processo,VERSAO:version,ATIVO:true,CRIADO_EM:now,CRIADO_POR:String(d.usuario||'').slice(0,100),OBSERVACAO:String(d.observacao||'').slice(0,1000)}]);
