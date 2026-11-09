@@ -1,0 +1,72 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>ANFEER | Inspeção</title><link rel="icon" href="../LOGO%20MINIMALISTA.png"><style>
+:root{color-scheme:dark;--bg:#0b0e13;--panel:#171b22;--line:#343d49;--muted:#a9b3c2;--red:#d9231d}*{box-sizing:border-box}body{background:var(--bg);color:#fff;margin:0;font:16px system-ui,-apple-system,Segoe UI,sans-serif}header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);padding:12px 15px;gap:10px}header img{height:34px;max-width:145px;object-fit:contain}a{color:#d6e3f5;text-decoration:none}main{max-width:720px;margin:auto;padding:15px 13px 110px}h1{font-size:24px;margin:8px 0}h2{font-size:19px}p{color:var(--muted)}button{min-height:54px;border-radius:13px;border:1px solid #515b69;background:#242e3b;color:#fff;font:inherit;font-weight:750;padding:13px 15px;cursor:pointer;touch-action:manipulation}button:disabled{opacity:.45;cursor:wait}.primary{background:var(--red);border-color:var(--red)}.process{display:grid;gap:13px;margin-top:26px}.process button{min-height:100px;font-size:24px}.machine{background:var(--panel);border:1px solid var(--line);display:block;width:100%;text-align:left;margin:10px 0;padding:18px}.machine strong{font-size:19px;display:block;margin-bottom:7px}.machine small{font-size:14px;color:var(--muted);display:block;line-height:1.6}.bar{display:flex;align-items:center;justify-content:space-between;gap:9px;margin:14px 0}.bar button{min-height:43px}.card{background:var(--panel);padding:17px;border:1px solid var(--line);border-radius:16px;margin:13px 0}.card h3{font-size:19px;margin:0 0 14px}.meta{color:var(--muted);font-size:14px;line-height:1.65}.badge{font-size:12px;padding:4px 9px;border:1px solid #586272;border-radius:30px;color:#d9e2ef}.label{font-size:13px;color:var(--muted);font-weight:700;margin:12px 0 7px;display:block}input,select{display:block;min-height:56px;width:100%;font:inherit;color:#fff;border:1px solid #596473;border-radius:12px;padding:12px;background:#0e151e}input[type=number]{font-size:26px;font-weight:700}.choice{display:grid;grid-template-columns:1fr 1fr;gap:10px}.choice button{background:#18252a;border:2px solid #395a4a}.choice button.no{background:#291b20;border-color:#703b46}.choice button.sel{background:#146438;border-color:#64ef97}.choice button.no.sel{background:#a32435;border-color:#ff8b98}.sticky{position:fixed;bottom:0;left:0;right:0;background:#0b0e13ee;border-top:1px solid var(--line);padding:10px max(13px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom));z-index:10}.sticky button{max-width:720px;margin:auto;display:block;width:100%;min-height:62px}.note{padding:12px;border-radius:12px;background:#293141;margin:12px 0;color:#eef2ff}.error{background:#62252a}.good{background:#184832}.hidden{display:none!important}.history{font-size:14px;padding:10px 0;border-bottom:1px solid var(--line)}.muted{color:var(--muted)}@media(min-width:660px){.process{grid-template-columns:1fr 1fr}main{padding:22px 18px 120px}}@media(max-width:420px){.process button{min-height:110px}.card{padding:14px}}
+</style></head><body><header><a href="../"><img src="../ANFEER%20BR%20FUNDO%20TRANSPARENTE.png" alt="ANFEER"></a><a href="../plano_inspecao/">Planos</a></header><main><div id="notice" class="note hidden"></div><section id="step1"><h1>Inspeção de qualidade</h1><p>Selecione o processo</p><div class="process"><button class="primary" onclick="choose('BROCHA')">BROCHA</button><button class="primary" onclick="choose('BROCHAMENTO')">BROCHAMENTO</button></div></section><section id="step2" class="hidden"><div class="bar"><button onclick="showStep(1)">← Processo</button><span class="badge" id="processLabel"></span></div><h1>Máquinas com apontamento aberto</h1><div id="machines"></div><button onclick="loadMachines()" style="width:100%">Atualizar apontamentos</button></section><section id="step3" class="hidden"><div class="bar"><button onclick="showStep(2)">← Máquinas</button><span class="badge" id="planVersion"></span></div><div class="card"><h2 id="machineTitle"></h2><div class="meta" id="machineDetail"></div></div><div id="form"></div><section class="card"><h2>Histórico desta peça</h2><div id="history" class="muted">Carregando...</div></section></section></main><div class="sticky hidden" id="footer"><button class="primary" id="saveBtn" onclick="saveInspection()">SALVAR INSPEÇÃO</button></div>
+<script src="config.js"></script><script>
+const $=x=>document.getElementById(x);let processo='',selected=null,plano=null,instruments=[],inspections=[],currentResults=new Map(),saving=false;const esc=insEscape;
+function note(msg,kind=''){const el=$('notice');el.className='note '+kind;el.textContent=msg;el.classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'})}
+function clearNote(){$('notice').classList.add('hidden')}
+function showStep(n){for(let i=1;i<=3;i++)$('step'+i).classList.toggle('hidden',i!==n);$('footer').classList.toggle('hidden',n!==3||!plano);clearNote();scrollTo({top:0,behavior:'instant'})}
+async function choose(p){processo=p;$('processLabel').textContent=p;showStep(2);await loadMachines()}
+async function loadMachines(){
+ $('machines').innerHTML='<div class="note">Consultando apontamentos abertos…</div>';
+ try{
+ const rows=await InspecaoAPI.cps('aponta_aberto');
+ const filtered=rows.filter(x=>String(x.U_TP||'').trim().toUpperCase()===processo);
+ $('machines').innerHTML=filtered.length?'':'<div class="note">Nenhuma máquina com apontamento aberto para '+esc(processo)+'.</div>';
+ filtered.forEach((x,i)=>{const b=document.createElement('button');b.className='machine';b.innerHTML='<strong>'+esc(x.MAQUINA||'Máquina '+x.COD_MAQUINA)+'</strong><small>Peça: '+esc(x.COD_PECAS)+'<br>'+esc(x.TITULO)+'<br>Funcionário: '+esc(x.FUNCIONARIO)+'</small>';b.onclick=()=>openMachine(x);$('machines').appendChild(b)})
+ }catch(e){$('machines').innerHTML='<div class="note error">'+esc(e.message)+'</div>'}
+}
+async function openMachine(x){
+ selected=x;currentResults=new Map();plano=null;showStep(3);$('machineTitle').textContent=x.MAQUINA||x.COD_MAQUINA;$('machineDetail').textContent='Peça '+x.COD_PECAS+' • '+x.TITULO+' • '+x.FUNCIONARIO;$('form').innerHTML='<div class="note">Carregando plano e instrumentos…</div>';$('history').textContent='Carregando…';
+ try{
+ const [res,ins]=await Promise.all([InspecaoAPI.get('planos'),InspecaoAPI.cps('INSTRUMENTOS')]);instruments=ins;const found=res.planos.filter(p=>String(p.COD_PECAS).trim().toUpperCase()===String(x.COD_PECAS||'').trim().toUpperCase()&&String(p.PROCESSO).trim().toUpperCase()===processo&&String(p.ATIVO).toLowerCase()==='true').sort((a,b)=>Number(b.VERSAO)-Number(a.VERSAO));plano=found[0]||null;
+ if(!plano){$('form').innerHTML='<div class="note error">Peça sem plano de inspeção ativo cadastrado para '+esc(processo)+'.</div>';$('planVersion').textContent='Sem plano';return}
+ $('planVersion').textContent='Plano v'+plano.VERSAO;renderForm();$('footer').classList.remove('hidden');loadHistory();
+ }catch(e){$('form').innerHTML='<div class="note error">'+esc(e.message)+'</div>'}
+}
+function renderForm(){
+ $('form').innerHTML=plano.parametros.map((p,i)=>{
+ const family=esc(p.FAMILIA),t=p.TIPO;
+ const eligible=t==='VISUAL'?[]:insInstrumentos(instruments,p.FAMILIA);
+ const options='<option value="">Selecione o instrumento</option>'+eligible.map(v=>'<option value="'+esc(v.CODIGO)+'">'+esc(v.CODIGO)+' · '+esc(v.NOME)+'</option>').join('');
+ const pick=t==='VISUAL'?'':'<label class="label">Instrumento • '+family+'</label><select class="inst" data-id="'+esc(p.ID_PARAMETRO)+'">'+options+'</select>'+(eligible.length?'':'<div class="note error">Nenhum instrumento válido nesta família. Não é possível salvar.</div>');
+ const control=t==='COTA'?'<label class="label">Medida encontrada</label><input class="measure" data-id="'+esc(p.ID_PARAMETRO)+'" type="number" inputmode="decimal" step="any" placeholder="Digite o valor medido">':'<div class="label">Resultado</div><div class="choice"><button type="button" onclick="selectResult(this,\''+esc(p.ID_PARAMETRO)+'\',\'APROVADO\')">APROVADO</button><button class="no" type="button" onclick="selectResult(this,\''+esc(p.ID_PARAMETRO)+'\',\'REPROVADO\')">REPROVADO</button></div>';
+ return '<div class="card" data-p="'+esc(p.ID_PARAMETRO)+'"><span class="badge">'+(i+1)+' / '+plano.parametros.length+' • '+esc(t)+'</span><h3 style="margin-top:14px">'+esc(p.NOME)+'</h3>'+control+pick+'</div>'
+ }).join('');
+}
+function selectResult(button,id,result){const card=button.closest('.card');card.querySelectorAll('.choice button').forEach(b=>b.classList.remove('sel'));button.classList.add('sel');currentResults.set(id,result)}
+async function loadHistory(){try{const r=await InspecaoAPI.get('historico',{peca:selected.COD_PECAS,processo});inspections=r.inspecoes;const own=r.inspecoes.filter(x=>String(x.COD_MAQUINA)===String(selected.COD_MAQUINA)&&String(x.FUNCIONARIO)===String(selected.FUNCIONARIO));$('history').innerHTML=own.length?own.slice(0,12).map(x=>'<div class="history">'+esc(x.DATA_HORA).replace('T',' ').slice(0,16)+' • <b>'+esc(x.RESULTADO)+'</b> • v'+esc(x.VERSAO)+'</div>').join(''):'Nenhuma inspeção anterior para esta máquina/funcionário.'}catch(e){$('history').textContent='Não foi possível carregar histórico: '+e.message}}
+function resultPayload(){
+ return plano.parametros.map(p=>{
+ const card=[...document.querySelectorAll('.card[data-p]')].find(x=>x.dataset.p===p.ID_PARAMETRO);
+ if(!card)throw Error('Parâmetro ausente: '+p.NOME);
+ const r={idParametro:p.ID_PARAMETRO};
+ if(p.TIPO==='COTA'){const raw=card.querySelector('.measure').value;if(!raw.trim()||!Number.isFinite(Number(raw)))throw Error('Preencha a medida: '+p.NOME);r.medida=raw}
+ else{r.resultado=currentResults.get(p.ID_PARAMETRO);if(!r.resultado)throw Error('Selecione o resultado: '+p.NOME)}
+ if(p.TIPO!=='VISUAL'){
+  const code=card.querySelector('.inst').value;if(!code)throw Error('Selecione o instrumento: '+p.NOME);
+  const inst=insInstrumentos(instruments,p.FAMILIA).find(x=>String(x.CODIGO)===code);
+  if(!inst)throw Error('Instrumento vencido ou indisponível: '+p.NOME);
+  r.instrumento=code;r.familia=p.FAMILIA;r.vencimento=insDate(inst.DT_VENCIMENTO);r.instrumentoValido=true;
+ }
+ return r;
+ })
+}
+async function saveInspection(){
+ if(saving||!plano||!selected)return;
+ let results;try{results=resultPayload()}catch(e){note(e.message,'error');return}
+ if(!confirm('Confirmar gravação desta inspeção?'))return;
+ saving=true;$('saveBtn').disabled=true;$('saveBtn').textContent='SALVANDO…';clearNote();
+ try{
+ const before=new Set(inspections.map(x=>x.ID_INSPECAO));
+ const payload={action:'salvar_inspecao',peca:selected.COD_PECAS,processo,idPlano:plano.ID_PLANO,maquina:selected.MAQUINA,codMaquina:selected.COD_MAQUINA,funcionario:selected.FUNCIONARIO,titulo:selected.TITULO,apontamento:selected.ID_APONTAMENTO||selected.GUID_APONTAMENTO||'',resultados:results};
+ await InspecaoAPI.post(payload);
+ let saved=null;
+ for(let i=0;i<6;i++){await new Promise(r=>setTimeout(r,1000+i*400));const h=await InspecaoAPI.get('historico',{peca:selected.COD_PECAS,processo});saved=h.inspecoes.find(x=>!before.has(x.ID_INSPECAO)&&x.ID_PLANO===plano.ID_PLANO&&String(x.COD_MAQUINA)===String(selected.COD_MAQUINA)&&x.FUNCIONARIO===selected.FUNCIONARIO);if(saved)break}
+ if(!saved)throw Error('Gravação não confirmada. Confira o histórico antes de tentar novamente.');
+ note('Inspeção salva • '+saved.RESULTADO,'good');currentResults.clear();renderForm();loadHistory();
+ }catch(e){note('Atenção: '+e.message,'error')}finally{saving=false;$('saveBtn').disabled=false;$('saveBtn').textContent='SALVAR INSPEÇÃO'}
+}
+if(!InspecaoAPI.ready()){note('Integração pendente: configure a URL do Apps Script em inspecao/config.js.','error');document.querySelectorAll('.process button').forEach(x=>x.disabled=true)}
+else if(!insLogin()){note('Informe o PIN para usar a inspeção. Recarregue a tela para entrar.','error')}
+</script></body></html>
