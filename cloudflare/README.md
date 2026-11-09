@@ -53,3 +53,18 @@ As inspeções reprovadas anteriores não disparam notificações retroativas.
 Acompanhe erros no Cloudflare > Worker > Observability > Logs.
 
 **Atenção:** o Worker e o Apps Script ainda não possuem autenticação robusta nas ações de gravação; o Origin ajuda no controle do navegador, mas não garante identidade. Para produção, proteger a API sem impor nova senha ao operador.
+
+## Rastrear entrega e falhas (novembro/2026)
+Os HTTP 200 na operação `POST /v1/channels/{id}/messages` e os `messageId` diferentes confirmam aceite pela API, não entrega no celular.
+
+Novo endpoint do Worker, somente eventos assinados:
+`https://anfeer-inspecao-api.apicolumbia.workers.dev/omni-webhook`.
+
+**Ativar:**
+1. Publique a versão atualizada de `inspecao-worker.js` no Cloudflare.
+2. Na plataforma Omni, crie um **webhook de canal** para o canal `01A1C1624E387B6AB07BEFF201530C11`, URL acima, eventos `MESSAGE_DELIVERY` e `MESSAGE_STATUS`, opção `signing: true`.
+3. Copie o **secret da assinatura do webhook**, mostrado apenas ao criar, e configure no Cloudflare em **Variables and Secrets** como Secret `OMNI_WEBHOOK_SIGNING_SECRET`. Este é *diferente* de `OMNI_SECRET_KEY`.
+4. Faça uma inspeção de teste reprovada e acompanhe `ANFEER OMNI WEBHOOK STATUS` em Cloudflare > Observability > Logs; os logs exibem `messageId`, quatro últimos dígitos do destino e `state` recebido.
+5. Se os destinos estiverem fora da janela de atendimento de 24h no WhatsApp oficial, enviar texto livre não é garantia de entrega. Para alertas automáticos em produção, configurar um template aprovado do tipo utilidade e passar a usar envio de template.
+
+**Observações:** O Worker não persiste estados em banco: registra nos logs. Os eventos são emitidos após a criação do webhook, portanto as três mensagens históricas `01A1C1A9A394749B8404BC2ED8A3AF3A`, `01A1C1A9A3A3718E9261EEBDC2D66C5F` e `01A1C1A9A39878C18705EEE53E976E81` devem ser inspecionadas no painel Omni/suporte para consultar seus estados passados. O webhook exige HMAC-SHA256 validado sobre cinco campos e rejeita eventos com timestamp fora de cinco minutos (ver documentação oficial).
