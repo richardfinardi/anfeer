@@ -4,6 +4,7 @@
 <script>
 window.ANFEER_INSPECAO={
  API_CPS:'https://anfeer.consultoriarf.net',
+ API_WORKER:'https://anfeer-inspecao-api.apicolumbia.workers.dev/',
  // Cole a URL /exec do deployment Apps Script aqui. Não publique PIN neste arquivo.
  API_SHEETS:'https://script.google.com/macros/s/AKfycbyhvjEly4JGYXKPybayZCizhcl6afl-xpA6ICQfHRAUbGAjFqxFkaPuyrVI5Gx8Y_qV/exec'
 };
@@ -11,7 +12,7 @@ window.InspecaoAPI={
  
  ready(){return !!window.ANFEER_INSPECAO.API_SHEETS},
  async proxyGet(action,params={}){
-  const u=new URL('/anfeer/inspecao-api',location.origin);
+  const u=new URL(window.ANFEER_INSPECAO.API_WORKER);
   Object.entries({...params,action}).forEach(([k,v])=>u.searchParams.set(k,String(v)));
   const ctrl=new AbortController();
   const timer=setTimeout(()=>ctrl.abort(),10000);
@@ -28,7 +29,7 @@ window.InspecaoAPI={
   const ctrl=new AbortController();
   const timer=setTimeout(()=>ctrl.abort(),20000);
   try{
-    const r=await fetch(new URL('/anfeer/inspecao-api',location.origin),{
+    const r=await fetch(window.ANFEER_INSPECAO.API_WORKER,{
       method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify(payload),credentials:'omit',signal:ctrl.signal
     });
