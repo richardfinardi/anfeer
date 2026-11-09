@@ -34,7 +34,7 @@ O ID já está configurado no Worker. A URL fornecida é de identificação/ger�
 ### No Cloudflare
 Worker `anfeer-inspecao-api` > **Settings > Variables and Secrets** > Add:
 - `OMNI_SECRET_KEY`: **Secret**. Cole a chave de API/Secret Key da Omni. Nunca cole no GitHub.
-- `OMNI_DESTINATARIOS`: **Secret ou Text**. Coloque o(s) WhatsApp que deve(m) receber o alerta com DDI+DDD+número (apenas dígitos), separados por vírgula. Ex.: `5511999999999`.
+- `OMNI_DESTINATARIOS`: **Secret ou Text**. Para vários WhatsApps, coloque **todos no mesmo valor**, com DDI+DDD+número, separados por vírgula ou ponto e vírgula. Ex.: `5511999999999,5511888888888,5531999999999`. Até 15 destinatários distintos são aceitos, e uma falha de envio não impede os demais. Edite o Secret atual (substitua o conteúdo inteiro).
 - `OMNI_CHANNEL_ID` é opcional, porque `01A1C1624E387B6AB07BEFF201530C11` já está no código.
 
 Depois copie a versão mais recente de `cloudflare/inspecao-worker.js` para o editor do Worker e clique em **Deploy**.
@@ -47,7 +47,7 @@ O campo `configurado` não comprova envio, apenas que os Secrets existem.
 
 ### Teste real
 Realize uma **nova** inspeção REPROVADA. A inspeção é persistida no Sheets; só então o Worker solicita, em segundo plano, o envio pela Omni.
-O texto inclui peça, processo, máquina, funcionário, horário de São Paulo, identificação da inspeção e os parâmetros reprovados quando o Apps Script atualizado estiver implantado.
+O texto inclui peça, processo, máquina, funcionário, horário de São Paulo e os parâmetros reprovados quando o Apps Script atualizado estiver implantado. O identificador técnico UUID continua armazenado no banco, mas não aparece mais no WhatsApp.
 Para transmitir os parâmetros reprovados, copie `apps-script/Inspecao.gs` atualizado para o projeto Google e publique **nova versão** da mesma implantação.
 As inspeções reprovadas anteriores não disparam notificações retroativas.
 Acompanhe erros no Cloudflare > Worker > Observability > Logs.
