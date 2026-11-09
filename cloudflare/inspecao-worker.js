@@ -6,6 +6,10 @@
  * Deploy with a Worker Route on the Cloudflare zone of consultoriarf.net.
  * Restrict publicly accessible write endpoints before production rollout.
  */
+// ID extraído da URL do canal informada pelo responsável pela ANFEER.
+// A rota /hermitage/v1/channels/{id} identifica o canal; o endpoint
+// de envio de mensagens, segundo a documentação oficial Omni, é /v1/channels/{id}/messages.
+const OMNI_CHANNEL_ID = '01A1C1624E387B6AB07BEFF201530C11';
 const APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbyhvjEly4JGYXKPybayZCizhcl6afl-xpA6ICQfHRAUbGAjFqxFkaPuyrVI5Gx8Y_qV/exec';
 const ALLOWED_ORIGINS = new Set(['https://consultoriarf.net','https://www.consultoriarf.net']);
 const READS = new Set(['ping','planos','plano_operador','historico']);
@@ -61,7 +65,7 @@ async function upstream(method, pathParams, body, ctx) {
 // Alerta WhatsApp Z-API Omni. As credenciais devem ser Secrets do Cloudflare,
 // nunca expostas no GitHub ou no navegador.
 function omniReady(env){
-  return Boolean(env.OMNI_SECRET_KEY && env.OMNI_CHANNEL_ID && env.OMNI_DESTINATARIOS);
+  return Boolean(env.OMNI_SECRET_KEY && env.OMNI_DESTINATARIOS);
 }
 function fmtTimeBrasil(dateString){
   const dt=new Date(dateString||Date.now());
@@ -70,7 +74,8 @@ function fmtTimeBrasil(dateString){
 }
 function rejectionMessage(request, saved){
   const clean=v=>String(v??'').replace(/[<>]/g,'').slice(0,180);
-  return [
+  const falhas=Array.isArray(saved.falhas)?saved.falhas.slice(0,12):[];
+  const corpo=[
     '*ANFEER | INSPEÇÃO REPROVADA*',
     '',
     '*Peça:* '+clean(request.peca),
@@ -78,17 +83,24 @@ function rejectionMessage(request, saved){
     '*Máquina:* '+clean(request.maquina),
     '*Funcionário:* '+clean(request.funcionario),
     '*Data/hora:* '+fmtTimeBrasil(saved.dataHora),
-    '*Inspeção:* '+clean(saved.id),
-    '',
-    'Verificar a não conformidade no controle de inspeções.'
-  ].join('\n');
+    '*Inspeção:* '+clean(saved.id)
+  ];
+  if(falhas.length){
+    corpo.push('','*Parâmetros reprovados:*');
+    for(const f of falhas){
+      corpo.push('• '+clean(f.parametro)+(f.medida!==null&&f.medida!==undefined?' | medido: '+clean(f.medida):''));
+    }
+  }
+  corpo.push('','Verificar a não conformidade no controle de inspeções.');
+  return corpo.join('\n');
 }
 async function omniNotify(env, payload, saved){
   const recipients=String(env.OMNI_DESTINATARIOS||'')
     .split(/[;,\n]+/).map(s=>s.replace(/\D/g,'')).filter(s=>/^\d{10,15}$/.test(s)).slice(0,5);
   if(!recipients.length)throw Error('OMNI_DESTINATARIOS sem telefone válido (DDI+DDD+número)');
-  if(!/^[A-Za-z0-9_-]+$/.test(String(env.OMNI_CHANNEL_ID)))throw Error('Channel ID da Omni inválido');
-  const endpoint='https://api.omni.z-api.io/v1/channels/'+encodeURIComponent(env.OMNI_CHANNEL_ID)+'/messages';
+  const channel=String(env.OMNI_CHANNEL_ID||OMNI_CHANNEL_ID).trim();
+  if(!/^[A-Za-z0-9_-]+$/.test(channel))throw Error('Channel ID da Omni inválido');
+  const endpoint='https://api.omni.z-api.io/v1/channels/'+encodeURIComponent(channel)+'/messages';
   const message=rejectionMessage(payload,saved);
   for(const recipient of recipients){
     const res=await fetch(endpoint,{
@@ -122,6 +134,10 @@ export default {
   try{
    if(request.method==='GET'){
      const action=u.searchParams.get('action')||'ping';
+     if(action==='whatsapp_status'){
+       const quantidade=String(env.OMNI_DESTINATARIOS||'').split(/[;,\\n]+/).map(x=>x.replace(/\\D/g,'')).filter(x=>/^\\d{10,15}$/.test(x)).length;
+       return response({ok:true,configurado:omniReady(env),destinatarios:quantidade,canalConfigurado:!!(env.OMNI_CHANNEL_ID||OMNI_CHANNEL_ID)},200,origin);
+     }
      if(!READS.has(action))return response({ok:false,error:'Ação inválida'},400,origin);
      return response(await upstream('GET',u.searchParams,null,ctx),200,origin);
    }
