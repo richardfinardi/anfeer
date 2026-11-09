@@ -73,7 +73,7 @@ function insSavePlan(d){
     if(tipo==='CALIBRADOR' && processo!=='BROCHAMENTO')throw Error('Calibrador somente no brochamento');
     if(tipo!=='VISUAL'&&!familia)throw Error('Família obrigatória: '+nome);
     const nominal=Number(String(p.nominal??'').replace(',','.')),min=Number(String(p.min??'').replace(',','.')),max=Number(String(p.max??'').replace(',','.'));
-    if(tipo==='COTA' && (!Number.isFinite(nominal)||!Number.isFinite(min)||!Number.isFinite(max)||min>max||min>nominal||max<nominal))throw Error('Medidas/tolerâncias inválidas: '+nome);
+    if(tipo==='COTA' && ([p.nominal,p.min,p.max].some(v=>String(v??'').trim()==='') || !Number.isFinite(nominal)||!Number.isFinite(min)||!Number.isFinite(max)||min>max||min>nominal||max<nominal))throw Error('Medidas/tolerâncias inválidas: '+nome);
     return {ID_PARAMETRO:Utilities.getUuid(),ORDEM:i+1,TIPO:tipo,NOME:nome,NOMINAL:tipo==='COTA'?nominal:'',TOL_MIN:tipo==='COTA'?min:'',TOL_MAX:tipo==='COTA'?max:'',FAMILIA:familia,VISIVEL_CLIENTE:!!p.visivel,OBRIGATORIO:true};
   });
   const old=insRows('PLANOS').filter(x=>x.COD_PECAS===peca&&x.PROCESSO===processo);
@@ -124,7 +124,7 @@ function insSaveInspection(d){
     let aprovado,medida='',cod='',venc='';
     if(p.TIPO==='COTA'){
       medida=insNumber(r.medida);
-      aprovado=medida>=Number(p.TOL_MIN)&&medida<=Number(p.TOL_MAX);
+      aprovado=medida>=insNumber(p.TOL_MIN)&&medida<=insNumber(p.TOL_MAX);
     }else{if(!['APROVADO','REPROVADO'].includes(r.resultado))throw Error('Resultado obrigatório: '+p.NOME);aprovado=r.resultado==='APROVADO'}
     if(p.TIPO!=='VISUAL'){
       cod=String(r.instrumento||'').trim();venc=String(r.vencimento||'').slice(0,30);
