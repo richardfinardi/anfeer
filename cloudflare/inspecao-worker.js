@@ -64,15 +64,67 @@ async function upstream(method, pathParams, body, ctx) {
 
 // Alerta WhatsApp Z-API Omni. As credenciais devem ser Secrets do Cloudflare,
 // nunca expostas no GitHub ou no navegador.
-function omniRecipients(env){
+
+// Cadastro persistente de telefones no KV, editado exclusivamente pela administração.
+// Sem registro salvo, preserva OMNI_DESTINATARIOS para não interromper envios atuais.
+const RECIPIENTS_KEY='whatsapp_recipients_v1';
+function legacyRecipientRecords(env){
   return [...new Set(
     String(env.OMNI_DESTINATARIOS||'').split(/[;,\n]+/)
       .map(v=>v.trim().replace(/\D/g,''))
       .filter(v=>/^\d{10,15}$/.test(v))
-  )].slice(0,15);
+  )].slice(0,15).map(numero=>({nome:'Destinatário '+numero.slice(-4),numero,ativo:true}));
 }
-function omniReady(env){
-  return Boolean(String(env.OMNI_SECRET_KEY||'').trim() && omniRecipients(env).length);
+function validateRecipientRecords(data){
+  if(!Array.isArray(data)||data.length>15)throw Error('Informe até 15 destinatários');
+  const numbers=new Set();
+  return data.map((item,i)=>{
+    if(!item||typeof item!=='object')throw Error('Destinatário inválido: '+(i+1));
+    const nome=String(item.nome||'').trim();
+    const numero=String(item.numero||'').replace(/\D/g,'');
+    if(!nome||nome.length>80)throw Error('Nome inválido no destinatário '+(i+1));
+    if(!/^\d{10,15}$/.test(numero))throw Error('Use DDI + DDD + número no destinatário '+(i+1));
+    if(typeof item.ativo!=='boolean')throw Error('Status inválido no destinatário '+(i+1));
+    if(numbers.has(numero))throw Error('Número duplicado: final '+numero.slice(-4));
+    numbers.add(numero);
+    return {nome,numero,ativo:item.ativo};
+  });
+}
+async function recipientRecords(env){
+  if(!env.ANFEER_CONFIG?.get)return legacyRecipientRecords(env);
+  const saved=await env.ANFEER_CONFIG.get(RECIPIENTS_KEY);
+  if(saved===null)return legacyRecipientRecords(env);
+  return validateRecipientRecords(JSON.parse(saved));
+}
+async function omniRecipients(env){
+  return (await recipientRecords(env)).filter(x=>x.ativo).map(x=>x.numero);
+}
+async function omniReady(env){
+  return Boolean(String(env.OMNI_SECRET_KEY||'').trim() && (await omniRecipients(env)).length);
+}
+// A senha da administração nunca é colocada no HTML ou em parâmetros da URL.
+async function adminAuthorized(request,env){
+  const expected=String(env.ANFEER_NOTIFICACOES_ADMIN_KEY||'');
+  const received=request.headers.get('X-ANFEER-ADMIN-KEY')||'';
+  if(expected.length<24||received.length<1||received.length>512)return false;
+  const enc=new TextEncoder();
+  const [a,b]=await Promise.all([
+    crypto.subtle.digest('SHA-256',enc.encode(expected)),
+    crypto.subtle.digest('SHA-256',enc.encode(received))
+  ]);
+  const x=new Uint8Array(a),y=new Uint8Array(b);
+  let difference=0;
+  for(let i=0;i<x.length;i++)difference|=x[i]^y[i];
+  return difference===0;
+}
+async function adminGuard(request,env,origin){
+  if(String(env.ANFEER_NOTIFICACOES_ADMIN_KEY||'').length<24)
+    return response({ok:false,error:'Defina ANFEER_NOTIFICACOES_ADMIN_KEY (mínimo 24 caracteres) no Cloudflare'},503,origin);
+  if(!env.ANFEER_CONFIG?.get||!env.ANFEER_CONFIG?.put)
+    return response({ok:false,error:'Vincule o KV namespace ANFEER_CONFIG ao Worker'},503,origin);
+  if(!await adminAuthorized(request,env))
+    return response({ok:false,error:'Chave administrativa inválida'},401,origin);
+  return null;
 }
 function fmtTimeBrasil(dateString){
   const dt=new Date(dateString||Date.now());
@@ -120,7 +172,7 @@ function rejectionMessage(request, saved){
   return corpo.join('\n');
 }
 async function omniNotify(env, payload, saved){
-  const recipients=omniRecipients(env);
+  const recipients=await omniRecipients(env);
   if(!recipients.length)throw Error('OMNI_DESTINATARIOS sem telefone válido (DDI+DDD+número)');
   const channel=String(env.OMNI_CHANNEL_ID||OMNI_CHANNEL_ID).trim();
   if(!/^[A-Za-z0-9_-]+$/.test(channel))throw Error('Channel ID da Omni inválido');
@@ -255,7 +307,7 @@ export default {
     return new Response(null,{status:204,headers:{
       'Access-Control-Allow-Origin':origin,
       'Access-Control-Allow-Methods':'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers':'Content-Type',
+      'Access-Control-Allow-Headers':'Content-Type, X-ANFEER-ADMIN-KEY',
       'Access-Control-Max-Age':'600',
       'Vary':'Origin'
     }});
@@ -265,16 +317,21 @@ export default {
    if(request.method==='GET'){
      const action=u.searchParams.get('action')||'ping';
      if(action==='whatsapp_status'){
-       const quantidade=omniRecipients(env).length;
+       const quantidade=(await omniRecipients(env)).length;
        return response({
          ok:true,
-         configurado:omniReady(env),
+         configurado:await omniReady(env),
          destinatarios:quantidade,
          chavePresente:Boolean(String(env.OMNI_SECRET_KEY||'').trim()),
-         destinoPresente:Boolean(String(env.OMNI_DESTINATARIOS||'').trim()),
+         destinoPresente:quantidade>0,
          destinoValido:quantidade>0,
          canalConfigurado:!!(env.OMNI_CHANNEL_ID||OMNI_CHANNEL_ID)
        },200,origin);
+     }
+     if(action==='whatsapp_destinatarios'){
+       const denied=await adminGuard(request,env,origin);
+       if(denied)return denied;
+       return response({ok:true,destinatarios:await recipientRecords(env)},200,origin);
      }
      if(!READS.has(action))return response({ok:false,error:'Ação inválida'},400,origin);
      return response(await upstream('GET',u.searchParams,null,ctx),200,origin);
@@ -284,12 +341,26 @@ export default {
    if(raw.length>50000)return response({ok:false,error:'Envio muito grande'},413,origin);
    let data;
    try{data=JSON.parse(raw)}catch(e){return response({ok:false,error:'JSON inválido'},400,origin)}
+   if(data?.action==='salvar_destinatarios'){
+     const denied=await adminGuard(request,env,origin);
+     if(denied)return denied;
+     try{
+       const destinatarios=validateRecipientRecords(data.destinatarios);
+       await env.ANFEER_CONFIG.put(RECIPIENTS_KEY,JSON.stringify(destinatarios));
+       console.log('ANFEER WhatsApp CADASTRO ATUALIZADO',JSON.stringify({
+         cadastrados:destinatarios.length,ativos:destinatarios.filter(x=>x.ativo).length
+       }));
+       return response({ok:true,destinatarios},200,origin);
+     }catch(err){
+       return response({ok:false,error:String(err?.message||err)},400,origin);
+     }
+   }
    if(!WRITES.has(data?.action))return response({ok:false,error:'Ação não autorizada'},400,origin);
    const saved=await upstream('POST',new URLSearchParams(),JSON.stringify(data),ctx);
    // Não devolver nominal/tolerâncias à tela do operador: são usados somente pelo Worker.
    const {falhas:__falhas,titulo:__titulo,...publicResult}=saved||{};
    if(data.action==='salvar_inspecao'&&saved?.ok&&saved.resultado==='REPROVADO'&&!saved.jaRegistrada){
-     if(omniReady(env)){
+     if(await omniReady(env)){
        ctx.waitUntil(omniNotify(env,data,saved).catch(err=>console.error('Erro ao notificar inspeção',saved.id,String(err))));
        return response({...publicResult,alertaWhatsapp:'envio_solicitado'},200,origin);
      }
