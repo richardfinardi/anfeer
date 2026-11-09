@@ -108,7 +108,7 @@ function insSavePlan(d){
   const version=Math.max(0,...old.map(x=>Number(x.VERSAO)||0))+1;
   const sheet=insTab('PLANOS'),grid=sheet.getDataRange().getValues(),headers=grid[0],activeCol=headers.indexOf('ATIVO');
   for(let i=1;i<grid.length;i++){if(String(grid[i][1]).trim().toUpperCase()===peca&&String(grid[i][2]).trim().toUpperCase()===processo&&insFlag(grid[i][4]))sheet.getRange(i+1,activeCol+1).setValue(false)}
-  const id=Utilities.getUuid(),now=new Date().toISOString();
+  const id=Utilities.getUuid(),now=insNowLocalISO();
   insAppend('PARAMETROS',sanitized.map(x=>({...x,ID_PLANO:id})));
   insAppend('PLANOS',[{ID_PLANO:id,COD_PECAS:peca,PROCESSO:processo,VERSAO:version,ATIVO:true,CRIADO_EM:now,CRIADO_POR:String(d.usuario||'').slice(0,100),OBSERVACAO:String(d.observacao||'').slice(0,1000)}]);
   insAppend('HISTORICO',[{ID_EVENTO:Utilities.getUuid(),DATA_HORA:now,ACAO:'PUBLICAR_VERSAO',ID_PLANO:id,COD_PECAS:peca,PROCESSO:processo,VERSAO:version,DETALHES:'Parâmetros: '+sanitized.length}]);
@@ -131,6 +131,16 @@ function insExpiry(s){
   if(/^\d{4}-\d{2}-\d{2}/.test(str))return str.slice(0,10);
   if(/^\d{2}\/\d{2}\/\d{4}/.test(str))return str.slice(6,10)+'-'+str.slice(3,5)+'-'+str.slice(0,2);
   return '';
+}
+/**
+ * Grava horário da fábrica, com offset explícito. Preserva o instante correto,
+ * mas exibe 14:32 -03:00 em vez de 17:32Z para America/Sao_Paulo.
+ */
+function insNowLocalISO(){
+  const instant=new Date(),zone='America/Sao_Paulo';
+  const value=Utilities.formatDate(instant,zone,"yyyy-MM-dd'T'HH:mm:ss");
+  const offset=Utilities.formatDate(instant,zone,'Z').replace(/([+-]\\d{2})(\\d{2})$/,'$1:$2');
+  return value+offset;
 }
 function insToday(){
   return Utilities.formatDate(new Date(),'America/Sao_Paulo','yyyy-MM-dd');
@@ -167,7 +177,7 @@ function insSaveInspection(d){
   const id=String(d.requisicaoId||Utilities.getUuid());
   if(insRows('INSPECOES').some(x=>x.ID_INSPECAO===id))return {ok:true,id,jaRegistrada:true};
   const result=rows.every(x=>x.RESULTADO==='APROVADO')?'APROVADO':'REPROVADO';
-  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:String(d.titulo||''),PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:new Date().toISOString(),RESULTADO:result}]);
+  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:String(d.titulo||''),PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:insNowLocalISO(),RESULTADO:result}]);
   insAppend('RESULTADOS',rows.map(r=>({...r,ID_INSPECAO:id})));
   return {ok:true,id,resultado:result};
 }
