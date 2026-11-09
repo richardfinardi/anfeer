@@ -181,5 +181,11 @@ function insSaveInspection(d){
   const dataHora=insNowLocalISO();
   insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:String(d.titulo||''),PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:dataHora,RESULTADO:result}]);
   insAppend('RESULTADOS',rows.map(r=>({...r,ID_INSPECAO:id})));
-  return {ok:true,id,resultado:result,dataHora};
+  const falhas=rows.filter(r=>r.RESULTADO==='REPROVADO').map(r=>({
+    parametro:r.NOME,
+    tipo:r.TIPO,
+    medida:r.TIPO==='COTA'?r.MEDIDA:null,
+    instrumento:r.COD_INSTRUMENTO||''
+  }));
+  return {ok:true,id,resultado:result,dataHora,falhas};
 }
