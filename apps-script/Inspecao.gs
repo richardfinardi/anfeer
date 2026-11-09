@@ -152,7 +152,7 @@ function insSaveInspection(d){
   if(!plano)throw Error('Plano não está mais ativo. Atualize a tela.');
   if(!d.maquina||!d.funcionario)throw Error('Máquina e funcionário obrigatórios');
   const apontamentos=insCpsRows('aponta_aberto');
-  const aberto=apontamentos.some(a=>String(a.COD_MAQUINA)===String(d.codMaquina)&&insCode(a.COD_PECAS)===peca&&insCode(a.U_TP)===processo&&String(a.FUNCIONARIO)===String(d.funcionario));
+  const aberto=apontamentos.find(a=>String(a.COD_MAQUINA)===String(d.codMaquina)&&insCode(a.COD_PECAS)===peca&&insCode(a.U_TP)===processo&&String(a.FUNCIONARIO)===String(d.funcionario));
   if(!aberto)throw Error('Apontamento não está mais aberto. Atualize a tela.');
   const instrumentos=insCpsRows('INSTRUMENTOS');
   const results=d.resultados||[];
@@ -179,13 +179,25 @@ function insSaveInspection(d){
   if(insRows('INSPECOES').some(x=>x.ID_INSPECAO===id))return {ok:true,id,jaRegistrada:true};
   const result=rows.every(x=>x.RESULTADO==='APROVADO')?'APROVADO':'REPROVADO';
   const dataHora=insNowLocalISO();
-  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:String(d.titulo||''),PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:dataHora,RESULTADO:result}]);
+  // O nome da peça é sempre TOS.TITULO da API /aponta_aberto,
+  // e nunca um campo digitado ou modificado no navegador.
+  const titulo=String(aberto.TITULO||d.titulo||'').trim();
+  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:titulo,PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:dataHora,RESULTADO:result}]);
   insAppend('RESULTADOS',rows.map(r=>({...r,ID_INSPECAO:id})));
-  const falhas=rows.filter(r=>r.RESULTADO==='REPROVADO').map(r=>({
-    parametro:r.NOME,
-    tipo:r.TIPO,
-    medida:r.TIPO==='COTA'?r.MEDIDA:null,
-    instrumento:r.COD_INSTRUMENTO||''
-  }));
-  return {ok:true,id,resultado:result,dataHora,falhas};
+  const parametrosPorId=new Map(plano.parametros.map(p=>[p.ID_PARAMETRO,p]));
+  // Nominal/limites somente após gravar a medição; jamais são enviados
+  // na consulta plano_operador. O Worker os usa apenas no WhatsApp.
+  const falhas=rows.filter(r=>r.RESULTADO==='REPROVADO').map(r=>{
+    const parametro=parametrosPorId.get(r.ID_PARAMETRO);
+    const cota=r.TIPO==='COTA';
+    return {
+      parametro:r.NOME,
+      tipo:r.TIPO,
+      medida:cota?r.MEDIDA:null,
+      nominal:cota?insNumber(parametro.NOMINAL):null,
+      minimo:cota?insNumber(parametro.TOL_MIN):null,
+      maximo:cota?insNumber(parametro.TOL_MAX):null
+    };
+  });
+  return {ok:true,id,resultado:result,dataHora,titulo,falhas};
 }
