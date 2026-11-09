@@ -58,6 +58,53 @@ async function upstream(method, pathParams, body, ctx) {
   }finally{clearTimeout(timer)}
 }
 
+// Alerta WhatsApp Z-API Omni. As credenciais devem ser Secrets do Cloudflare,
+// nunca expostas no GitHub ou no navegador.
+function omniReady(env){
+  return Boolean(env.OMNI_SECRET_KEY && env.OMNI_CHANNEL_ID && env.OMNI_DESTINATARIOS);
+}
+function fmtTimeBrasil(dateString){
+  const dt=new Date(dateString||Date.now());
+  if(Number.isNaN(dt.getTime()))return String(dateString||'');
+  return new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(dt);
+}
+function rejectionMessage(request, saved){
+  const clean=v=>String(v??'').replace(/[<>]/g,'').slice(0,180);
+  return [
+    '*ANFEER | INSPEÇÃO REPROVADA*',
+    '',
+    '*Peça:* '+clean(request.peca),
+    '*Processo:* '+clean(request.processo),
+    '*Máquina:* '+clean(request.maquina),
+    '*Funcionário:* '+clean(request.funcionario),
+    '*Data/hora:* '+fmtTimeBrasil(saved.dataHora),
+    '*Inspeção:* '+clean(saved.id),
+    '',
+    'Verificar a não conformidade no controle de inspeções.'
+  ].join('\n');
+}
+async function omniNotify(env, payload, saved){
+  const recipients=String(env.OMNI_DESTINATARIOS||'')
+    .split(/[;,\n]+/).map(s=>s.replace(/\D/g,'')).filter(s=>/^\d{10,15}$/.test(s)).slice(0,5);
+  if(!recipients.length)throw Error('OMNI_DESTINATARIOS sem telefone válido (DDI+DDD+número)');
+  if(!/^[A-Za-z0-9_-]+$/.test(String(env.OMNI_CHANNEL_ID)))throw Error('Channel ID da Omni inválido');
+  const endpoint='https://api.omni.z-api.io/v1/channels/'+encodeURIComponent(env.OMNI_CHANNEL_ID)+'/messages';
+  const message=rejectionMessage(payload,saved);
+  for(const recipient of recipients){
+    const res=await fetch(endpoint,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+env.OMNI_SECRET_KEY},
+      body:JSON.stringify({recipient:{identifier:recipient},content:{type:'TEXT',body:{message}}})
+    });
+    if(!res.ok){
+      const detail=(await res.text()).slice(0,250);
+      console.error('Falha no WhatsApp Omni, inspeção',saved.id,'HTTP',res.status,detail);
+    }else{
+      console.log('Alerta WhatsApp Omni enviado para inspeção',saved.id,'HTTP',res.status);
+    }
+  }
+}
+
 export default {
  async fetch(request,env,ctx){
   const u=new URL(request.url),origin=request.headers.get('Origin')||'';
@@ -84,7 +131,15 @@ export default {
    let data;
    try{data=JSON.parse(raw)}catch(e){return response({ok:false,error:'JSON inválido'},400,origin)}
    if(!WRITES.has(data?.action))return response({ok:false,error:'Ação não autorizada'},400,origin);
-   return response(await upstream('POST',new URLSearchParams(),JSON.stringify(data),ctx),200,origin);
+   const saved=await upstream('POST',new URLSearchParams(),JSON.stringify(data),ctx);
+   if(data.action==='salvar_inspecao'&&saved?.ok&&saved.resultado==='REPROVADO'&&!saved.jaRegistrada){
+     if(omniReady(env)){
+       ctx.waitUntil(omniNotify(env,data,saved).catch(err=>console.error('Erro ao notificar inspeção',saved.id,String(err))));
+       return response({...saved,alertaWhatsapp:'envio_solicitado'},200,origin);
+     }
+     return response({...saved,alertaWhatsapp:'nao_configurado'},200,origin);
+   }
+   return response(saved,200,origin);
   }catch(e){return response({ok:false,error:String(e?.message||e)},502,origin)}
  }
 };
