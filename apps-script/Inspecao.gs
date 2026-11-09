@@ -61,7 +61,7 @@ function insBridge(data,token){
   // A página no Apps Script envia dados ao site via postMessage, sem depender de JSONP.
   // token + verificação de source na página eliminam respostas de outros iframes.
   const payload=JSON.stringify({channel:'ANFEER_INSPECAO_BRIDGE',token:String(token||''),data}).replace(/</g,'\\u003c');
-  const html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"></head><body><script>window.top.postMessage('+payload+',"https://consultoriarf.net");<\\/script></body></html>';
+  const html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"></head><body><script>window.top.postMessage('+payload+',"https://consultoriarf.net");</script></body></html>';
   return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 function doGet(e){
