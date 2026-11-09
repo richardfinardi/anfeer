@@ -139,7 +139,8 @@ function insExpiry(s){
 function insNowLocalISO(){
   const instant=new Date(),zone='America/Sao_Paulo';
   const value=Utilities.formatDate(instant,zone,"yyyy-MM-dd'T'HH:mm:ss");
-  const offset=Utilities.formatDate(instant,zone,'Z').replace(/([+-]\\d{2})(\\d{2})$/,'$1:$2');
+  const tz=Utilities.formatDate(instant,zone,'Z');
+  const offset=tz.slice(0,3)+':'+tz.slice(3);
   return value+offset;
 }
 function insToday(){
