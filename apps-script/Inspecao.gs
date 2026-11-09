@@ -87,11 +87,35 @@ function insSavePlan(d){
   return {ok:true,id,versao:version};
 }
 function insNumber(value){const s=String(value??'').trim().replace(',','.');if(!s||!Number.isFinite(Number(s)))throw Error('Medida inválida');return Number(s)}
+function insCpsRows(path){
+  const cache=CacheService.getScriptCache(),key='ins_'+path;
+  const cached=cache.get(key);if(cached)return JSON.parse(cached);
+  const res=UrlFetchApp.fetch('https://anfeer.consultoriarf.net/'+path,{muteHttpExceptions:true});
+  if(res.getResponseCode()!==200)throw Error('API CPS indisponível: '+path);
+  const obj=JSON.parse(res.getContentText());
+  const rows=Array.isArray(obj)?obj:Array.isArray(obj.dados)?obj.dados:Array.isArray(obj.items)?obj.items:null;
+  if(!rows)throw Error('Formato inválido no endpoint '+path);
+  try{cache.put(key,JSON.stringify(rows),60)}catch(e){}
+  return rows;
+}
+function insExpiry(s){
+  const str=String(s||'').trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(str))return str.slice(0,10);
+  if(/^\d{2}\/\d{2}\/\d{4}/.test(str))return str.slice(6,10)+'-'+str.slice(3,5)+'-'+str.slice(0,2);
+  return '';
+}
+function insToday(){
+  return Utilities.formatDate(new Date(),'America/Sao_Paulo','yyyy-MM-dd');
+}
 function insSaveInspection(d){
   const peca=insCode(d.peca),processo=insProcess(d.processo);
   const plano=insPlanos().find(p=>p.ID_PLANO===d.idPlano&&p.COD_PECAS===peca&&p.PROCESSO===processo&&String(p.ATIVO).toLowerCase()==='true');
   if(!plano)throw Error('Plano não está mais ativo. Atualize a tela.');
   if(!d.maquina||!d.funcionario)throw Error('Máquina e funcionário obrigatórios');
+  const apontamentos=insCpsRows('aponta_aberto');
+  const aberto=apontamentos.some(a=>String(a.COD_MAQUINA)===String(d.codMaquina)&&insCode(a.COD_PECAS)===peca&&insCode(a.U_TP)===processo&&String(a.FUNCIONARIO)===String(d.funcionario));
+  if(!aberto)throw Error('Apontamento não está mais aberto. Atualize a tela.');
+  const instrumentos=insCpsRows('INSTRUMENTOS');
   const results=d.resultados||[];
   if(!Array.isArray(results)||results.length!==plano.parametros.length)throw Error('Preencha todos os parâmetros');
   const map=new Map(results.map(r=>[String(r.idParametro),r]));
@@ -106,13 +130,15 @@ function insSaveInspection(d){
       cod=String(r.instrumento||'').trim();venc=String(r.vencimento||'').slice(0,30);
       if(!cod)throw Error('Selecione instrumento: '+p.NOME);
       if(r.familia!==p.FAMILIA)throw Error('Família incorreta: '+p.NOME);
-      if(!r.instrumentoValido||!venc||venc.slice(0,10)<new Date().toISOString().slice(0,10))throw Error('Instrumento sem validade: '+p.NOME);
-      // IMPORTANTE: o front fornece inventário; para produção validar código/validade
-      // novamente em API interna do CPS, pois o navegador não é fonte confiável.
+      const encontrado=instrumentos.find(x=>String(x.CODIGO).trim()===cod&&String(x.FAMILIA).trim()===p.FAMILIA);
+      if(!encontrado || String(encontrado.VALIDADE).trim().toUpperCase()!=='OK'|| !insExpiry(encontrado.DT_VENCIMENTO)||insExpiry(encontrado.DT_VENCIMENTO)<insToday())throw Error('Instrumento inválido ou vencido: '+p.NOME);
+      venc=insExpiry(encontrado.DT_VENCIMENTO);
     }
     return {ID_PARAMETRO:p.ID_PARAMETRO,TIPO:p.TIPO,NOME:p.NOME,MEDIDA:medida,COD_INSTRUMENTO:cod,RESULTADO:aprovado?'APROVADO':'REPROVADO',DT_VENCIMENTO_INSTRUMENTO:venc};
   });
-  const id=Utilities.getUuid(),result=rows.every(x=>x.RESULTADO==='APROVADO')?'APROVADO':'REPROVADO';
+  const id=String(d.requisicaoId||Utilities.getUuid());
+  if(insRows('INSPECOES').some(x=>x.ID_INSPECAO===id))return {ok:true,id,jaRegistrada:true};
+  const result=rows.every(x=>x.RESULTADO==='APROVADO')?'APROVADO':'REPROVADO';
   insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:String(d.titulo||''),PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:new Date().toISOString(),RESULTADO:result}]);
   insAppend('RESULTADOS',rows.map(r=>({...r,ID_INSPECAO:id})));
   return {ok:true,id,resultado:result};
