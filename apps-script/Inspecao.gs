@@ -1,7 +1,7 @@
 /**
  * ANFEER - Inspeções. Cole este arquivo em um projeto Apps Script independente,
  * vinculado à planilha cujo ID consta abaixo. Implante como aplicativo da Web.
- * Configure propriedade de script INSPECAO_PIN antes de disponibilizar.
+ * Sem PIN: proteja o acesso ao endpoint em produção por autenticação externa.
  */
 const INSPECAO_SHEET_ID = '1bpVNM857IN_ymqF_zV3Moy6XRvjTD2KNIIV-r3yXgW0';
 const INSPECAO_TABS = {
@@ -28,11 +28,6 @@ function insJson(obj,cb){
     return ContentService.createTextOutput(cb+'('+content+');').setMimeType(ContentService.MimeType.JAVASCRIPT);
   return ContentService.createTextOutput(content).setMimeType(ContentService.MimeType.JSON);
 }
-function insAuth(pin){
-  const expected=PropertiesService.getScriptProperties().getProperty('INSPECAO_PIN');
-  if(!expected)throw Error('Configure a propriedade INSPECAO_PIN no Apps Script.');
-  if(String(pin||'')!==expected)throw Error('PIN de inspeção incorreto.');
-}
 function insProcess(p){const v=String(p||'').trim().toUpperCase();if(!['BROCHA','BROCHAMENTO'].includes(v))throw Error('Processo inválido');return v}
 function insCode(s){return String(s||'').trim().toUpperCase()}
 function insPlanos(){
@@ -44,7 +39,6 @@ function doGet(e){
   try{
     const action=q.action||'ping';
     if(action==='ping')return insJson({ok:true},q.callback);
-    insAuth(q.pin);
     if(action==='planos')return insJson({ok:true,planos:insPlanos()},q.callback);
     if(action==='plano_operador'){
       const peca=insCode(q.peca),processo=insProcess(q.processo);
@@ -61,7 +55,6 @@ function doPost(e){
   let d={};
   try{
     d=JSON.parse(e.postData.contents);
-    insAuth(d.pin);
     const lock=LockService.getScriptLock();lock.waitLock(25000);
     try{
       if(d.action==='salvar_plano')return insJson(insSavePlan(d));
