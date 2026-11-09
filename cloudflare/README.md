@@ -27,18 +27,29 @@ Sem PIN, a implantação do Apps Script anterior está publicamente acessível. 
 - JSONP e a ponte iframe só são usados como fallback se o Worker ainda não estiver implantado.
 
 ## Z-API Omni: alerta automático de inspeção REPROVADA
-O código do Worker usa a API **Omni**, que é diferente da Z-API clássica.
-Após salvar uma inspeção, caso o Apps Script devolva `resultado: "REPROVADO"`, o Worker encaminha alerta de WhatsApp somente se a inspeção não for duplicada (`jaRegistrada`).
-A gravação permanece válida mesmo que o envio falhe, com logs de erro no Worker.
 
-No painel do Worker `anfeer-inspecao-api` em **Settings > Variables and Secrets**, adicione:
+Canal informado: `01A1C1624E387B6AB07BEFF201530C11`, obtido de `https://api.omni.z-api.io/hermitage/v1/channels/01A1C1624E387B6AB07BEFF201530C11`.
+O ID já está configurado no Worker. A URL fornecida é de identificação/gerência do canal; para enviar texto o endpoint documentado pela Omni é **POST `https://api.omni.z-api.io/v1/channels/{channelId}/messages`** com cabeçalho `Authorization: Bearer <secret-key>`.
 
-- `OMNI_CHANNEL_ID`: identificador do canal da Z-API Omni (variável ou segredo).
-- `OMNI_SECRET_KEY`: Secret Key da Z-API Omni (**Secret**, nunca expor no GitHub).
-- `OMNI_DESTINATARIOS`: números com DDI + DDD + número, só dígitos, separados por vírgula. Ex.: `5511999999999` (se preferir, como **Secret**).
+### No Cloudflare
+Worker `anfeer-inspecao-api` > **Settings > Variables and Secrets** > Add:
+- `OMNI_SECRET_KEY`: **Secret**. Cole a chave de API/Secret Key da Omni. Nunca cole no GitHub.
+- `OMNI_DESTINATARIOS`: **Secret ou Text**. Coloque o(s) WhatsApp que deve(m) receber o alerta com DDI+DDD+número (apenas dígitos), separados por vírgula. Ex.: `5511999999999`.
+- `OMNI_CHANNEL_ID` é opcional, porque `01A1C1624E387B6AB07BEFF201530C11` já está no código.
 
-Depois de configurar, copie a versão atualizada de `cloudflare/inspecao-worker.js` para o editor do Cloudflare e clique em **Deploy**.
-Para usar a hora exata da inspeção em São Paulo, atualize também o Apps Script `apps-script/Inspecao.gs` e faça **Gerenciar implantações > Editar > Nova versão > Implantar**.
+Depois copie a versão mais recente de `cloudflare/inspecao-worker.js` para o editor do Worker e clique em **Deploy**.
 
-O envio é feito por `POST https://api.omni.z-api.io/v1/channels/{channelId}/messages` com Bearer Secret Key no servidor; usa conteúdo TEXT e não expõe credenciais ao usuário. Notifica somente resultado geral REPROVADO.
-**Atenção:** o Worker continua sem autenticação real de origem para POST. Proteja a escrita antes de colocá-lo em produção aberta. Não há nenhum envio ativo até configurar os Secrets e publicar o novo Worker.
+### Verificar configuração sem enviar mensagem
+Abra `https://anfeer-inspecao-api.apicolumbia.workers.dev/?action=whatsapp_status`.
+Retorno esperado, depois de cadastrar os dois Secrets:
+`{"ok":true,"configurado":true,"destinatarios":1,"canalConfigurado":true}`.
+O campo `configurado` não comprova envio, apenas que os Secrets existem.
+
+### Teste real
+Realize uma **nova** inspeção REPROVADA. A inspeção é persistida no Sheets; só então o Worker solicita, em segundo plano, o envio pela Omni.
+O texto inclui peça, processo, máquina, funcionário, horário de São Paulo, identificação da inspeção e os parâmetros reprovados quando o Apps Script atualizado estiver implantado.
+Para transmitir os parâmetros reprovados, copie `apps-script/Inspecao.gs` atualizado para o projeto Google e publique **nova versão** da mesma implantação.
+As inspeções reprovadas anteriores não disparam notificações retroativas.
+Acompanhe erros no Cloudflare > Worker > Observability > Logs.
+
+**Atenção:** o Worker e o Apps Script ainda não possuem autenticação robusta nas ações de gravação; o Origin ajuda no controle do navegador, mas não garante identidade. Para produção, proteger a API sem impor nova senha ao operador.
