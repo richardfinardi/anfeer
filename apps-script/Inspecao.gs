@@ -43,22 +43,40 @@ function insPlanos(){
   const pars=insRows('PARAMETROS');
   return insRows('PLANOS').map(p=>({...p,parametros:pars.filter(x=>x.ID_PLANO===p.ID_PLANO).sort((a,b)=>Number(a.ORDEM)-Number(b.ORDEM))}));
 }
+function insRead(q){
+  const action=q.action||'ping';
+  if(action==='ping')return {ok:true};
+  if(action==='planos')return {ok:true,planos:insPlanos()};
+  if(action==='plano_operador'){
+    const peca=insCode(q.peca),processo=insProcess(q.processo);
+    const plano=insPlanos().filter(p=>insCode(p.COD_PECAS)===peca&&p.PROCESSO===processo&&String(p.ATIVO).toLowerCase()==='true').sort((a,b)=>Number(b.VERSAO)-Number(a.VERSAO))[0];
+    if(!plano)return {ok:true,plano:null};
+    const {parametros,...cabecalho}=plano;
+    return {ok:true,plano:{...cabecalho,parametros:parametros.map(({ID_PARAMETRO,ORDEM,TIPO,NOME,FAMILIA,OBRIGATORIO})=>({ID_PARAMETRO,ORDEM,TIPO,NOME,FAMILIA,OBRIGATORIO}))}};
+  }
+  if(action==='historico')return {ok:true,inspecoes:insRows('INSPECOES').filter(x=>insCode(x.COD_PECAS)===insCode(q.peca)&&x.PROCESSO===insProcess(q.processo)).slice(-100).reverse()};
+  throw Error('Ação desconhecida');
+}
+function insBridge(data,token){
+  // A página no Apps Script envia dados ao site via postMessage, sem depender de JSONP.
+  // token + verificação de source na página eliminam respostas de outros iframes.
+  const payload=JSON.stringify({channel:'ANFEER_INSPECAO_BRIDGE',token:String(token||''),data}).replace(/</g,'\\u003c');
+  const html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"></head><body><script>window.top.postMessage('+payload+',"https://consultoriarf.net");<\\/script></body></html>';
+  return HtmlService.createHtmlOutput(html).setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
 function doGet(e){
   const q=e.parameter||{};
   try{
-    const action=q.action||'ping';
-    if(action==='ping')return insJson({ok:true},q.callback);
-    if(action==='planos')return insJson({ok:true,planos:insPlanos()},q.callback);
-    if(action==='plano_operador'){
-      const peca=insCode(q.peca),processo=insProcess(q.processo);
-      const plano=insPlanos().filter(p=>p.COD_PECAS===peca&&p.PROCESSO===processo&&String(p.ATIVO).toLowerCase()==='true').sort((a,b)=>Number(b.VERSAO)-Number(a.VERSAO))[0];
-      if(!plano)return insJson({ok:true,plano:null},q.callback);
-      const {parametros,...cabecalho}=plano;
-      return insJson({ok:true,plano:{...cabecalho,parametros:parametros.map(({ID_PARAMETRO,ORDEM,TIPO,NOME,FAMILIA,OBRIGATORIO})=>({ID_PARAMETRO,ORDEM,TIPO,NOME,FAMILIA,OBRIGATORIO}))}},q.callback);
+    if(q.action==='bridge'){
+      if(!/^[a-zA-Z0-9_-]{10,100}$/.test(String(q.token||'')))throw Error('Token inválido');
+      if(!['ping','planos','plano_operador','historico'].includes(q.read_action))throw Error('Consulta não permitida');
+      return insBridge(insRead({...q,action:q.read_action}),q.token);
     }
-    if(action==='historico')return insJson({ok:true,inspecoes:insRows('INSPECOES').filter(x=>x.COD_PECAS===insCode(q.peca)&&x.PROCESSO===insProcess(q.processo)).slice(-100).reverse()},q.callback);
-    throw Error('Ação desconhecida');
-  }catch(err){return insJson({ok:false,error:err.message},q.callback)}
+    return insJson(insRead(q),q.callback);
+  }catch(err){
+    if(q.action==='bridge')return insBridge({ok:false,error:err.message},q.token);
+    return insJson({ok:false,error:err.message},q.callback);
+  }
 }
 function doPost(e){
   let d={};
