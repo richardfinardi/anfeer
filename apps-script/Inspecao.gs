@@ -20,7 +20,16 @@ function insRows(name){
 function insAppend(name,objects){
   if(!objects.length)return;
   const t=insTab(name),head=INSPECAO_TABS[name];
-  t.getRange(t.getLastRow()+1,1,objects.length,head.length).setValues(objects.map(o=>head.map(h=>o[h]===undefined?'':o[h])));
+  const first=t.getLastRow()+1;
+  const range=t.getRange(first,1,objects.length,head.length);
+  // Códigos CPS e identificadores são texto, nunca data nem número.
+  // A formatação precisa acontecer ANTES de setValues.
+  const textCols=['ID_PLANO','ID_PARAMETRO','ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','COD_PECAS','COD_INSTRUMENTO','ID_EVENTO','VERSAO'];
+  for(const colName of textCols){
+    const col=head.indexOf(colName);
+    if(col>=0)t.getRange(first,col+1,objects.length,1).setNumberFormat('@');
+  }
+  range.setValues(objects.map(o=>head.map(h=>o[h]===undefined?'':o[h])));
 }
 function insJson(obj,cb){
   const content=JSON.stringify(obj);
