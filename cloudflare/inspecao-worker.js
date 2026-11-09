@@ -64,8 +64,15 @@ async function upstream(method, pathParams, body, ctx) {
 
 // Alerta WhatsApp Z-API Omni. As credenciais devem ser Secrets do Cloudflare,
 // nunca expostas no GitHub ou no navegador.
+function omniRecipients(env){
+  return [...new Set(
+    String(env.OMNI_DESTINATARIOS||'').split(/[;,\n]+/)
+      .map(v=>v.trim().replace(/\D/g,''))
+      .filter(v=>/^\d{10,15}$/.test(v))
+  )].slice(0,5);
+}
 function omniReady(env){
-  return Boolean(env.OMNI_SECRET_KEY && env.OMNI_DESTINATARIOS);
+  return Boolean(String(env.OMNI_SECRET_KEY||'').trim() && omniRecipients(env).length);
 }
 function fmtTimeBrasil(dateString){
   const dt=new Date(dateString||Date.now());
@@ -95,13 +102,13 @@ function rejectionMessage(request, saved){
   return corpo.join('\n');
 }
 async function omniNotify(env, payload, saved){
-  const recipients=String(env.OMNI_DESTINATARIOS||'')
-    .split(/[;,\n]+/).map(s=>s.replace(/\D/g,'')).filter(s=>/^\d{10,15}$/.test(s)).slice(0,5);
+  const recipients=omniRecipients(env);
   if(!recipients.length)throw Error('OMNI_DESTINATARIOS sem telefone válido (DDI+DDD+número)');
   const channel=String(env.OMNI_CHANNEL_ID||OMNI_CHANNEL_ID).trim();
   if(!/^[A-Za-z0-9_-]+$/.test(channel))throw Error('Channel ID da Omni inválido');
   const endpoint='https://api.omni.z-api.io/v1/channels/'+encodeURIComponent(channel)+'/messages';
   const message=rejectionMessage(payload,saved);
+  console.log('ANFEER WhatsApp: iniciando envio', {inspecao:saved.id, resultado:saved.resultado, destinos:recipients.length});
   for(const recipient of recipients){
     const res=await fetch(endpoint,{
       method:'POST',
@@ -109,10 +116,10 @@ async function omniNotify(env, payload, saved){
       body:JSON.stringify({recipient:{identifier:recipient},content:{type:'TEXT',body:{message}}})
     });
     if(!res.ok){
-      const detail=(await res.text()).slice(0,250);
-      console.error('Falha no WhatsApp Omni, inspeção',saved.id,'HTTP',res.status,detail);
+      const detail=(await res.text()).slice(0,450);
+      console.error('ANFEER WhatsApp FALHA',JSON.stringify({inspecao:saved.id,status:res.status,detalhe:detail}));
     }else{
-      console.log('Alerta WhatsApp Omni enviado para inspeção',saved.id,'HTTP',res.status);
+      console.log('ANFEER WhatsApp aceito pelo provedor',JSON.stringify({inspecao:saved.id,status:res.status}));
     }
   }
 }
@@ -135,8 +142,16 @@ export default {
    if(request.method==='GET'){
      const action=u.searchParams.get('action')||'ping';
      if(action==='whatsapp_status'){
-       const quantidade=String(env.OMNI_DESTINATARIOS||'').split(/[;,\\n]+/).map(x=>x.replace(/\\D/g,'')).filter(x=>/^\\d{10,15}$/.test(x)).length;
-       return response({ok:true,configurado:omniReady(env),destinatarios:quantidade,canalConfigurado:!!(env.OMNI_CHANNEL_ID||OMNI_CHANNEL_ID)},200,origin);
+       const quantidade=omniRecipients(env).length;
+       return response({
+         ok:true,
+         configurado:omniReady(env),
+         destinatarios:quantidade,
+         chavePresente:Boolean(String(env.OMNI_SECRET_KEY||'').trim()),
+         destinoPresente:Boolean(String(env.OMNI_DESTINATARIOS||'').trim()),
+         destinoValido:quantidade>0,
+         canalConfigurado:!!(env.OMNI_CHANNEL_ID||OMNI_CHANNEL_ID)
+       },200,origin);
      }
      if(!READS.has(action))return response({ok:false,error:'Ação inválida'},400,origin);
      return response(await upstream('GET',u.searchParams,null,ctx),200,origin);
