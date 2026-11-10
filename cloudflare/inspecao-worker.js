@@ -392,11 +392,12 @@ export default {
        return session?response({ok:true,usuario:session.sub},200,origin):response({ok:false,error:'Sessão expirada. Entre no portal ANFEER.'},401,origin);
      }
      if(action==='whatsapp_destinatarios'){
+       if(!await portalSession(request,env))return response({ok:false,error:'Acesso restrito ao portal ANFEER'},401,origin);
        const denied=await adminGuard(request,env,origin);
        if(denied)return denied;
        return response({ok:true,destinatarios:await recipientRecords(env)},200,origin);
      }
-     if(['relatorio_inspecoes','relatorio_detalhe','relatorio_grupos','relatorio_grupo_detalhe'].includes(action)){
+     if(action==='planos'||['relatorio_inspecoes','relatorio_detalhe','relatorio_grupos','relatorio_grupo_detalhe'].includes(action)){
        const session=await portalSession(request,env);
        if(!session)return response({ok:false,error:'Entre no portal ANFEER para acessar os relatórios'},401,origin);
        // Preferir uma chave exclusiva, mas permitir o Secret administrativo
@@ -418,6 +419,7 @@ export default {
    try{data=JSON.parse(raw)}catch(e){return response({ok:false,error:'JSON inválido'},400,origin)}
    if(data?.action==='portal_login')return portalLogin(data,env,origin);
    if(data?.action==='salvar_destinatarios'){
+     if(!await portalSession(request,env))return response({ok:false,error:'Acesso restrito ao portal ANFEER'},401,origin);
      const denied=await adminGuard(request,env,origin);
      if(denied)return denied;
      try{
@@ -432,6 +434,13 @@ export default {
      }
    }
    if(!WRITES.has(data?.action))return response({ok:false,error:'Ação não autorizada'},400,origin);
+   if(data.action==='salvar_plano'){
+     if(!await portalSession(request,env))
+       return response({ok:false,error:'É necessário entrar no portal ANFEER para alterar planos de inspeção'},401,origin);
+     const backendKey=String(env.ANFEER_RELATORIO_BACKEND_KEY||env.ANFEER_NOTIFICACOES_ADMIN_KEY||'');
+     if(backendKey.length<24)return response({ok:false,error:'Chave interna do Apps Script não configurada'},503,origin);
+     data.backendKey=backendKey;
+   }
    const saved=await upstream('POST',new URLSearchParams(),JSON.stringify(data),ctx);
    // Não devolver nominal/tolerâncias à tela do operador: são usados somente pelo Worker.
    const {falhas:__falhas,titulo:__titulo,...publicResult}=saved||{};
