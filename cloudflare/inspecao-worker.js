@@ -12,7 +12,7 @@
 const OMNI_CHANNEL_ID = '01A1C1624E387B6AB07BEFF201530C11';
 const APPS_SCRIPT = 'https://script.google.com/macros/s/AKfycbyhvjEly4JGYXKPybayZCizhcl6afl-xpA6ICQfHRAUbGAjFqxFkaPuyrVI5Gx8Y_qV/exec';
 const ALLOWED_ORIGINS = new Set(['https://consultoriarf.net','https://www.consultoriarf.net']);
-const READS = new Set(['ping','planos','plano_operador','historico','relatorio_inspecoes','relatorio_detalhe']);
+const READS = new Set(['ping','planos','plano_operador','historico','relatorio_inspecoes','relatorio_detalhe','relatorio_grupos','relatorio_grupo_detalhe']);
 const WRITES = new Set(['salvar_plano','salvar_inspecao']);
 
 function response(obj, status=200, origin=''){
@@ -396,7 +396,7 @@ export default {
        if(denied)return denied;
        return response({ok:true,destinatarios:await recipientRecords(env)},200,origin);
      }
-     if(['relatorio_inspecoes','relatorio_detalhe'].includes(action)){
+     if(['relatorio_inspecoes','relatorio_detalhe','relatorio_grupos','relatorio_grupo_detalhe'].includes(action)){
        const session=await portalSession(request,env);
        if(!session)return response({ok:false,error:'Entre no portal ANFEER para acessar os relatórios'},401,origin);
        // Preferir uma chave exclusiva, mas permitir o Secret administrativo
