@@ -126,6 +126,65 @@ async function adminGuard(request,env,origin){
     return response({ok:false,error:'Chave administrativa inválida'},401,origin);
   return null;
 }
+
+// Sessão do portal: usuário utiliza SOMENTE o login normal da ANFEER.
+// O token é assinado pelo Worker e não pode ser gerado por localStorage ou /me.
+const PORTAL_TOKEN_TTL=12*60*60;
+const PORTAL_LOGIN_ENDPOINT='https://anfeer.consultoriarf.net/login';
+const enc=new TextEncoder();
+function b64url(bytes){
+  let raw='';
+  for(const n of bytes)raw+=String.fromCharCode(n);
+  return btoa(raw).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function unb64url(src){
+  if(!/^[A-Za-z0-9_-]+$/.test(src)||src.length>2400)throw Error('Token inválido');
+  const data=atob(src.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-src.length%4)%4));
+  return Uint8Array.from(data,x=>x.charCodeAt(0));
+}
+async function portalSigningKey(env){
+  const secret=String(env.ANFEER_NOTIFICACOES_ADMIN_KEY||'');
+  if(secret.length<24)throw Error('Configure o Secret administrativo no Cloudflare');
+  return crypto.subtle.importKey('raw',enc.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);
+}
+async function newPortalToken(usuario,env){
+  const now=Math.floor(Date.now()/1000);
+  const payload=b64url(enc.encode(JSON.stringify({v:1,sub:String(usuario).slice(0,120),iat:now,exp:now+PORTAL_TOKEN_TTL})));
+  const signature=await crypto.subtle.sign('HMAC',await portalSigningKey(env),enc.encode(payload));
+  return payload+'.'+b64url(new Uint8Array(signature));
+}
+async function portalSession(request,env){
+  const m=(request.headers.get('Authorization')||'').match(/^Bearer ([A-Za-z0-9_-]{20,2000}\.[A-Za-z0-9_-]{40,100})$/);
+  if(!m)return null;
+  try{
+    const [data,sig]=m[1].split('.');
+    const verified=await crypto.subtle.verify('HMAC',await portalSigningKey(env),unb64url(sig),enc.encode(data));
+    if(!verified)return null;
+    const payload=JSON.parse(new TextDecoder().decode(unb64url(data)));
+    const now=Math.floor(Date.now()/1000);
+    if(payload.v!==1||!payload.sub||typeof payload.sub!=='string'||!Number.isSafeInteger(payload.iat)||
+       !Number.isSafeInteger(payload.exp)||payload.iat>now+60||payload.exp<=now||
+       payload.exp-payload.iat>PORTAL_TOKEN_TTL)return null;
+    return payload;
+  }catch(err){return null}
+}
+async function portalLogin(data,env,origin){
+  const usuario=String(data.usuario||'').trim().toUpperCase();
+  const senha=String(data.senha||'');
+  if(!usuario||usuario.length>100||!senha||senha.length>256)return response({ok:false,error:'Informe usuário e senha válidos'},400,origin);
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),15000);
+  try{
+    const login=await fetch(PORTAL_LOGIN_ENDPOINT,{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario,senha}),
+      cache:'no-store',signal:controller.signal});
+    if(!login.ok)return response({ok:false,error:'Usuário ou senha incorretos'},401,origin);
+    const user=await login.json();
+    if(!user||typeof user!=='object'||Array.isArray(user))throw Error('Resposta inválida do login ANFEER');
+    const token=await newPortalToken(usuario,env);
+    return response({ok:true,user,token},200,origin);
+  }finally{clearTimeout(timeout)}
+}
+
 function fmtTimeBrasil(dateString){
   const dt=new Date(dateString||Date.now());
   if(Number.isNaN(dt.getTime()))return String(dateString||'');
@@ -307,7 +366,7 @@ export default {
     return new Response(null,{status:204,headers:{
       'Access-Control-Allow-Origin':origin,
       'Access-Control-Allow-Methods':'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers':'Content-Type, X-ANFEER-ADMIN-KEY',
+      'Access-Control-Allow-Headers':'Content-Type, X-ANFEER-ADMIN-KEY, Authorization',
       'Access-Control-Max-Age':'600',
       'Vary':'Origin'
     }});
@@ -328,15 +387,21 @@ export default {
          canalConfigurado:!!(env.OMNI_CHANNEL_ID||OMNI_CHANNEL_ID)
        },200,origin);
      }
+     if(action==='portal_session'){
+       const session=await portalSession(request,env);
+       return session?response({ok:true,usuario:session.sub},200,origin):response({ok:false,error:'Sessão expirada. Entre no portal ANFEER.'},401,origin);
+     }
      if(action==='whatsapp_destinatarios'){
        const denied=await adminGuard(request,env,origin);
        if(denied)return denied;
        return response({ok:true,destinatarios:await recipientRecords(env)},200,origin);
      }
      if(['relatorio_inspecoes','relatorio_detalhe'].includes(action)){
-       const denied=await adminGuard(request,env,origin);
-       if(denied)return denied;
-       const backendKey=String(env.ANFEER_RELATORIO_BACKEND_KEY||'');
+       const session=await portalSession(request,env);
+       if(!session)return response({ok:false,error:'Entre no portal ANFEER para acessar os relatórios'},401,origin);
+       // Preferir uma chave exclusiva, mas permitir o Secret administrativo
+       // já existente para reduzir a configuração do serviço.
+       const backendKey=String(env.ANFEER_RELATORIO_BACKEND_KEY||env.ANFEER_NOTIFICACOES_ADMIN_KEY||'');
        if(backendKey.length<24)return response({ok:false,error:'Configure ANFEER_RELATORIO_BACKEND_KEY no Worker e nas propriedades do Apps Script'},503,origin);
        const params=Object.fromEntries(u.searchParams);
        delete params.action;
@@ -351,6 +416,7 @@ export default {
    if(raw.length>50000)return response({ok:false,error:'Envio muito grande'},413,origin);
    let data;
    try{data=JSON.parse(raw)}catch(e){return response({ok:false,error:'JSON inválido'},400,origin)}
+   if(data?.action==='portal_login')return portalLogin(data,env,origin);
    if(data?.action==='salvar_destinatarios'){
      const denied=await adminGuard(request,env,origin);
      if(denied)return denied;
