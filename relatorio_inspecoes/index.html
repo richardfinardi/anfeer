@@ -49,7 +49,7 @@ td strong{font-size:14px}
 <header><a href="../"><img src="../ANFEER%20BR%20FUNDO%20TRANSPARENTE.png" alt="ANFEER"></a><a href="../">Voltar ao portal</a></header>
 <main>
 <h1>Relatórios de inspeção</h1>
-<p class="sub">Pesquise as inspeções realizadas pelo código ou nome da peça e pelo número da OS. Baixe o relatório completo de cada inspeção em PDF.</p>
+<p class="sub">Pesquise as inspeções realizadas pelo código ou nome da peça e pelo número da OS. Emita um único PDF consolidado por empresa, OS e código da peça, com todas as inspeções realizadas.</p>
 <div id="notice" class="notice hidden" role="status"></div>
 
 <div id="app" class="hidden">
@@ -61,19 +61,19 @@ td strong{font-size:14px}
 <div><label for="de">De</label><input id="de" type="date"></div>
 <div><label for="ate">Até</label><input id="ate" type="date"></div>
 </div>
-<div class="controls"><button type="button" class="primary" id="searchBtn">Pesquisar inspeções</button><button type="button" id="clearBtn">Limpar filtros</button></div>
+<div class="controls"><button type="button" class="primary" id="searchBtn">Pesquisar relatórios</button><button type="button" id="clearBtn">Limpar filtros</button></div>
 </section>
 
 <section class="panel">
-<div class="row"><h2>Inspeções realizadas</h2><span id="count" class="sub"></span></div>
+<div class="row"><h2>Relatórios por OS e peça</h2><span id="count" class="sub"></span></div>
 <div class="table-wrap">
 <table>
-<thead><tr><th>Data/hora</th><th>Peça / descrição</th><th>OS</th><th>Processo</th><th>Máquina</th><th>Resultado</th><th>Relatório</th></tr></thead>
+<thead><tr><th>Última inspeção</th><th>Peça / descrição</th><th>Empresa</th><th>OS</th><th>Inspeções</th><th>Situação atual</th><th>Relatório</th></tr></thead>
 <tbody id="results"><tr><td colspan="7" class="empty">Carregando...</td></tr></tbody>
 </table>
 </div>
 <div class="row" style="margin-top:15px"><span id="shown" class="sub"></span><button id="moreBtn" class="hidden">Carregar mais</button></div>
-<p class="hint">Inspeções antigas podem não ter a OS registrada. Nas novas inspeções, a OS é vinculada ao apontamento aberto.</p>
+<p class="hint">Cada relatório reúne todas as inspeções da mesma empresa, OS e peça. Registros antigos sem identificação segura da OS ficam separados para não misturar ordens diferentes.</p>
 </section>
 </div>
 </main>
@@ -114,21 +114,23 @@ async function get(action,params={}){
 function query(){return {busca:$('busca').value.trim(),processo:$('processo').value,resultado:$('resultado').value,de:$('de').value,ate:$('ate').value};}
 function refreshView(){
  const tb=$('results');tb.replaceChildren();
- if(!items.length){tb.innerHTML='<tr><td colspan="7" class="empty">Nenhuma inspeção encontrada para os filtros informados.</td></tr>';}
- else items.forEach(x=>{
-  const tr=document.createElement('tr'),id=String(x.ID_INSPECAO||'');
-  tr.innerHTML='<td>'+esc(dateTime(x.DATA_HORA))+'</td>'+
-    '<td><strong>'+esc(x.COD_PECAS)+'</strong><div><small>'+esc(x.TITULO||'Sem descrição')+'</small></div></td>'+
-    '<td>'+esc(x.NUM_OS||'Não registrada')+'</td>'+
-    '<td>'+esc(x.PROCESSO)+'</td>'+
-    '<td>'+esc(x.MAQUINA)+'</td>'+
-    '<td><span class="tag '+(x.RESULTADO==='REPROVADO'?'bad':'')+'">'+esc(x.RESULTADO)+'</span></td>'+
-    '<td><button type="button" class="pdf" title="Gerar PDF da inspeção">Gerar PDF</button></td>';
-  tr.querySelector('.pdf').addEventListener('click',event=>generatePdf(id,event.currentTarget));
+ if(!items.length){
+  tb.innerHTML='<tr><td colspan="7" class="empty">Nenhum relatório encontrado para os filtros informados.</td></tr>';
+ } else items.forEach(g=>{
+  const tr=document.createElement('tr');
+  tr.innerHTML='<td>'+esc(dateTime(g.DATA_HORA))+'</td>'+
+    '<td><strong>'+esc(g.COD_PECAS)+'</strong><div><small>'+esc(g.TITULO||'Sem descrição')+'</small></div></td>'+
+    '<td>'+esc(g.COD_EMPRESA||'A identificar')+'</td>'+
+    '<td>'+esc(g.NUM_OS||'A identificar')+'</td>'+
+    '<td><strong>'+esc(g.QUANTIDADE)+'</strong><div><small>'+esc((g.PROCESSOS||[]).join(' / '))+'</small></div></td>'+
+    '<td><span class="tag '+(g.RESULTADO==='REPROVADO'?'bad':'')+'">'+esc(g.RESULTADO)+'</span>'+
+      (g.teveReprovacao&&g.RESULTADO==='APROVADO'?'<div><small>Com reprovação anterior</small></div>':'')+'</td>'+
+    '<td><button type="button" class="pdf" title="Gerar PDF consolidado">Gerar PDF</button></td>';
+  tr.querySelector('.pdf').addEventListener('click',event=>generatePdf(g.chave,event.currentTarget));
   tb.appendChild(tr);
  });
- $('count').textContent=total+' inspeção(ões) encontrada(s)';
- $('shown').textContent=items.length+' de '+total+' exibida(s)';
+ $('count').textContent=total+' relatório(s) encontrado(s)';
+ $('shown').textContent=items.length+' de '+total+' exibido(s)';
  $('moreBtn').classList.toggle('hidden',items.length>=total);
 }
 async function search(reset=true){
@@ -138,12 +140,12 @@ async function search(reset=true){
  const params={...query(),limite:pageSize,offset};
  loading=true;
  $('searchBtn').disabled=true;$('moreBtn').disabled=true;
- if(!offset)$('results').innerHTML='<tr><td colspan="7" class="empty">Consultando inspeções...</td></tr>';
+ if(!offset)$('results').innerHTML='<tr><td colspan="7" class="empty">Consultando relatórios...</td></tr>';
  try{
   clearNotice();
-  const r=await get('relatorio_inspecoes',params);
+  const r=await get('relatorio_grupos',params);
   if(serial!==requestSerial)return;
-  items.push(...(r.inspecoes||[]));
+  items.push(...(r.grupos||[]));
   total=Number(r.total)||0;
   offset=items.length;
   refreshView();
@@ -159,11 +161,13 @@ function num(x){
  return Number.isFinite(n)?new Intl.NumberFormat('pt-BR',{maximumFractionDigits:8}).format(n):pdfValue(x);
 }
 function filename(x){
- return ['ANFEER','Inspecao',x.COD_PECAS||'peca',x.NUM_OS||'sem-OS',(x.DATA_HORA||'').slice(0,10)].join('_').replace(/[^a-zA-Z0-9_.-]/g,'_')+'.pdf';
+ return ['ANFEER','Relatorio_Inspecao','Empresa_'+(x.COD_EMPRESA||'indefinida'),'OS_'+(x.NUM_OS||'nao-identificada'),x.COD_PECAS||'peca'].join('_').replace(/[^a-zA-Z0-9_.-]/g,'_')+'.pdf';
 }
 
 // Gerador PDF local (PDF 1.4/Helvetica). Não depende de CDN nem de Apps Script para renderizar.
-function makeInspectionPdf(x,pars){
+function makeInspectionPdf(grupo,inspecoes){
+ const latest=inspecoes.length?inspecoes[inspecoes.length-1].inspecao:{};
+ const x={...latest,...grupo};
  const W=841.89,H=595.28,M=36;
  const dark=[26,31,40],red=[217,35,29],ink=[35,42,53],grey=[96,108,122];
  const pages=[];
@@ -245,10 +249,11 @@ function makeInspectionPdf(x,pars){
  }
  let p=startPage(),y=81;
  const meta=[
-  ['Código da peça',pdfValue(x.COD_PECAS),'Número da OS',x.NUM_OS||'Não registrada'],
-  ['Nome da peça',pdfValue(x.TITULO),'Processo',pdfValue(x.PROCESSO)],
-  ['Máquina',pdfValue(x.MAQUINA),'Funcionário',pdfValue(x.FUNCIONARIO)],
-  ['Data/hora',dateTime(x.DATA_HORA),'Versão do plano',pdfValue(x.VERSAO)]
+  ['Código da peça',pdfValue(x.COD_PECAS),'Empresa',pdfValue(x.COD_EMPRESA||'A identificar')],
+  ['Nome da peça',pdfValue(x.TITULO),'Número da OS',pdfValue(x.NUM_OS||'A identificar')],
+  ['Inspeções realizadas',String(grupo.QUANTIDADE||inspecoes.length),'Resultado da última',pdfValue(x.RESULTADO)],
+  ['Primeira inspeção',inspecoes.length?dateTime(inspecoes[0].inspecao.DATA_HORA):'—',
+   'Última inspeção',inspecoes.length?dateTime(inspecoes[inspecoes.length-1].inspecao.DATA_HORA):'—']
  ];
  for(let i=0;i<meta.length;i++){
    const [l1,v1,l2,v2]=meta[i],lx=M+11,rx=M+392;
@@ -262,7 +267,7 @@ function makeInspectionPdf(x,pars){
    y+=h+2;
  }
  y+=18;
- text(p,'PARÂMETROS INSPECIONADOS',M,y,12.8,true,dark);
+ text(p,'HISTÓRICO CONSOLIDADO DE INSPEÇÕES',M,y,12.8,true,dark);
  y+=24;
  const columns=[149,70,60,60,60,66,225,79];
  const colx=[M];for(let i=0;i<columns.length;i++)colx.push(colx[i]+columns[i]);
@@ -274,7 +279,19 @@ function makeInspectionPdf(x,pars){
    }
    y+=31;
  }
- tableHeader();
+
+ for(let index=0;index<inspecoes.length;index++){
+   const item=inspecoes[index],ins=item.inspecao||{},pars=item.parametros||[];
+   if(y+105>H-44){p=startPage();y=85;}
+   const title='INSPEÇÃO '+(index+1)+' DE '+inspecoes.length+'  |  '+dateTime(ins.DATA_HORA)+'  |  '+pdfValue(ins.RESULTADO);
+   fill(p,M,y,W-M*2,57,[230,236,242]);
+   multi(p,wrap(title,W-2*M-18,10,true),M+9,y+5,10,true,
+     ins.RESULTADO==='REPROVADO'?[164,34,42]:dark,12);
+   multi(p,wrap('Máquina: '+pdfValue(ins.MAQUINA)+'  |  Funcionário: '+pdfValue(ins.FUNCIONARIO),W-M*2-18,8.6),M+9,y+21,8.6,false,ink,11);
+   text(p,'Processo: '+pdfValue(ins.PROCESSO)+'  |  Versão do plano: '+pdfValue(ins.VERSAO),M+9,y+44,8.2,false,grey);
+   y+=65;
+   if(y+70>H-44){p=startPage();y=86;}
+   tableHeader();
  for(let i=0;i<(pars||[]).length;i++){
    const record=pars[i],isCota=record.tipo==='COTA';
    const instrument=record.instrumento
@@ -292,7 +309,7 @@ function makeInspectionPdf(x,pars){
      let available=H-49-y;
      if(available<39){
        p=startPage();
-       y=86;text(p,'PARÂMETROS INSPECIONADOS (CONTINUAÇÃO)',M,y,12,true);y+=24;tableHeader();
+       y=86;text(p,'INSPEÇÃO '+(index+1)+' (CONTINUAÇÃO)',M,y,12,true);y+=24;tableHeader();
        available=H-49-y;
      }
      const take=Math.max(1,Math.min(lineCount-consumed,Math.floor((available-14)/12)));
@@ -314,10 +331,17 @@ function makeInspectionPdf(x,pars){
      consumed+=take;
    }while(consumed<lineCount);
  }
- if(!(pars||[]).length){fill(p,M,y,W-2*M,38,[249,249,250]);text(p,'Nenhum parâmetro registrado.',M+9,y+10,9);}
+
+ if(!pars.length){
+   fill(p,M,y,W-2*M,34,[249,249,250]);
+   text(p,'Nenhuma verificação registrada nesta inspeção.',M+9,y+9,9);
+   y+=34;
+ }
+ y+=18;
+ }
  pages.forEach((pg,i)=>{
    stroke(pg,M,H-32,W-M,H-32,[200,207,214]);
-   text(pg,'ANFEER  |  Inspeção: '+String(x.ID_INSPECAO||''),M,H-26,7.5,false,grey);
+   text(pg,'ANFEER  |  Empresa: '+(x.COD_EMPRESA||'?')+'  |  OS: '+(x.NUM_OS||'?')+'  |  Peça: '+(x.COD_PECAS||'?'),M,H-26,7.5,false,grey);
    text(pg,'Página '+(i+1)+' de '+pages.length,W-M-90,H-26,7.5,false,grey);
  });
  return assemblePDF(pages);
@@ -360,15 +384,15 @@ function pdfBin(str){
  }
  return arr;
 }
-async function generatePdf(id,button){
+async function generatePdf(chave,button){
  button.disabled=true;button.textContent='Gerando...';
  try{
-  const {inspecao:x,parametros:pars}=await get('relatorio_detalhe',{id});
-  const blob=makeInspectionPdf(x,pars);
+  const {grupo,inspecoes}=await get('relatorio_grupo_detalhe',{chave});
+  const blob=makeInspectionPdf(grupo,inspecoes);
   const url=URL.createObjectURL(blob),link=document.createElement('a');
-  link.href=url;link.download=filename(x);document.body.appendChild(link);link.click();link.remove();
+  link.href=url;link.download=filename(grupo);document.body.appendChild(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),60000);
-  notice('PDF gerado para a peça '+pdfValue(x.COD_PECAS)+(x.NUM_OS?' • OS '+x.NUM_OS:''),'success');
+  notice('PDF consolidado gerado: '+inspecoes.length+' inspeção(ões) da peça '+pdfValue(grupo.COD_PECAS)+(grupo.NUM_OS?' • OS '+grupo.NUM_OS:''),'success');
  }catch(err){notice('Falha ao gerar PDF: '+err.message,'error');}
  finally{button.disabled=false;button.textContent='Gerar PDF';}
 }
