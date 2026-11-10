@@ -7,7 +7,7 @@ const INSPECAO_SHEET_ID = '1bpVNM857IN_ymqF_zV3Moy6XRvjTD2KNIIV-r3yXgW0';
 const INSPECAO_TABS = {
   PLANOS:['ID_PLANO','COD_PECAS','PROCESSO','VERSAO','ATIVO','CRIADO_EM','CRIADO_POR','OBSERVACAO'],
   PARAMETROS:['ID_PARAMETRO','ID_PLANO','ORDEM','TIPO','NOME','NOMINAL','TOL_MIN','TOL_MAX','FAMILIA','VISIVEL_CLIENTE','OBRIGATORIO'],
-  INSPECOES:['ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','MAQUINA','FUNCIONARIO','COD_PECAS','TITULO','PROCESSO','ID_PLANO','VERSAO','DATA_HORA','RESULTADO','NUM_OS'],
+  INSPECOES:['ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','MAQUINA','FUNCIONARIO','COD_PECAS','TITULO','PROCESSO','ID_PLANO','VERSAO','DATA_HORA','RESULTADO','NUM_OS','COD_EMPRESA'],
   RESULTADOS:['ID_INSPECAO','ID_PARAMETRO','TIPO','NOME','MEDIDA','COD_INSTRUMENTO','RESULTADO','DT_VENCIMENTO_INSTRUMENTO','NOME_INSTRUMENTO'],
   HISTORICO:['ID_EVENTO','DATA_HORA','ACAO','ID_PLANO','COD_PECAS','PROCESSO','VERSAO','DETALHES']
 };
@@ -31,7 +31,7 @@ function insAppend(name,objects){
   const range=t.getRange(first,1,objects.length,head.length);
   // Códigos CPS e identificadores são texto, nunca data nem número.
   // A formatação precisa acontecer ANTES de setValues.
-  const textCols=['ID_PLANO','ID_PARAMETRO','ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','COD_PECAS','COD_INSTRUMENTO','ID_EVENTO','VERSAO','NUM_OS'];
+  const textCols=['ID_PLANO','ID_PARAMETRO','ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','COD_PECAS','COD_INSTRUMENTO','ID_EVENTO','VERSAO','NUM_OS','COD_EMPRESA'];
   for(const colName of textCols){
     const col=head.indexOf(colName);
     if(col>=0)t.getRange(first,col+1,objects.length,1).setNumberFormat('@');
@@ -52,14 +52,126 @@ function insPlanos(){
 }
 
 function insOsValue(record){
-  // Os endpoints CPS podem usar nomes diferentes para o número da OS.
-  const keys=['NUM_OS','COD_OS','N_OS','NRO_OS','NUMERO_OS','OS','ORDEM_SERVICO','CODIGO_OS','COD_ORDEM_SERVICO','COD_ORDEM','OS_NUMERO','TOS_CODIGO','OS_CODIGO','CODIGO'];
-  const normalized=Object.fromEntries(Object.entries(record||{}).map(([k,v])=>[k.toUpperCase(),v]));
-  for(const key of keys){
-    const v=normalized[key];
-    if(v!==undefined&&v!==null&&['string','number'].includes(typeof v)&&String(v).trim())return String(v).trim();
+ const entry=Object.fromEntries(Object.entries(record||{}).map(([k,v])=>[k.trim().toUpperCase(),v]));
+ for(const k of ['N_OS','NUM_OS','NUMERO_OS','NRO_OS','N_OS_OS','OS','COD_OS','CODIGO_OS','COD_ORDEM_SERVICO','TOS_CODIGO','OS_CODIGO']){
+   const v=entry[k];
+   if((typeof v==='string'||typeof v==='number')&&String(v).trim())return String(v).trim();
+ }
+ return '';
+}
+function insEmpresaValue(record){
+ const entry=Object.fromEntries(Object.entries(record||{}).map(([k,v])=>[k.trim().toUpperCase(),v]));
+ for(const k of ['COD_EMPRESA','COD_EMP','EMPRESA_COD','CODIGO_EMPRESA','TOS_COD_EMPRESA']){
+  const v=entry[k];if((typeof v==='string'||typeof v==='number')&&String(v).trim())return String(v).trim();
+ }
+ return '';
+}
+function insCompletarIdentidade(rows){
+ const pendentes=rows.some(x=>!x.NUM_OS||!x.COD_EMPRESA);
+ if(!pendentes)return rows;
+ let abertos=[];
+ try{abertos=insCpsRows('aponta_aberto')}catch(e){return rows}
+ return rows.map(x=>{
+  if(x.NUM_OS&&x.COD_EMPRESA)return x;
+  const codigo=insCode(x.COD_PECAS),processo=insCode(x.PROCESSO),maquina=String(x.COD_MAQUINA||''),funcionario=String(x.FUNCIONARIO||'');
+  // Só completa dados antigos quando os apontamentos atuais têm identidade única.
+  // Nunca assumir apenas pelo código da peça.
+  const candidates=abertos.filter(a=>{
+   const origem=String(a.ID_APONTAMENTO||a.GUID_APONTAMENTO||'');
+   if(x.ID_APONTAMENTO&&origem)return String(x.ID_APONTAMENTO)===origem;
+   return insCode(a.COD_PECAS)===codigo && insCode(a.U_TP)===processo &&
+          String(a.COD_MAQUINA||'')===maquina && String(a.FUNCIONARIO||'')===funcionario;
+  });
+  const identidades=new Map();
+  for(const a of candidates){
+    const empresa=insEmpresaValue(a),os=insOsValue(a);
+    if(empresa&&os)identidades.set(JSON.stringify([empresa,os]),{empresa,os});
   }
-  return '';
+  if(identidades.size!==1)return x;
+  const match=[...identidades.values()][0];
+  // Uma divergência explícita não pode ser sobrescrita.
+  if((x.NUM_OS&&x.NUM_OS!==match.os)||(x.COD_EMPRESA&&x.COD_EMPRESA!==match.empresa))return x;
+  return {...x,NUM_OS:x.NUM_OS||match.os,COD_EMPRESA:x.COD_EMPRESA||match.empresa};
+ });
+}
+function insChaveGrupo(x){
+ const empresa=insCode(x.COD_EMPRESA),os=insCode(x.NUM_OS),peca=insCode(x.COD_PECAS);
+ return empresa&&os
+   ?JSON.stringify([empresa,os,peca])
+   :JSON.stringify(['PENDENTE',String(x.ID_INSPECAO),peca]);
+}
+function insRelatorioBase(){return insCompletarIdentidade(insRows('INSPECOES'))}
+function insRelatorioGrupos(q){
+ const busca=insCode(q.busca||q.q||''),resultado=insCode(q.resultado||''),processo=insCode(q.processo||'');
+ const de=String(q.de||'').slice(0,10),ate=String(q.ate||'').slice(0,10),os=insCode(q.os||'');
+ const grupos=new Map();
+ for(const x of insRelatorioBase()){
+   if(!x.ID_INSPECAO)continue;
+   const key=insChaveGrupo(x);
+   if(!grupos.has(key))grupos.set(key,[]);
+   grupos.get(key).push(x);
+ }
+ const data=[...grupos].map(([chave,registros])=>{
+  registros.sort((a,b)=>String(a.DATA_HORA||'').localeCompare(String(b.DATA_HORA||'')));
+  const ultimo=registros[registros.length-1];
+  return {chave,NUM_OS:ultimo.NUM_OS||'',COD_EMPRESA:ultimo.COD_EMPRESA||'',COD_PECAS:ultimo.COD_PECAS,
+   TITULO:ultimo.TITULO,DATA_HORA:ultimo.DATA_HORA,RESULTADO:ultimo.RESULTADO,
+   QUANTIDADE:registros.length,teveReprovacao:registros.some(x=>x.RESULTADO==='REPROVADO'),
+   PROCESSOS:[...new Set(registros.map(x=>x.PROCESSO).filter(Boolean))],
+   MAQUINAS:[...new Set(registros.map(x=>x.MAQUINA).filter(Boolean))],
+   osPendente:!ultimo.NUM_OS||!ultimo.COD_EMPRESA,
+   _registros:registros};
+ }).filter(g=>{
+   if(busca&&![g.COD_PECAS,g.TITULO,g.NUM_OS,g.COD_EMPRESA].some(v=>insCode(v).includes(busca)))return false;
+   if(os&&!insCode(g.NUM_OS).includes(os))return false;
+   if(resultado&&!g._registros.some(x=>insCode(x.RESULTADO)===resultado))return false;
+   if(processo&&!g._registros.some(x=>insCode(x.PROCESSO)===processo))return false;
+   if((de||ate)&&!g._registros.some(x=>{
+    const d=String(x.DATA_HORA||'').slice(0,10);return (!de||d>=de)&&(!ate||d<=ate);
+   }))return false;
+   return true;
+ }).sort((a,b)=>String(b.DATA_HORA||'').localeCompare(String(a.DATA_HORA||'')));
+ const offset=Math.max(0,Math.floor(Number(q.offset)||0)),limite=Math.min(200,Math.max(1,Number(q.limite)||100));
+ return {ok:true,total:data.length,offset,limite,grupos:data.slice(offset,offset+limite).map(({_registros,...g})=>g)};
+}
+function insRelatorioGrupoDetalhe(q){
+ let key;
+ try{key=JSON.parse(String(q.chave||''))}catch(e){throw Error('Identificação de grupo inválida')}
+ if(!Array.isArray(key)||key.length!==3||key.some(x=>typeof x!=='string'||x.length>180))throw Error('Grupo inválido');
+ const chave=JSON.stringify(key);
+ const registros=insRelatorioBase().filter(x=>insChaveGrupo(x)===chave)
+   .sort((a,b)=>String(a.DATA_HORA||'').localeCompare(String(b.DATA_HORA||'')));
+ if(!registros.length)throw Error('Grupo não encontrado');
+ if(registros.length>150)throw Error('Limite de 150 inspeções por PDF');
+ // Busca cada plano e todas as medições uma única vez, preservando versões históricas.
+ const ids=new Set(registros.map(x=>x.ID_INSPECAO));
+ const planos=new Set(registros.map(x=>x.ID_PLANO));
+ const paramMap=new Map(insRows('PARAMETROS').filter(x=>planos.has(x.ID_PLANO)).map(p=>[p.ID_PARAMETRO,p]));
+ const resultMap=new Map();
+ const results=insRows('RESULTADOS').filter(r=>ids.has(r.ID_INSPECAO));
+ for(const r of results){if(!resultMap.has(r.ID_INSPECAO))resultMap.set(r.ID_INSPECAO,[]);resultMap.get(r.ID_INSPECAO).push(r)}
+ let instrumentos=[];
+ if(results.some(r=>r.COD_INSTRUMENTO&&!r.NOME_INSTRUMENTO))
+   try{instrumentos=insCpsRows('INSTRUMENTOS')}catch(e){}
+ const nomes=new Map(instrumentos.map(i=>[String(i.CODIGO||''),String(i.NOME||'')]));
+ const inspecoes=registros.map(inspecao=>({
+   inspecao,
+   parametros:(resultMap.get(inspecao.ID_INSPECAO)||[]).map(r=>{
+    const p=paramMap.get(r.ID_PARAMETRO);
+    return {
+     idParametro:r.ID_PARAMETRO,ordem:p?Number(p.ORDEM):9999,tipo:r.TIPO,nome:r.NOME,
+     nominal:r.TIPO==='COTA'?p?.NOMINAL??'':'',minimo:r.TIPO==='COTA'?p?.TOL_MIN??'':'',
+     maximo:r.TIPO==='COTA'?p?.TOL_MAX??'':'',medida:r.MEDIDA,resultado:r.RESULTADO,
+     instrumento:r.COD_INSTRUMENTO,nomeInstrumento:r.NOME_INSTRUMENTO||nomes.get(String(r.COD_INSTRUMENTO||''))||'',
+     vencimentoInstrumento:r.DT_VENCIMENTO_INSTRUMENTO
+    };
+   }).sort((a,b)=>a.ordem-b.ordem)
+ }));
+ const first=registros[0],last=registros[registros.length-1];
+ return {ok:true,grupo:{chave,COD_EMPRESA:first.COD_EMPRESA||'',NUM_OS:first.NUM_OS||'',
+  COD_PECAS:first.COD_PECAS,TITULO:last.TITULO,QUANTIDADE:registros.length,
+  RESULTADO:last.RESULTADO,teveReprovacao:registros.some(x=>x.RESULTADO==='REPROVADO'),
+  osPendente:!first.NUM_OS||!first.COD_EMPRESA},inspecoes};
 }
 function insRelatorioList(q){
   const filter=insCode(q.busca||q.q||'');
@@ -156,10 +268,10 @@ function doPost(e){
     d=JSON.parse(e.postData.contents);
     // Relatórios requerem chave de servidor. Nunca liberar via GET público,
     // JSONP, bridge ou pelas páginas do operador.
-    if(d.action==='relatorio_inspecoes'||d.action==='relatorio_detalhe'){
+    if(['relatorio_inspecoes','relatorio_detalhe','relatorio_grupos','relatorio_grupo_detalhe'].includes(d.action)){
       const expected=String(PropertiesService.getScriptProperties().getProperty('ANFEER_RELATORIO_BACKEND_KEY')||'');
       if(expected.length<24||String(d.backendKey||'')!==expected)throw Error('Acesso ao relatório não autorizado');
-      return insJson(d.action==='relatorio_inspecoes'?insRelatorioList(d):insRelatorioDetalhe(d));
+      return insJson(d.action==='relatorio_grupos'?insRelatorioGrupos(d):d.action==='relatorio_grupo_detalhe'?insRelatorioGrupoDetalhe(d):d.action==='relatorio_inspecoes'?insRelatorioList(d):insRelatorioDetalhe(d));
     }
     const lock=LockService.getScriptLock();lock.waitLock(25000);
     try{
@@ -268,7 +380,7 @@ function insSaveInspection(d){
   // O nome da peça é sempre TOS.TITULO da API /aponta_aberto,
   // e nunca um campo digitado ou modificado no navegador.
   const titulo=String(aberto.TITULO||d.titulo||'').trim();
-  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:titulo,PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:dataHora,RESULTADO:result,NUM_OS:insOsValue(aberto)}]);
+  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(aberto.ID_APONTAMENTO||aberto.GUID_APONTAMENTO||d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:titulo,PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:dataHora,RESULTADO:result,NUM_OS:insOsValue(aberto),COD_EMPRESA:insEmpresaValue(aberto)}]);
   insAppend('RESULTADOS',rows.map(r=>({...r,ID_INSPECAO:id})));
   const parametrosPorId=new Map(plano.parametros.map(p=>[p.ID_PARAMETRO,p]));
   // Nominal/limites somente após gravar a medição; jamais são enviados
