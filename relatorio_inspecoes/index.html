@@ -49,7 +49,7 @@ td strong{font-size:14px}
 <header><a href="../"><img src="../ANFEER%20BR%20FUNDO%20TRANSPARENTE.png" alt="ANFEER"></a><a href="../">Voltar ao portal</a></header>
 <main>
 <h1>Relatórios de inspeção</h1>
-<p class="sub">Pesquise as inspeções realizadas pelo código ou nome da peça e pelo número da OS. Emita um único PDF consolidado por empresa, OS e código da peça, com todas as inspeções realizadas.</p>
+<p class="sub">Pesquise as inspeções realizadas pelo código ou nome da peça e pelo número da OS. Emita um único PDF por OS e código da peça, com todas as inspeções realizadas.</p>
 <div id="notice" class="notice hidden" role="status"></div>
 
 <div id="app" class="hidden">
@@ -68,12 +68,12 @@ td strong{font-size:14px}
 <div class="row"><h2>Relatórios por OS e peça</h2><span id="count" class="sub"></span></div>
 <div class="table-wrap">
 <table>
-<thead><tr><th>Última inspeção</th><th>Peça / descrição</th><th>Empresa</th><th>OS</th><th>Inspeções</th><th>Situação atual</th><th>Relatório</th></tr></thead>
-<tbody id="results"><tr><td colspan="7" class="empty">Carregando...</td></tr></tbody>
+<thead><tr><th>Última inspeção</th><th>Peça / descrição</th><th>OS</th><th>Inspeções</th><th>Situação atual</th><th>Relatório</th></tr></thead>
+<tbody id="results"><tr><td colspan="6" class="empty">Carregando...</td></tr></tbody>
 </table>
 </div>
 <div class="row" style="margin-top:15px"><span id="shown" class="sub"></span><button id="moreBtn" class="hidden">Carregar mais</button></div>
-<p class="hint">Cada relatório reúne todas as inspeções da mesma empresa, OS e peça. Registros antigos sem identificação segura da OS ficam separados para não misturar ordens diferentes.</p>
+<p class="hint">Cada relatório reúne as inspeções da mesma OS e peça. A empresa continua sendo considerada internamente para impedir misturas entre ordens diferentes.</p>
 </section>
 </div>
 </main>
@@ -115,12 +115,11 @@ function query(){return {busca:$('busca').value.trim(),processo:$('processo').va
 function refreshView(){
  const tb=$('results');tb.replaceChildren();
  if(!items.length){
-  tb.innerHTML='<tr><td colspan="7" class="empty">Nenhum relatório encontrado para os filtros informados.</td></tr>';
+  tb.innerHTML='<tr><td colspan="6" class="empty">Nenhum relatório encontrado para os filtros informados.</td></tr>';
  } else items.forEach(g=>{
   const tr=document.createElement('tr');
   tr.innerHTML='<td>'+esc(dateTime(g.DATA_HORA))+'</td>'+
     '<td><strong>'+esc(g.COD_PECAS)+'</strong><div><small>'+esc(g.TITULO||'Sem descrição')+'</small></div></td>'+
-    '<td>'+esc(g.COD_EMPRESA||'A identificar')+'</td>'+
     '<td>'+esc(g.NUM_OS||'A identificar')+'</td>'+
     '<td><strong>'+esc(g.QUANTIDADE)+'</strong><div><small>'+esc((g.PROCESSOS||[]).join(' / '))+'</small></div></td>'+
     '<td><span class="tag '+(g.RESULTADO==='REPROVADO'?'bad':'')+'">'+esc(g.RESULTADO)+'</span>'+
@@ -140,7 +139,7 @@ async function search(reset=true){
  const params={...query(),limite:pageSize,offset};
  loading=true;
  $('searchBtn').disabled=true;$('moreBtn').disabled=true;
- if(!offset)$('results').innerHTML='<tr><td colspan="7" class="empty">Consultando relatórios...</td></tr>';
+ if(!offset)$('results').innerHTML='<tr><td colspan="6" class="empty">Consultando relatórios...</td></tr>';
  try{
   clearNotice();
   const r=await get('relatorio_grupos',params);
@@ -150,7 +149,7 @@ async function search(reset=true){
   offset=items.length;
   refreshView();
  }catch(err){
-  if(!items.length)$('results').innerHTML='<tr><td colspan="7" class="empty">Não foi possível consultar os relatórios.</td></tr>';
+  if(!items.length)$('results').innerHTML='<tr><td colspan="6" class="empty">Não foi possível consultar os relatórios.</td></tr>';
   notice(err.message,'error');
  }finally{loading=false;$('searchBtn').disabled=false;$('moreBtn').disabled=false;}
 }
@@ -161,7 +160,7 @@ function num(x){
  return Number.isFinite(n)?new Intl.NumberFormat('pt-BR',{maximumFractionDigits:8}).format(n):pdfValue(x);
 }
 function filename(x){
- return ['ANFEER','Relatorio_Inspecao','Empresa_'+(x.COD_EMPRESA||'indefinida'),'OS_'+(x.NUM_OS||'nao-identificada'),x.COD_PECAS||'peca'].join('_').replace(/[^a-zA-Z0-9_.-]/g,'_')+'.pdf';
+ return ['ANFEER','Relatorio_Inspecao','OS_'+(x.NUM_OS||'nao-identificada'),x.COD_PECAS||'peca'].join('_').replace(/[^a-zA-Z0-9_.-]/g,'_')+'.pdf';
 }
 
 // Gerador PDF local (PDF 1.4/Helvetica). Não depende de CDN nem de Apps Script para renderizar.
@@ -249,9 +248,9 @@ function makeInspectionPdf(grupo,inspecoes){
  }
  let p=startPage(),y=81;
  const meta=[
-  ['Código da peça',pdfValue(x.COD_PECAS),'Empresa',pdfValue(x.COD_EMPRESA||'A identificar')],
-  ['Nome da peça',pdfValue(x.TITULO),'Número da OS',pdfValue(x.NUM_OS||'A identificar')],
-  ['Inspeções realizadas',String(grupo.QUANTIDADE||inspecoes.length),'Resultado da última',pdfValue(x.RESULTADO)],
+  ['Código da peça',pdfValue(x.COD_PECAS),'Número da OS',pdfValue(x.NUM_OS||'A identificar')],
+  ['Nome da peça',pdfValue(x.TITULO),'Inspeções realizadas',String(grupo.QUANTIDADE||inspecoes.length)],
+  ['Resultado da última',pdfValue(x.RESULTADO),'Histórico de reprovação',grupo.teveReprovacao?'Sim':'Não'],
   ['Primeira inspeção',inspecoes.length?dateTime(inspecoes[0].inspecao.DATA_HORA):'—',
    'Última inspeção',inspecoes.length?dateTime(inspecoes[inspecoes.length-1].inspecao.DATA_HORA):'—']
  ];
@@ -341,7 +340,7 @@ function makeInspectionPdf(grupo,inspecoes){
  }
  pages.forEach((pg,i)=>{
    stroke(pg,M,H-32,W-M,H-32,[200,207,214]);
-   text(pg,'ANFEER  |  Empresa: '+(x.COD_EMPRESA||'?')+'  |  OS: '+(x.NUM_OS||'?')+'  |  Peça: '+(x.COD_PECAS||'?'),M,H-26,7.5,false,grey);
+   text(pg,'ANFEER  |  OS: '+(x.NUM_OS||'?')+'  |  Peça: '+(x.COD_PECAS||'?'),M,H-26,7.5,false,grey);
    text(pg,'Página '+(i+1)+' de '+pages.length,W-M-90,H-26,7.5,false,grey);
  });
  return assemblePDF(pages);
