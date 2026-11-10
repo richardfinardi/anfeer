@@ -8,7 +8,7 @@ const INSPECAO_TABS = {
   PLANOS:['ID_PLANO','COD_PECAS','PROCESSO','VERSAO','ATIVO','CRIADO_EM','CRIADO_POR','OBSERVACAO'],
   PARAMETROS:['ID_PARAMETRO','ID_PLANO','ORDEM','TIPO','NOME','NOMINAL','TOL_MIN','TOL_MAX','FAMILIA','VISIVEL_CLIENTE','OBRIGATORIO'],
   INSPECOES:['ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','MAQUINA','FUNCIONARIO','COD_PECAS','TITULO','PROCESSO','ID_PLANO','VERSAO','DATA_HORA','RESULTADO','NUM_OS'],
-  RESULTADOS:['ID_INSPECAO','ID_PARAMETRO','TIPO','NOME','MEDIDA','COD_INSTRUMENTO','RESULTADO','DT_VENCIMENTO_INSTRUMENTO'],
+  RESULTADOS:['ID_INSPECAO','ID_PARAMETRO','TIPO','NOME','MEDIDA','COD_INSTRUMENTO','RESULTADO','DT_VENCIMENTO_INSTRUMENTO','NOME_INSTRUMENTO'],
   HISTORICO:['ID_EVENTO','DATA_HORA','ACAO','ID_PLANO','COD_PECAS','PROCESSO','VERSAO','DETALHES']
 };
 function insTab(name){return SpreadsheetApp.openById(INSPECAO_SHEET_ID).getSheetByName(name)}
@@ -53,11 +53,11 @@ function insPlanos(){
 
 function insOsValue(record){
   // Os endpoints CPS podem usar nomes diferentes para o número da OS.
-  const keys=['NUM_OS','COD_OS','N_OS','NRO_OS','NUMERO_OS','OS','ORDEM_SERVICO','CODIGO_OS','COD_ORDEM_SERVICO','COD_ORDEM','OS_NUMERO'];
+  const keys=['NUM_OS','COD_OS','N_OS','NRO_OS','NUMERO_OS','OS','ORDEM_SERVICO','CODIGO_OS','COD_ORDEM_SERVICO','COD_ORDEM','OS_NUMERO','TOS_CODIGO','OS_CODIGO','CODIGO'];
   const normalized=Object.fromEntries(Object.entries(record||{}).map(([k,v])=>[k.toUpperCase(),v]));
   for(const key of keys){
     const v=normalized[key];
-    if(v!==undefined&&v!==null&&String(v).trim())return String(v).trim();
+    if(v!==undefined&&v!==null&&['string','number'].includes(typeof v)&&String(v).trim())return String(v).trim();
   }
   return '';
 }
@@ -88,7 +88,14 @@ function insRelatorioDetalhe(q){
   if(!inspecao)throw Error('Inspeção não localizada');
   const parametros=insRows('PARAMETROS').filter(p=>p.ID_PLANO===inspecao.ID_PLANO);
   const paramMap=new Map(parametros.map(p=>[p.ID_PARAMETRO,p]));
-  const results=insRows('RESULTADOS').filter(r=>r.ID_INSPECAO===id).map(r=>{
+  const registrados=insRows('RESULTADOS').filter(r=>r.ID_INSPECAO===id);
+  // Históricos anteriores à inclusão do nome continuam exibindo o código.
+  let instrumentosAtuais=[];
+  if(registrados.some(r=>r.COD_INSTRUMENTO&&!r.NOME_INSTRUMENTO)){
+    try{instrumentosAtuais=insCpsRows('INSTRUMENTOS')}catch(e){}
+  }
+  const instrumentMap=new Map(instrumentosAtuais.map(i=>[String(i.CODIGO||''),String(i.NOME||'')]));
+  const results=registrados.map(r=>{
     const p=paramMap.get(r.ID_PARAMETRO);
     return {
       idParametro:r.ID_PARAMETRO,
@@ -100,6 +107,7 @@ function insRelatorioDetalhe(q){
       maximo:r.TIPO==='COTA'?p?.TOL_MAX??'':'',
       medida:r.MEDIDA,
       instrumento:r.COD_INSTRUMENTO,
+      nomeInstrumento:r.NOME_INSTRUMENTO||instrumentMap.get(String(r.COD_INSTRUMENTO||''))||'',
       vencimentoInstrumento:r.DT_VENCIMENTO_INSTRUMENTO,
       resultado:r.RESULTADO
     };
@@ -232,7 +240,7 @@ function insSaveInspection(d){
   const map=new Map(results.map(r=>[String(r.idParametro),r]));
   const rows=plano.parametros.map(p=>{
     const r=map.get(p.ID_PARAMETRO);if(!r)throw Error('Parâmetro faltando: '+p.NOME);
-    let aprovado,medida='',cod='',venc='';
+    let aprovado,medida='',cod='',venc='',nomeInstrumento='';
     if(p.TIPO==='COTA'){
       medida=insNumber(r.medida);
       aprovado=medida>=insNumber(p.TOL_MIN)&&medida<=insNumber(p.TOL_MAX);
@@ -244,8 +252,9 @@ function insSaveInspection(d){
       const encontrado=instrumentos.find(x=>String(x.CODIGO).trim()===cod&&String(x.FAMILIA).trim()===p.FAMILIA);
       if(!encontrado || String(encontrado.VALIDADE).trim().toUpperCase()!=='OK'|| !insExpiry(encontrado.DT_VENCIMENTO)||insExpiry(encontrado.DT_VENCIMENTO)<insToday())throw Error('Instrumento inválido ou vencido: '+p.NOME);
       venc=insExpiry(encontrado.DT_VENCIMENTO);
+      nomeInstrumento=String(encontrado.NOME||'').trim();
     }
-    return {ID_PARAMETRO:p.ID_PARAMETRO,TIPO:p.TIPO,NOME:p.NOME,MEDIDA:medida,COD_INSTRUMENTO:cod,RESULTADO:aprovado?'APROVADO':'REPROVADO',DT_VENCIMENTO_INSTRUMENTO:venc};
+    return {ID_PARAMETRO:p.ID_PARAMETRO,TIPO:p.TIPO,NOME:p.NOME,MEDIDA:medida,COD_INSTRUMENTO:cod,RESULTADO:aprovado?'APROVADO':'REPROVADO',DT_VENCIMENTO_INSTRUMENTO:venc,NOME_INSTRUMENTO:nomeInstrumento};
   });
   const id=String(d.requisicaoId||Utilities.getUuid());
   if(insRows('INSPECOES').some(x=>x.ID_INSPECAO===id))return {ok:true,id,jaRegistrada:true};
