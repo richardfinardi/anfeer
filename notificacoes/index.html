@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script src="../auth-guard.js?v=20261110"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ANFEER | Notificações WhatsApp</title>
@@ -94,7 +95,7 @@ function clearNotice(){$('notice').className='notice hidden';$('notice').textCon
 async function call(action,method='GET',data=null){
  const url=new URL(API);
  if(method==='GET')url.searchParams.set('action',action);
- const headers={'X-ANFEER-ADMIN-KEY':key};
+ const headers={'X-ANFEER-ADMIN-KEY':key, 'Authorization':'Bearer '+(localStorage.getItem('anfeer_portal_token')||'')};
  if(method==='POST')headers['Content-Type']='text/plain;charset=UTF-8';
  const res=await fetch(url,{
   method,headers,body:method==='POST'?JSON.stringify({action,...data}):undefined,
