@@ -179,7 +179,7 @@ async function portalLogin(data,env,origin){
       cache:'no-store',signal:controller.signal});
     if(!login.ok)return response({ok:false,error:'Usuário ou senha incorretos'},401,origin);
     const user=await login.json();
-    if(!user||typeof user!=='object'||Array.isArray(user))throw Error('Resposta inválida do login ANFEER');
+    if(!user||typeof user!=='object'||Array.isArray(user)||user.ok===false||user.success===false||user.error) return response({ok:false,error:'Usuário ou senha incorretos'},401,origin);
     const token=await newPortalToken(usuario,env);
     return response({ok:true,user,token},200,origin);
   }finally{clearTimeout(timeout)}
