@@ -99,6 +99,7 @@
 
     <script>
         const API_URL = 'https://anfeer.consultoriarf.net';
+        const PORTAL_AUTH_URL = 'https://anfeer-inspecao-api.apicolumbia.workers.dev/';
 
         document.addEventListener('DOMContentLoaded', () => {
             lucide.createIcons();
@@ -106,27 +107,23 @@
         });
 
         async function checkSession() {
-            const userData = localStorage.getItem('anfeer_user');
-            if (userData) {
-                const user = JSON.parse(userData);
-                try {
-                    const res = await fetch(`${API_URL}/me`, {
-                        method: 'POST',
-                        headers: { 
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ usuario: user.nome || user.usuario })
-                    });
-
-                    if (res.ok) {
-                        const updatedData = await res.json();
-                        showMenu(updatedData);
-                    } else {
-                        logout();
-                    }
-                } catch (e) {
-                    showMenu(user);
-                }
+            // Apenas uma sessão assinada pelo servidor libera os relatórios.
+            // Login antigo guardado em localStorage não comprova autenticação.
+            const token = localStorage.getItem('anfeer_portal_token');
+            if (!token) {
+                localStorage.removeItem('anfeer_user');
+                return;
+            }
+            try {
+                const res = await fetch(PORTAL_AUTH_URL + '?action=portal_session', {
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    cache: 'no-store', credentials: 'omit'
+                });
+                if (!res.ok) throw new Error('Sessão expirada');
+                const user = JSON.parse(localStorage.getItem('anfeer_user') || '{}');
+                showMenu(user);
+            } catch (e) {
+                logout();
             }
         }
 
@@ -142,12 +139,11 @@
             btnLogin.innerText = "Autenticando...";
 
             try {
-                const res = await fetch(`${API_URL}/login`, {
+                const res = await fetch(PORTAL_AUTH_URL, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ usuario, senha })
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'portal_login', usuario, senha }),
+                    credentials: 'omit'
                 });
 
                 if (!res.ok) {
@@ -155,7 +151,10 @@
                     throw new Error(err.detail || 'Usuário ou senha incorretos.');
                 }
 
-                const data = await res.json();
+                const response = await res.json();
+                if (!response.ok || !response.token) throw new Error(response.error || 'Falha ao autenticar');
+                const data = response.user;
+                localStorage.setItem('anfeer_portal_token', response.token);
                 localStorage.setItem('anfeer_user', JSON.stringify(data));
                 showMenu(data);
 
@@ -177,6 +176,7 @@
 
         function logout() {
             localStorage.removeItem('anfeer_user');
+            localStorage.removeItem('anfeer_portal_token');
             document.getElementById('menuBox').classList.add('hidden');
             document.getElementById('loginBox').classList.remove('hidden');
             document.getElementById('userInput').value = '';
