@@ -173,24 +173,52 @@ function makeInspectionPdf(x,pars){
    .replace(/[\u2010-\u2015]/g,'-').replace(/[\u2022]/g,'*')
    .replace(/[^\x09\x0A\x0D\x20-\xFF]/g,'?');
  const pdfEscape=s=>printable(s).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/\r?\n/g,' ');
- const estimate=(s,size)=>Array.from(printable(s)).reduce((a,ch)=>a+(ch===' '?0.28:'ilIJ1.,:;|!'.includes(ch)?0.26:'MW@'.includes(ch)?0.83:0.52),0)*size;
- function wrap(value,width,size,max=12){
-   const text=String(value??'').replace(/\s+/g,' ').trim()||'—';
-   const words=text.split(' '),lines=[];let line='';
-   for(const word of words){
-     if(estimate((line?line+' ':'')+word,size)<=width){line+=(line?' ':'')+word;continue;}
-     if(line){lines.push(line);line='';}
-     if(estimate(word,size)<=width){line=word;continue;}
-     let chunk='';
-     for(const letter of word){
-       if(estimate(chunk+letter,size)>width&&chunk){lines.push(chunk);chunk='';}
-       chunk+=letter;
-     }
-     line=chunk;
+ // Larguras oficiais das fontes PDF Helvetica / Helvetica-Bold (WinAnsi).
+ // Não usar estimativas visuais: elas provocavam texto invadindo outras células.
+ const metricData={
+  normal:'ARYBFgFjAiwCLAN5ApsAvwFNAU0BhQJIARYBTQEWARYCLAIsAiwCLAIsAiwCLAIsAiwCLAEWARYCSAJIAkgCLAP3ApsCmwLSAtICmwJjAwoC0gEWAfQCmwIsA0EC0gMKApsDCgLSApsCYwLSApsDsAKbApsCYwEWARYBFgHVAiwBTQIsAiwB9AIsAiwBFgIsAiwA3gDeAfQA3gNBAiwCLAIsAiwBTQH0ARYCLAH0AtIB9AH0AfQBTgEEAU4CSAFeAiwBXgDeAiwBTQPoAiwCLAFNA+gCmwFNA+gBXgJjAV4BXgDeAN4BTQFNAV4CLAPoAU0D6AH0AU0DsAFeAfQCmwEWAU0CLAIsAiwCLAEEAiwBTQLhAXICLAJIAU0C4QFNAZACSAFNAU0BTQIsAhkBFgFNAU0BbQIsA0IDQgNCAmMCmwKbApsCmwKbApsD6ALSApsCmwKbApsBFgEWARYBFgLSAtIDCgMKAwoDCgMKAkgDCgLSAtIC0gLSApsCmwJjAiwCLAIsAiwCLAIsA3kB9AIsAiwCLAIsARYBFgEWARYCLAIsAiwCLAIsAiwCLAJIAmMCLAIsAiwCLAH0AiwB9A==',
+  bold:'ARYBTQHaAiwCLAN5AtIA7gFNAU0BhQJIARYBTQEWARYCLAIsAiwCLAIsAiwCLAIsAiwCLAFNAU0CSAJIAkgCYwPPAtIC0gLSAtICmwJjAwoC0gEWAiwC0gJjA0EC0gMKApsDCgLSApsCYwLSApsDsAKbApsCYwFNARYBTQJIAiwBTQIsAmMCLAJjAiwBTQJjAmMBFgEWAiwBFgN5AmMCYwJjAmMBhQIsAU0CYwIsAwoCLAIsAfQBhQEYAYUCSAFeAiwBXgEWAiwB9APoAiwCLAFNA+gCmwFNA+gBXgJjAV4BXgEWARYB9AH0AV4CLAPoAU0D6AIsAU0DsAFeAfQCmwEWAU0CLAIsAiwCLAEYAiwBTQLhAXICLAJIAU0C4QFNAZACSAFNAU0BTQJjAiwBFgFNAU0BbQIsA0IDQgNCAmMC0gLSAtIC0gLSAtID6ALSApsCmwKbApsBFgEWARYBFgLSAtIDCgMKAwoDCgMKAkgDCgLSApsCmwJjAiwCLAIsAiwCLAIsA3kCLAIsAiwCLAIsARYBFgEWARYCYwJjAmMCYwJjAmMCYwJIAmMCYwJjAmMCYwIsAmMCLA=='
+ };
+ const widths={};
+ for(const [name,encoded] of Object.entries(metricData)){
+   const bytes=atob(encoded),w=[];
+   for(let i=0;i<bytes.length;i+=2)w.push((bytes.charCodeAt(i)<<8)|bytes.charCodeAt(i+1));
+   widths[name]=w;
+ }
+ const renderedWidth=(value,size,bold=false)=>{
+   const w=widths[bold?'bold':'normal'];
+   let units=0;
+   for(const ch of printable(value)){
+     const code=ch.charCodeAt(0);
+     units+=code>=32&&code<=255?w[code-32]:600;
    }
-   if(line)lines.push(line);
-   if(lines.length>max){lines.length=max;lines[max-1]=lines[max-1].slice(0,-2)+'...';}
-   return lines.length?lines:['—'];
+   return units*size/1000*1.045; // pequena margem para renderizadores diferentes
+ };
+ function wrap(value,width,size,bold=false){
+   const all=[];
+   // Respeita quebras explícitas (nome do instrumento e validade).
+   for(const segment of String(value??'').split(/\r?\n/)){
+     const words=(segment.trim()||'—').split(/\s+/);
+     let line='';
+     function put(word){
+       const next=(line?line+' ':'')+word;
+       if(renderedWidth(next,size,bold)<=width){line=next;return;}
+       if(line){all.push(line);line='';}
+       if(renderedWidth(word,size,bold)<=width){line=word;return;}
+       // Um código longo sem espaços também precisa ser quebrado.
+       let part='';
+       for(const character of Array.from(word)){
+         if(part&&renderedWidth(part+character,size,bold)>width){
+           all.push(part);part='';
+         }
+         part+=character;
+       }
+       line=part;
+     }
+     words.forEach(put);
+     if(line)all.push(line);
+   }
+   return all.length?all:['—'];
  }
  function page(){const p={cmd:[]};pages.push(p);return p;}
  function fill(p,x,y,w,h,c){
@@ -224,7 +252,7 @@ function makeInspectionPdf(x,pars){
  ];
  for(let i=0;i<meta.length;i++){
    const [l1,v1,l2,v2]=meta[i],lx=M+11,rx=M+392;
-   const la=wrap(v1,355,9.6,4),lb=wrap(v2,343,9.6,4);
+   const la=wrap(v1,355,9.6,true),lb=wrap(v2,343,9.6,true);
    const h=Math.max(39,21+Math.max(la.length,lb.length)*12);
    fill(p,M,y,W-M*2,h,i%2?[250,251,253]:[243,246,249]);
    text(p,l1.toUpperCase(),lx,y+4,7.3,true,grey);
@@ -236,35 +264,55 @@ function makeInspectionPdf(x,pars){
  y+=18;
  text(p,'PARÂMETROS INSPECIONADOS',M,y,12.8,true,dark);
  y+=24;
- const columns=[158,78,57,57,57,62,205,96];
+ const columns=[149,70,60,60,60,66,225,79];
  const colx=[M];for(let i=0;i<columns.length;i++)colx.push(colx[i]+columns[i]);
  const headers=['Verificação','Tipo','Nominal','Mínimo','Máximo','Encontrado','Instrumento utilizado','Resultado'];
  function tableHeader(){
    fill(p,M,y,W-2*M,31,[43,51,63]);
    for(let j=0;j<columns.length;j++){
-     multi(p,wrap(headers[j],columns[j]-12,8,2),colx[j]+6,y+9,8,true,[255,255,255],10);
+     multi(p,wrap(headers[j],columns[j]-12,8,true),colx[j]+6,y+9,8,true,[255,255,255],10);
    }
    y+=31;
  }
  tableHeader();
  for(let i=0;i<(pars||[]).length;i++){
-   const r=pars[i],isCota=r.tipo==='COTA';
-   const instrumento=r.instrumento?(String(r.instrumento)+(r.nomeInstrumento?' - '+r.nomeInstrumento:'')+
-     (r.vencimentoInstrumento?' | Validade: '+r.vencimentoInstrumento:'')):'Não aplicável';
-   const values=[pdfValue(r.nome),pdfValue(r.tipo),isCota?num(r.nominal):'—',
-     isCota?num(r.minimo):'—',isCota?num(r.maximo):'—',
-     isCota?num(r.medida):'—',instrumento,pdfValue(r.resultado)];
-   const wrapped=values.map((v,j)=>wrap(v,columns[j]-12,8.3,24));
-   const height=Math.max(35,12+Math.max(...wrapped.map(a=>a.length))*11.2);
-   if(y+height>H-45){p=startPage();y=86;text(p,'PARÂMETROS INSPECIONADOS (CONTINUAÇÃO)',M,y,12,true);y+=24;tableHeader();}
-   fill(p,M,y,W-2*M,height,i%2?[252,252,253]:[241,244,247]);
-   for(let j=0;j<columns.length;j++){
-     const bad=j===7&&String(r.resultado).toUpperCase()==='REPROVADO';
-     multi(p,wrapped[j],colx[j]+6,y+7,8.3,j===0||j===7,bad?[174,30,39]:ink,11.2);
-     if(j>0)stroke(p,colx[j],y,colx[j],y+height,[227,231,235]);
-   }
-   stroke(p,M,y+height,W-M,y+height);
-   y+=height;
+   const record=pars[i],isCota=record.tipo==='COTA';
+   const instrument=record.instrumento
+     ?String(record.instrumento)+(record.nomeInstrumento?' - '+record.nomeInstrumento:'')+
+       (record.vencimentoInstrumento?'\nValidade: '+record.vencimentoInstrumento:'')
+     :'Não aplicável';
+   const values=[pdfValue(record.nome),pdfValue(record.tipo),isCota?num(record.nominal):'—',
+     isCota?num(record.minimo):'—',isCota?num(record.maximo):'—',
+     isCota?num(record.medida):'—',instrument,pdfValue(record.resultado)];
+   const wrapped=values.map((v,j)=>wrap(v,columns[j]-16,8.3,j===0||j===7));
+   // Se qualquer descrição exceder a página, dividir a mesma linha em partes.
+   let consumed=0;
+   const lineCount=Math.max(...wrapped.map(x=>x.length));
+   do{
+     let available=H-49-y;
+     if(available<39){
+       p=startPage();
+       y=86;text(p,'PARÂMETROS INSPECIONADOS (CONTINUAÇÃO)',M,y,12,true);y+=24;tableHeader();
+       available=H-49-y;
+     }
+     const take=Math.max(1,Math.min(lineCount-consumed,Math.floor((available-14)/12)));
+     const height=Math.max(36,14+take*12);
+     if(y+height>H-42){
+       p=startPage();
+       y=86;text(p,'PARÂMETROS INSPECIONADOS (CONTINUAÇÃO)',M,y,12,true);y+=24;tableHeader();
+       continue;
+     }
+     fill(p,M,y,W-2*M,height,i%2?[252,252,253]:[241,244,247]);
+     for(let j=0;j<columns.length;j++){
+       const bad=j===7&&String(record.resultado).toUpperCase()==='REPROVADO';
+       const part=wrapped[j].slice(consumed,consumed+take);
+       multi(p,part,colx[j]+8,y+7,8.3,j===0||j===7,bad?[174,30,39]:ink,12);
+       if(j>0)stroke(p,colx[j],y,colx[j],y+height,[220,225,232]);
+     }
+     stroke(p,M,y+height,W-M,y+height);
+     y+=height;
+     consumed+=take;
+   }while(consumed<lineCount);
  }
  if(!(pars||[]).length){fill(p,M,y,W-2*M,38,[249,249,250]);text(p,'Nenhum parâmetro registrado.',M+9,y+10,9);}
  pages.forEach((pg,i)=>{
