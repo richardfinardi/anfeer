@@ -7,7 +7,7 @@ const INSPECAO_SHEET_ID = '1bpVNM857IN_ymqF_zV3Moy6XRvjTD2KNIIV-r3yXgW0';
 const INSPECAO_TABS = {
   PLANOS:['ID_PLANO','COD_PECAS','PROCESSO','VERSAO','ATIVO','CRIADO_EM','CRIADO_POR','OBSERVACAO'],
   PARAMETROS:['ID_PARAMETRO','ID_PLANO','ORDEM','TIPO','NOME','NOMINAL','TOL_MIN','TOL_MAX','FAMILIA','VISIVEL_CLIENTE','OBRIGATORIO'],
-  INSPECOES:['ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','MAQUINA','FUNCIONARIO','COD_PECAS','TITULO','PROCESSO','ID_PLANO','VERSAO','DATA_HORA','RESULTADO'],
+  INSPECOES:['ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','MAQUINA','FUNCIONARIO','COD_PECAS','TITULO','PROCESSO','ID_PLANO','VERSAO','DATA_HORA','RESULTADO','NUM_OS'],
   RESULTADOS:['ID_INSPECAO','ID_PARAMETRO','TIPO','NOME','MEDIDA','COD_INSTRUMENTO','RESULTADO','DT_VENCIMENTO_INSTRUMENTO'],
   HISTORICO:['ID_EVENTO','DATA_HORA','ACAO','ID_PLANO','COD_PECAS','PROCESSO','VERSAO','DETALHES']
 };
@@ -20,11 +20,18 @@ function insRows(name){
 function insAppend(name,objects){
   if(!objects.length)return;
   const t=insTab(name),head=INSPECAO_TABS[name];
+  // Migração não destrutiva: amplia cabeçalhos antigos, preservando dados existentes.
+  const existing=t.getRange(1,1,1,Math.max(1,t.getLastColumn())).getDisplayValues()[0];
+  for(const h of head){if(!existing.includes(h)){
+    const col=t.getLastColumn()+1;
+    t.getRange(1,col).setValue(h);
+    existing.push(h);
+  }}
   const first=t.getLastRow()+1;
   const range=t.getRange(first,1,objects.length,head.length);
   // Códigos CPS e identificadores são texto, nunca data nem número.
   // A formatação precisa acontecer ANTES de setValues.
-  const textCols=['ID_PLANO','ID_PARAMETRO','ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','COD_PECAS','COD_INSTRUMENTO','ID_EVENTO','VERSAO'];
+  const textCols=['ID_PLANO','ID_PARAMETRO','ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','COD_PECAS','COD_INSTRUMENTO','ID_EVENTO','VERSAO','NUM_OS'];
   for(const colName of textCols){
     const col=head.indexOf(colName);
     if(col>=0)t.getRange(first,col+1,objects.length,1).setNumberFormat('@');
@@ -43,10 +50,69 @@ function insPlanos(){
   const pars=insRows('PARAMETROS');
   return insRows('PLANOS').map(p=>({...p,parametros:pars.filter(x=>x.ID_PLANO===p.ID_PLANO).sort((a,b)=>Number(a.ORDEM)-Number(b.ORDEM))}));
 }
+
+function insOsValue(record){
+  // Os endpoints CPS podem usar nomes diferentes para o número da OS.
+  const keys=['NUM_OS','COD_OS','N_OS','NRO_OS','NUMERO_OS','OS','ORDEM_SERVICO','CODIGO_OS','COD_ORDEM_SERVICO','COD_ORDEM','OS_NUMERO'];
+  const normalized=Object.fromEntries(Object.entries(record||{}).map(([k,v])=>[k.toUpperCase(),v]));
+  for(const key of keys){
+    const v=normalized[key];
+    if(v!==undefined&&v!==null&&String(v).trim())return String(v).trim();
+  }
+  return '';
+}
+function insRelatorioList(q){
+  const filter=insCode(q.busca||q.q||'');
+  const osFilter=insCode(q.os||'');
+  const result=insCode(q.resultado||'');
+  const process=insCode(q.processo||'');
+  const start=String(q.de||'').slice(0,10),end=String(q.ate||'').slice(0,10);
+  const limit=Math.min(500,Math.max(1,Number(q.limite)||200));
+  const offset=Math.max(0,Math.floor(Number(q.offset)||0));
+  const rows=insRows('INSPECOES').filter(x=>{
+    if(filter&&![x.COD_PECAS,x.TITULO,x.NUM_OS].some(v=>insCode(v).includes(filter)))return false;
+    if(osFilter&&!insCode(x.NUM_OS).includes(osFilter))return false;
+    if(result&&insCode(x.RESULTADO)!==result)return false;
+    if(process&&insCode(x.PROCESSO)!==process)return false;
+    const day=String(x.DATA_HORA||'').slice(0,10);
+    if(start&&day<start)return false;
+    if(end&&day>end)return false;
+    return true;
+  }).sort((a,b)=>String(b.DATA_HORA||'').localeCompare(String(a.DATA_HORA||'')));
+  return {ok:true,total:rows.length,limite:limit,offset,inspecoes:rows.slice(offset,offset+limit)};
+}
+function insRelatorioDetalhe(q){
+  const id=String(q.id||'').trim();
+  if(!id||id.length>110)throw Error('Identificador da inspeção inválido');
+  const inspecao=insRows('INSPECOES').find(x=>x.ID_INSPECAO===id);
+  if(!inspecao)throw Error('Inspeção não localizada');
+  const parametros=insRows('PARAMETROS').filter(p=>p.ID_PLANO===inspecao.ID_PLANO);
+  const paramMap=new Map(parametros.map(p=>[p.ID_PARAMETRO,p]));
+  const results=insRows('RESULTADOS').filter(r=>r.ID_INSPECAO===id).map(r=>{
+    const p=paramMap.get(r.ID_PARAMETRO);
+    return {
+      idParametro:r.ID_PARAMETRO,
+      ordem:p?Number(p.ORDEM):9999,
+      tipo:r.TIPO,
+      nome:r.NOME,
+      nominal:r.TIPO==='COTA'?p?.NOMINAL??'':'',
+      minimo:r.TIPO==='COTA'?p?.TOL_MIN??'':'',
+      maximo:r.TIPO==='COTA'?p?.TOL_MAX??'':'',
+      medida:r.MEDIDA,
+      instrumento:r.COD_INSTRUMENTO,
+      vencimentoInstrumento:r.DT_VENCIMENTO_INSTRUMENTO,
+      resultado:r.RESULTADO
+    };
+  }).sort((a,b)=>a.ordem-b.ordem);
+  return {ok:true,inspecao,parametros:results};
+}
+
 function insRead(q){
   const action=q.action||'ping';
   if(action==='ping')return {ok:true};
   if(action==='planos')return {ok:true,planos:insPlanos()};
+  if(action==='relatorio_inspecoes')return insRelatorioList(q);
+  if(action==='relatorio_detalhe')return insRelatorioDetalhe(q);
   if(action==='plano_operador'){
     const peca=insCode(q.peca),processo=insProcess(q.processo);
     const plano=insPlanos().filter(p=>insCode(p.COD_PECAS)===peca&&p.PROCESSO===processo&&String(p.ATIVO).toLowerCase()==='true').sort((a,b)=>Number(b.VERSAO)-Number(a.VERSAO))[0];
@@ -69,7 +135,7 @@ function doGet(e){
   try{
     if(q.action==='bridge'){
       if(!/^[a-zA-Z0-9_-]{10,100}$/.test(String(q.token||'')))throw Error('Token inválido');
-      if(!['ping','planos','plano_operador','historico'].includes(q.read_action))throw Error('Consulta não permitida');
+      if(!['ping','planos','plano_operador','historico','relatorio_inspecoes','relatorio_detalhe'].includes(q.read_action))throw Error('Consulta não permitida');
       return insBridge(insRead({...q,action:q.read_action}),q.token);
     }
     return insJson(insRead(q),q.callback);
@@ -152,7 +218,13 @@ function insSaveInspection(d){
   if(!plano)throw Error('Plano não está mais ativo. Atualize a tela.');
   if(!d.maquina||!d.funcionario)throw Error('Máquina e funcionário obrigatórios');
   const apontamentos=insCpsRows('aponta_aberto');
-  const aberto=apontamentos.find(a=>String(a.COD_MAQUINA)===String(d.codMaquina)&&insCode(a.COD_PECAS)===peca&&insCode(a.U_TP)===processo&&String(a.FUNCIONARIO)===String(d.funcionario));
+  const candidatos=apontamentos.filter(a=>String(a.COD_MAQUINA)===String(d.codMaquina)&&insCode(a.COD_PECAS)===peca&&insCode(a.U_TP)===processo&&String(a.FUNCIONARIO)===String(d.funcionario));
+  const requestedOs=insCode(d.numOs);
+  const requestedApontamento=String(d.apontamento||'').trim();
+  const aberto=candidatos.find(a=>requestedApontamento&&requestedApontamento===String(a.ID_APONTAMENTO||a.GUID_APONTAMENTO||'').trim())
+      ||candidatos.find(a=>requestedOs&&requestedOs===insCode(insOsValue(a)))
+      ||(candidatos.length===1?candidatos[0]:null);
+  if(candidatos.length>1&&!aberto)throw Error('Mais de uma OS aberta para esta máquina e peça. Atualize o apontamento.');
   if(!aberto)throw Error('Apontamento não está mais aberto. Atualize a tela.');
   const instrumentos=insCpsRows('INSTRUMENTOS');
   const results=d.resultados||[];
@@ -182,7 +254,7 @@ function insSaveInspection(d){
   // O nome da peça é sempre TOS.TITULO da API /aponta_aberto,
   // e nunca um campo digitado ou modificado no navegador.
   const titulo=String(aberto.TITULO||d.titulo||'').trim();
-  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:titulo,PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:dataHora,RESULTADO:result}]);
+  insAppend('INSPECOES',[{ID_INSPECAO:id,ID_APONTAMENTO:String(d.apontamento||''),COD_MAQUINA:String(d.codMaquina||''),MAQUINA:String(d.maquina),FUNCIONARIO:String(d.funcionario),COD_PECAS:peca,TITULO:titulo,PROCESSO:processo,ID_PLANO:plano.ID_PLANO,VERSAO:plano.VERSAO,DATA_HORA:dataHora,RESULTADO:result,NUM_OS:insOsValue(aberto)}]);
   insAppend('RESULTADOS',rows.map(r=>({...r,ID_INSPECAO:id})));
   const parametrosPorId=new Map(plano.parametros.map(p=>[p.ID_PARAMETRO,p]));
   // Nominal/limites somente após gravar a medição; jamais são enviados
