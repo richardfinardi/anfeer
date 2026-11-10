@@ -226,7 +226,7 @@ async function saveInspection(){
  saving=true;$('saveBtn').disabled=true;$('saveBtn').textContent='SALVANDO…';clearNote();
  try{
  if(!pendingRequestId)pendingRequestId=crypto.randomUUID();
- const payload={requisicaoId:pendingRequestId,action:'salvar_inspecao',peca:selected.COD_PECAS,processo,idPlano:plano.ID_PLANO,maquina:selected.MAQUINA,codMaquina:selected.COD_MAQUINA,funcionario:selected.FUNCIONARIO,titulo:selected.TITULO,apontamento:selected.ID_APONTAMENTO||selected.GUID_APONTAMENTO||'',resultados:results};
+ const payload={requisicaoId:pendingRequestId,action:'salvar_inspecao',peca:selected.COD_PECAS,processo,idPlano:plano.ID_PLANO,maquina:selected.MAQUINA,codMaquina:selected.COD_MAQUINA,funcionario:selected.FUNCIONARIO,titulo:selected.TITULO,apontamento:selected.ID_APONTAMENTO||selected.GUID_APONTAMENTO||'',numOs:selected.NUM_OS||selected.COD_OS||selected.N_OS||selected.NRO_OS||selected.NUMERO_OS||selected.OS||selected.TOS_CODIGO||selected.CODIGO||'',resultados:results};
  await InspecaoAPI.post(payload);
  let saved=null;
  for(let i=0;i<6;i++){await new Promise(r=>setTimeout(r,1000+i*400));const h=await InspecaoAPI.get('historico',{peca:selected.COD_PECAS,processo});saved=h.inspecoes.find(x=>x.ID_INSPECAO===pendingRequestId);if(saved)break}
