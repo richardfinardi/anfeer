@@ -14,29 +14,41 @@ const INSPECAO_TABS = {
 function insTab(name){return SpreadsheetApp.openById(INSPECAO_SHEET_ID).getSheetByName(name)}
 function insFlag(v){return ['TRUE','VERDADEIRO','1','SIM'].includes(String(v??'').trim().toUpperCase())}
 function insRows(name){
-  const tab=insTab(name), values=tab.getDataRange().getDisplayValues(), head=values.shift()||[];
-  return values.filter(a=>a.some(v=>v!=='')).map(a=>Object.fromEntries(head.map((h,i)=>[h,['ATIVO','VISIVEL_CLIENTE','OBRIGATORIO'].includes(h)?String(insFlag(a[i])):a[i]])));
+  const tab=insTab(name),values=tab.getDataRange().getDisplayValues(),head=values.shift()||[];
+  return values.filter(a=>a.some(v=>v!=='')).map(row=>{
+    const object={};
+    head.forEach((raw,i)=>{
+      const h=String(raw||'').trim();
+      if(!h)return;
+      const v=['ATIVO','VISIVEL_CLIENTE','OBRIGATORIO'].includes(h)?String(insFlag(row[i])):row[i];
+      // No Sheets pode haver cabeçalho duplicado: jamais substituir dado válido
+      // por outra coluna homônima vazia (caso COD_EMPRESA).
+      if(!Object.prototype.hasOwnProperty.call(object,h)||(!String(object[h]||'').trim()&&String(v||'').trim()))
+        object[h]=v;
+    });
+    return object;
+  });
 }
 function insAppend(name,objects){
   if(!objects.length)return;
-  const t=insTab(name),head=INSPECAO_TABS[name];
-  // Migração não destrutiva: amplia cabeçalhos antigos, preservando dados existentes.
-  const existing=t.getRange(1,1,1,Math.max(1,t.getLastColumn())).getDisplayValues()[0];
-  for(const h of head){if(!existing.includes(h)){
-    const col=t.getLastColumn()+1;
-    t.getRange(1,col).setValue(h);
-    existing.push(h);
-  }}
+  const t=insTab(name),expected=INSPECAO_TABS[name];
+  const existing=t.getRange(1,1,1,Math.max(1,t.getLastColumn())).getDisplayValues()[0].map(h=>String(h||'').trim());
+  // Cabeçalhos são a fonte da posição real; nunca presumir ordem das colunas.
+  for(const h of expected){
+    if(!existing.includes(h)){
+      const col=t.getLastColumn()+1;
+      t.getRange(1,col).setValue(h);
+      existing.push(h);
+    }
+  }
   const first=t.getLastRow()+1;
-  const range=t.getRange(first,1,objects.length,head.length);
-  // Códigos CPS e identificadores são texto, nunca data nem número.
-  // A formatação precisa acontecer ANTES de setValues.
+  const width=existing.length;
   const textCols=['ID_PLANO','ID_PARAMETRO','ID_INSPECAO','ID_APONTAMENTO','COD_MAQUINA','COD_PECAS','COD_INSTRUMENTO','ID_EVENTO','VERSAO','NUM_OS','COD_EMPRESA'];
   for(const colName of textCols){
-    const col=head.indexOf(colName);
+    const col=existing.indexOf(colName);
     if(col>=0)t.getRange(first,col+1,objects.length,1).setNumberFormat('@');
   }
-  range.setValues(objects.map(o=>head.map(h=>o[h]===undefined?'':o[h])));
+  t.getRange(first,1,objects.length,width).setValues(objects.map(o=>existing.map(h=>h&&o[h]!==undefined?o[h]:'')));
 }
 function insJson(obj,cb){
   const content=JSON.stringify(obj);
