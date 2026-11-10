@@ -77,6 +77,8 @@ function insCompletarIdentidade(rows){
   // Só completa dados antigos quando os apontamentos atuais têm identidade única.
   // Nunca assumir apenas pelo código da peça.
   const candidates=abertos.filter(a=>{
+   if(x.NUM_OS&&insCode(insOsValue(a))!==insCode(x.NUM_OS))return false;
+   if(x.COD_EMPRESA&&insCode(insEmpresaValue(a))!==insCode(x.COD_EMPRESA))return false;
    const origem=String(a.ID_APONTAMENTO||a.GUID_APONTAMENTO||'');
    if(x.ID_APONTAMENTO&&origem)return String(x.ID_APONTAMENTO)===origem;
    return insCode(a.COD_PECAS)===codigo && insCode(a.U_TP)===processo &&
@@ -355,6 +357,8 @@ function insSaveInspection(d){
     candidatos.length===1?candidatos[0]:null;
   if(candidatos.length>1&&!aberto)throw Error('Há mais de um apontamento para essa peça/máquina. Verifique a empresa e a OS antes de salvar.');
   if(!aberto)throw Error('Apontamento não está mais aberto. Atualize a tela.');
+  if(requestedOs&&insCode(insOsValue(aberto))!==requestedOs)
+    throw Error('A OS do apontamento mudou. Atualize a tela antes de salvar.');
   const instrumentos=insCpsRows('INSTRUMENTOS');
   const results=d.resultados||[];
   if(!Array.isArray(results)||results.length!==plano.parametros.length)throw Error('Preencha todos os parâmetros');
