@@ -21,6 +21,20 @@
     return false;
   }
 
+  // Revalidar ao retornar pelo botão Voltar e ao sair em outra aba.
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) {
+      document.documentElement.style.visibility = 'hidden';
+      window.location.reload();
+    }
+  });
+  window.addEventListener('storage', function (event) {
+    if (event.key === 'anfeer_portal_token' && !event.newValue) {
+      document.documentElement.style.visibility = 'hidden';
+      redirect();
+    }
+  });
+
   window.anfeerAuthReady = (async function () {
     if (!token) return redirect();
 
