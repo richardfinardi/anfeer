@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<script src="../auth-guard.js?v=20261110"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Manutenção Preventiva V2.3</title>
@@ -814,9 +815,12 @@
         document.getElementById('filter-status').addEventListener('change', renderTable);
 
         window.addEventListener('DOMContentLoaded', () => {
-            fetchSheetData();
-            lucide.createIcons();
-            setInterval(fetchSheetData, 180000);
+            window.anfeerAuthReady.then(ok => {
+                if (!ok) return;
+                fetchSheetData();
+                lucide.createIcons();
+                setInterval(fetchSheetData, 180000);
+            });
         });
     </script>
 </body>
