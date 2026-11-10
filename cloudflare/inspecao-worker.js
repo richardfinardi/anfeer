@@ -100,6 +100,7 @@ async function omniRecipients(env){
   return (await recipientRecords(env)).filter(x=>x.ativo).map(x=>x.numero);
 }
 async function omniReady(env){
+  if(String(env.AUVRIUN_WHATSAPP_URL||'').trim() && String(env.AUVRIUN_WHATSAPP_APP_KEY||'').trim())return true;
   return Boolean(String(env.OMNI_SECRET_KEY||'').trim() && (await omniRecipients(env)).length);
 }
 // A senha da administração nunca é colocada no HTML ou em parâmetros da URL.
@@ -231,6 +232,44 @@ function rejectionMessage(request, saved){
   return corpo.join('\n');
 }
 async function omniNotify(env, payload, saved){
+  const centralUrl=String(env.AUVRIUN_WHATSAPP_URL||'').trim();
+  const centralKey=String(env.AUVRIUN_WHATSAPP_APP_KEY||'').trim();
+  if(centralUrl && centralKey){
+    const base=new URL(centralUrl);
+    if(base.protocol!=='https:' || !(
+      base.hostname==='api.auvriun.com' ||
+      base.hostname.endsWith('.workers.dev')
+    ) || base.username || base.password || base.search || base.hash) {
+      throw Error('Endereço da Central AUVRIUN inválido');
+    }
+    const destination=base.toString().replace(/\/$/,'')+'/v1/send';
+    const abort=new AbortController();
+    const timeout=setTimeout(()=>abort.abort(),15000);
+    try{
+      const res=await fetch(destination,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+centralKey},
+        body:JSON.stringify({
+          app:'anfeer', event:'inspecao_reprovada',
+          message:rejectionMessage(payload,saved),
+          reference:String(saved.id||'').slice(0,100)
+        }),
+        signal:abort.signal
+      });
+      const result=await res.json().catch(()=>({}));
+      if(!res.ok || !result.ok){
+        console.error('ANFEER CENTRAL AUVRIUN RECUSOU',JSON.stringify({
+          http:res.status, detalhe:String(result.error||'Erro na Central').slice(0,200)
+        }));
+        return;
+      }
+      console.log('ANFEER CENTRAL AUVRIUN ACEITOU',JSON.stringify({
+        solicitados:result.requested, aceitos:result.accepted,
+        aviso:'Aceite não confirma entrega no WhatsApp'
+      }));
+      return;
+    }finally{clearTimeout(timeout)}
+  }
   const recipients=await omniRecipients(env);
   if(!recipients.length)throw Error('OMNI_DESTINATARIOS sem telefone válido (DDI+DDD+número)');
   const channel=String(env.OMNI_CHANNEL_ID||OMNI_CHANNEL_ID).trim();
