@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
+<script src="../auth-guard.js?v=20261110"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Painel Operacional & PLR - ANFEER V2.1</title>
@@ -1509,7 +1510,7 @@
             const opt=document.createElement('option');opt.value=String(ano);opt.textContent=String(ano);vacAno.appendChild(opt);
         }
         definirPeriodoMes(0);
-        carregarDadosIniciais();
+        window.anfeerAuthReady.then(ok => { if(ok) carregarDadosIniciais(); });
     </script>
     <script src="./ferias.js"></script>
     <script src="./gerencial.js"></script>
