@@ -336,6 +336,12 @@ export default {
      if(['relatorio_inspecoes','relatorio_detalhe'].includes(action)){
        const denied=await adminGuard(request,env,origin);
        if(denied)return denied;
+       const backendKey=String(env.ANFEER_RELATORIO_BACKEND_KEY||'');
+       if(backendKey.length<24)return response({ok:false,error:'Configure ANFEER_RELATORIO_BACKEND_KEY no Worker e nas propriedades do Apps Script'},503,origin);
+       const params=Object.fromEntries(u.searchParams);
+       delete params.action;
+       const result=await upstream('POST',new URLSearchParams(),JSON.stringify({action,...params,backendKey}),ctx);
+       return response(result,result?.ok===false?400:200,origin);
      }
      if(!READS.has(action))return response({ok:false,error:'Ação inválida'},400,origin);
      return response(await upstream('GET',u.searchParams,null,ctx),200,origin);
