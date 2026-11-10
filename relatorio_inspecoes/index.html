@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ANFEER | Relatórios de Inspeção</title>
 <link rel="icon" href="../LOGO%20MINIMALISTA.png">
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <style>
 :root{color-scheme:dark;--bg:#0b0e13;--panel:#171c24;--line:#394353;--text:#f4f6f9;--muted:#adb8c6;--red:#d9231d}
 *{box-sizing:border-box}
@@ -163,72 +161,167 @@ function num(x){
 function filename(x){
  return ['ANFEER','Inspecao',x.COD_PECAS||'peca',x.NUM_OS||'sem-OS',(x.DATA_HORA||'').slice(0,10)].join('_').replace(/[^a-zA-Z0-9_.-]/g,'_')+'.pdf';
 }
+
+// Gerador PDF local (PDF 1.4/Helvetica). Não depende de CDN nem de Apps Script para renderizar.
+function makeInspectionPdf(x,pars){
+ const W=841.89,H=595.28,M=36;
+ const dark=[26,31,40],red=[217,35,29],ink=[35,42,53],grey=[96,108,122];
+ const pages=[];
+ const fnum=n=>Number(n).toFixed(2).replace(/\.00$/,'');
+ const rgb=c=>c.map(n=>(n/255).toFixed(3)).join(' ');
+ const printable=v=>String(v===undefined||v===null||v===''?'Não informado':v)
+   .replace(/[\u2010-\u2015]/g,'-').replace(/[\u2022]/g,'*')
+   .replace(/[^\x09\x0A\x0D\x20-\xFF]/g,'?');
+ const pdfEscape=s=>printable(s).replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/\r?\n/g,' ');
+ const estimate=(s,size)=>Array.from(printable(s)).reduce((a,ch)=>a+(ch===' '?0.28:'ilIJ1.,:;|!'.includes(ch)?0.26:'MW@'.includes(ch)?0.83:0.52),0)*size;
+ function wrap(value,width,size,max=12){
+   const text=String(value??'').replace(/\s+/g,' ').trim()||'—';
+   const words=text.split(' '),lines=[];let line='';
+   for(const word of words){
+     if(estimate((line?line+' ':'')+word,size)<=width){line+=(line?' ':'')+word;continue;}
+     if(line){lines.push(line);line='';}
+     if(estimate(word,size)<=width){line=word;continue;}
+     let chunk='';
+     for(const letter of word){
+       if(estimate(chunk+letter,size)>width&&chunk){lines.push(chunk);chunk='';}
+       chunk+=letter;
+     }
+     line=chunk;
+   }
+   if(line)lines.push(line);
+   if(lines.length>max){lines.length=max;lines[max-1]=lines[max-1].slice(0,-2)+'...';}
+   return lines.length?lines:['—'];
+ }
+ function page(){const p={cmd:[]};pages.push(p);return p;}
+ function fill(p,x,y,w,h,c){
+   p.cmd.push(rgb(c)+' rg '+fnum(x)+' '+fnum(H-y-h)+' '+fnum(w)+' '+fnum(h)+' re f');
+ }
+ function stroke(p,x1,y1,x2,y2,c=[222,227,233]){
+   p.cmd.push(rgb(c)+' RG 0.6 w '+fnum(x1)+' '+fnum(H-y1)+' m '+fnum(x2)+' '+fnum(H-y2)+' l S');
+ }
+ function text(p,value,x,y,size=9,bold=false,color=ink){
+   p.cmd.push(rgb(color)+' rg BT /'+(bold?'F2':'F1')+' '+fnum(size)+' Tf 1 0 0 1 '+fnum(x)+' '+fnum(H-y-size)+' Tm ('+pdfEscape(value)+') Tj ET');
+ }
+ function multi(p,lines,x,y,size=9,bold=false,color=ink,lh=12){
+   lines.forEach((line,i)=>text(p,line,x,y+i*lh,size,bold,color));
+ }
+ function startPage(){
+   const p=page();
+   fill(p,0,0,W,65,dark);fill(p,0,0,5,65,red);
+   text(p,'ANFEER',M,10,19,true,[255,255,255]);
+   text(p,'RELATÓRIO DE INSPEÇÃO DE QUALIDADE',M,36,10,false,[221,228,236]);
+   const rejected=String(x.RESULTADO).toUpperCase()==='REPROVADO';
+   fill(p,W-M-121,18,121,29,rejected?[150,36,43]:[33,111,71]);
+   text(p,String(x.RESULTADO||'SEM RESULTADO'),W-M-114,26,10,true,[255,255,255]);
+   return p;
+ }
+ let p=startPage(),y=81;
+ const meta=[
+  ['Código da peça',pdfValue(x.COD_PECAS),'Número da OS',x.NUM_OS||'Não registrada'],
+  ['Nome da peça',pdfValue(x.TITULO),'Processo',pdfValue(x.PROCESSO)],
+  ['Máquina',pdfValue(x.MAQUINA),'Funcionário',pdfValue(x.FUNCIONARIO)],
+  ['Data/hora',dateTime(x.DATA_HORA),'Versão do plano',pdfValue(x.VERSAO)]
+ ];
+ for(let i=0;i<meta.length;i++){
+   const [l1,v1,l2,v2]=meta[i],lx=M+11,rx=M+392;
+   const la=wrap(v1,355,9.6,4),lb=wrap(v2,343,9.6,4);
+   const h=Math.max(39,21+Math.max(la.length,lb.length)*12);
+   fill(p,M,y,W-M*2,h,i%2?[250,251,253]:[243,246,249]);
+   text(p,l1.toUpperCase(),lx,y+4,7.3,true,grey);
+   text(p,l2.toUpperCase(),rx,y+4,7.3,true,grey);
+   multi(p,la,lx,y+17,9.6,true,ink,12);
+   multi(p,lb,rx,y+17,9.6,true,ink,12);
+   y+=h+2;
+ }
+ y+=18;
+ text(p,'PARÂMETROS INSPECIONADOS',M,y,12.8,true,dark);
+ y+=24;
+ const columns=[158,78,57,57,57,62,205,96];
+ const colx=[M];for(let i=0;i<columns.length;i++)colx.push(colx[i]+columns[i]);
+ const headers=['Verificação','Tipo','Nominal','Mínimo','Máximo','Encontrado','Instrumento utilizado','Resultado'];
+ function tableHeader(){
+   fill(p,M,y,W-2*M,31,[43,51,63]);
+   for(let j=0;j<columns.length;j++){
+     multi(p,wrap(headers[j],columns[j]-12,8,2),colx[j]+6,y+9,8,true,[255,255,255],10);
+   }
+   y+=31;
+ }
+ tableHeader();
+ for(let i=0;i<(pars||[]).length;i++){
+   const r=pars[i],isCota=r.tipo==='COTA';
+   const instrumento=r.instrumento?(String(r.instrumento)+(r.nomeInstrumento?' - '+r.nomeInstrumento:'')+
+     (r.vencimentoInstrumento?' | Validade: '+r.vencimentoInstrumento:'')):'Não aplicável';
+   const values=[pdfValue(r.nome),pdfValue(r.tipo),isCota?num(r.nominal):'—',
+     isCota?num(r.minimo):'—',isCota?num(r.maximo):'—',
+     isCota?num(r.medida):'—',instrumento,pdfValue(r.resultado)];
+   const wrapped=values.map((v,j)=>wrap(v,columns[j]-12,8.3,24));
+   const height=Math.max(35,12+Math.max(...wrapped.map(a=>a.length))*11.2);
+   if(y+height>H-45){p=startPage();y=86;text(p,'PARÂMETROS INSPECIONADOS (CONTINUAÇÃO)',M,y,12,true);y+=24;tableHeader();}
+   fill(p,M,y,W-2*M,height,i%2?[252,252,253]:[241,244,247]);
+   for(let j=0;j<columns.length;j++){
+     const bad=j===7&&String(r.resultado).toUpperCase()==='REPROVADO';
+     multi(p,wrapped[j],colx[j]+6,y+7,8.3,j===0||j===7,bad?[174,30,39]:ink,11.2);
+     if(j>0)stroke(p,colx[j],y,colx[j],y+height,[227,231,235]);
+   }
+   stroke(p,M,y+height,W-M,y+height);
+   y+=height;
+ }
+ if(!(pars||[]).length){fill(p,M,y,W-2*M,38,[249,249,250]);text(p,'Nenhum parâmetro registrado.',M+9,y+10,9);}
+ pages.forEach((pg,i)=>{
+   stroke(pg,M,H-32,W-M,H-32,[200,207,214]);
+   text(pg,'ANFEER  |  Inspeção: '+String(x.ID_INSPECAO||''),M,H-26,7.5,false,grey);
+   text(pg,'Página '+(i+1)+' de '+pages.length,W-M-90,H-26,7.5,false,grey);
+ });
+ return assemblePDF(pages);
+}
+function assemblePDF(pages){
+ // Tudo escrito em bytes Windows-1252: acentos da língua portuguesa são preservados.
+ const objects=[
+  '<< /Type /Catalog /Pages 2 0 R >>',
+  '',
+  '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+  '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'
+ ];
+ const ids=[];
+ for(const pg of pages){
+   const pageId=objects.length+1,streamId=pageId+1;ids.push(pageId);
+   const commands=pg.cmd.join('\n')+'\n';
+   objects.push('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 841.89 595.28] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+streamId+' 0 R >>');
+   objects.push('<< /Length '+pdfBin(commands).length+' >>\nstream\n'+commands+'endstream');
+ }
+ objects[1]='<< /Type /Pages /Count '+pages.length+' /Kids ['+ids.map(n=>n+' 0 R').join(' ')+'] >>';
+ const chunks=[],offsets=[0];let offset=0;
+ function append(str){const bytes=pdfBin(str);chunks.push(bytes);offset+=bytes.length;}
+ append('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+ for(let i=0;i<objects.length;i++){
+   offsets.push(offset);
+   append((i+1)+' 0 obj\n'+objects[i]+'\nendobj\n');
+ }
+ const xref=offset;
+ append('xref\n0 '+(objects.length+1)+'\n0000000000 65535 f \n');
+ for(let i=1;i<offsets.length;i++)append(String(offsets[i]).padStart(10,'0')+' 00000 n \n');
+ append('trailer\n<< /Size '+(objects.length+1)+' /Root 1 0 R >>\nstartxref\n'+xref+'\n%%EOF');
+ const output=new Uint8Array(offset);let ptr=0;
+ for(const chunk of chunks){output.set(chunk,ptr);ptr+=chunk.length;}
+ return new Blob([output],{type:'application/pdf'});
+}
+function pdfBin(str){
+ const arr=new Uint8Array(str.length);
+ for(let i=0;i<str.length;i++){
+   const n=str.charCodeAt(i);arr[i]=n<=255?n:63;
+ }
+ return arr;
+}
 async function generatePdf(id,button){
  button.disabled=true;button.textContent='Gerando...';
  try{
-  if(!window.jspdf?.jsPDF)throw Error('Biblioteca PDF não foi carregada. Recarregue a página.');
   const {inspecao:x,parametros:pars}=await get('relatorio_detalhe',{id});
-  const doc=new window.jspdf.jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  if(typeof doc.autoTable!=='function')throw Error('Biblioteca de tabelas PDF não foi carregada. Recarregue a página.');
-  const width=doc.internal.pageSize.getWidth(),height=doc.internal.pageSize.getHeight();
-  doc.setFillColor(28,32,39);doc.rect(0,0,width,23,'F');
-  doc.setFillColor(217,35,29);doc.rect(0,0,4,23,'F');
-  doc.setFont('helvetica','bold');doc.setTextColor(255,255,255);doc.setFontSize(16);
-  doc.text('ANFEER',13,11);
-  doc.setFontSize(10);doc.setFont('helvetica','normal');
-  doc.text('RELATÓRIO DE INSPEÇÃO DE QUALIDADE',13,17.3);
-  const failed=x.RESULTADO==='REPROVADO';
-  doc.setFillColor(failed?170:30,failed?39:115,failed?44:67);
-  doc.roundedRect(width-58,7,45,10,2,2,'F');
-  doc.setFont('helvetica','bold');doc.setFontSize(10);
-  doc.text(pdfValue(x.RESULTADO),width-35.5,13.6,{align:'center'});
-  doc.setTextColor(35,40,47);
-  const meta=[
-   ['Código da peça',pdfValue(x.COD_PECAS),'Número da OS',pdfValue(x.NUM_OS||'Não registrada')],
-   ['Nome da peça',pdfValue(x.TITULO),'Processo',pdfValue(x.PROCESSO)],
-   ['Máquina',pdfValue(x.MAQUINA),'Funcionário',pdfValue(x.FUNCIONARIO)],
-   ['Data/hora',dateTime(x.DATA_HORA),'Versão do plano',pdfValue(x.VERSAO)]
-  ];
-  doc.autoTable({startY:29,theme:'plain',margin:{left:12,right:12},body:meta,
-    styles:{font:'helvetica',fontSize:9,textColor:[40,45,53],cellPadding:2.2,overflow:'linebreak'},
-    columnStyles:{0:{cellWidth:30,fontStyle:'bold',textColor:[94,104,115]},1:{cellWidth:111},2:{cellWidth:35,fontStyle:'bold',textColor:[94,104,115]},3:{cellWidth:97}}});
-  let y=doc.lastAutoTable.finalY+9;
-  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('PARÂMETROS INSPECIONADOS',12,y);
-  const rows=(pars||[]).map(p=>{
-   const instrumento=p.instrumento?(pdfValue(p.instrumento)+(p.nomeInstrumento?' - '+p.nomeInstrumento:'')+
-      (p.vencimentoInstrumento?' | Val.: '+p.vencimentoInstrumento:'')):'Não aplicável';
-   return [
-     pdfValue(p.nome),pdfValue(p.tipo),
-     p.tipo==='COTA'?num(p.nominal):'—',
-     p.tipo==='COTA'?num(p.minimo):'—',
-     p.tipo==='COTA'?num(p.maximo):'—',
-     p.tipo==='COTA'?num(p.medida):'—',
-     instrumento,pdfValue(p.resultado)
-   ];
-  });
-  doc.autoTable({startY:y+4,head:[['Verificação','Tipo','Nominal','Mín.','Máx.','Encontrado','Instrumento utilizado','Resultado']],
-   body:rows.length?rows:[['Nenhum parâmetro registrado','','','','','','','']],
-   margin:{left:12,right:12,top:28,bottom:19},theme:'grid',
-   styles:{font:'helvetica',fontSize:8,cellPadding:3,valign:'middle',lineColor:[222,226,232],lineWidth:.15,overflow:'linebreak'},
-   headStyles:{fillColor:[45,51,62],textColor:[255,255,255],fontStyle:'bold'},
-   columnStyles:{0:{cellWidth:47},1:{cellWidth:23},2:{cellWidth:20},3:{cellWidth:19},4:{cellWidth:19},5:{cellWidth:23},6:{cellWidth:93},7:{cellWidth:29,fontStyle:'bold'}},
-   alternateRowStyles:{fillColor:[246,248,250]},
-   didParseCell(data){
-     if(data.section==='body'&&data.row.raw[7]==='REPROVADO'){
-       if(data.column.index===7){data.cell.styles.textColor=[174,28,37];data.cell.styles.fillColor=[255,235,237];}
-     }
-   }
-  });
-  const pages=doc.internal.getNumberOfPages();
-  for(let i=1;i<=pages;i++){
-   doc.setPage(i);doc.setDrawColor(200,206,214);doc.line(12,height-15,width-12,height-15);
-   doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(95,105,115);
-   doc.text('ANFEER  |  Registro de inspeção  |  '+pdfValue(x.ID_INSPECAO),12,height-10);
-   doc.text('Página '+i+' de '+pages,width-12,height-10,{align:'right'});
-  }
-  doc.save(filename(x));
+  const blob=makeInspectionPdf(x,pars);
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=filename(x);document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
   notice('PDF gerado para a peça '+pdfValue(x.COD_PECAS)+(x.NUM_OS?' • OS '+x.NUM_OS:''),'success');
- }catch(err){notice('Falha ao gerar PDF: '+err.message,'error')}
+ }catch(err){notice('Falha ao gerar PDF: '+err.message,'error');}
  finally{button.disabled=false;button.textContent='Gerar PDF';}
 }
 // A própria sessão do portal autoriza a consulta; nenhuma chave é solicitada.
