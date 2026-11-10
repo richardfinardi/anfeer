@@ -343,13 +343,17 @@ function insSaveInspection(d){
   if(!plano)throw Error('Plano não está mais ativo. Atualize a tela.');
   if(!d.maquina||!d.funcionario)throw Error('Máquina e funcionário obrigatórios');
   const apontamentos=insCpsRows('aponta_aberto');
-  const candidatos=apontamentos.filter(a=>String(a.COD_MAQUINA)===String(d.codMaquina)&&insCode(a.COD_PECAS)===peca&&insCode(a.U_TP)===processo&&String(a.FUNCIONARIO)===String(d.funcionario));
+  const requestedEmpresa=insCode(d.codEmpresa);
+  const candidatos=apontamentos.filter(a=>String(a.COD_MAQUINA)===String(d.codMaquina)&&insCode(a.COD_PECAS)===peca&&insCode(a.U_TP)===processo&&String(a.FUNCIONARIO)===String(d.funcionario)&&(!requestedEmpresa||insCode(insEmpresaValue(a))===requestedEmpresa));
   const requestedOs=insCode(d.numOs);
   const requestedApontamento=String(d.apontamento||'').trim();
-  const aberto=candidatos.find(a=>requestedApontamento&&requestedApontamento===String(a.ID_APONTAMENTO||a.GUID_APONTAMENTO||'').trim())
-      ||candidatos.find(a=>requestedOs&&requestedOs===insCode(insOsValue(a)))
-      ||(candidatos.length===1?candidatos[0]:null);
-  if(candidatos.length>1&&!aberto)throw Error('Mais de uma OS aberta para esta máquina e peça. Atualize o apontamento.');
+  const porApontamento=candidatos.filter(a=>requestedApontamento&&requestedApontamento===String(a.ID_APONTAMENTO||a.GUID_APONTAMENTO||'').trim());
+  const porOs=candidatos.filter(a=>requestedOs&&requestedOs===insCode(insOsValue(a)));
+  // Uma seleção ambígua jamais deve atribuir uma OS de outra empresa.
+  const aberto=porApontamento.length===1?porApontamento[0]:
+    porOs.length===1?porOs[0]:
+    candidatos.length===1?candidatos[0]:null;
+  if(candidatos.length>1&&!aberto)throw Error('Há mais de um apontamento para essa peça/máquina. Verifique a empresa e a OS antes de salvar.');
   if(!aberto)throw Error('Apontamento não está mais aberto. Atualize a tela.');
   const instrumentos=insCpsRows('INSTRUMENTOS');
   const results=d.resultados||[];
