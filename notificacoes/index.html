@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ANFEER | Notificações WhatsApp</title>
+<link rel="icon" href="../LOGO%20MINIMALISTA.png">
+<style>
+:root{color-scheme:dark;--bg:#0b0e13;--panel:#171b22;--line:#35404d;--red:#d9231d;--fg:#f5f7fb;--muted:#acb7c6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px system-ui,-apple-system,Segoe UI,sans-serif}
+header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:16px}
+header img{height:36px;max-width:160px;object-fit:contain}
+header a,nav a{color:#e1e9f5;text-decoration:none}
+main{max-width:940px;margin:auto;padding:24px 16px 90px}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:19px;margin:0}
+p{color:var(--muted);line-height:1.55}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-top:18px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+label{display:block;color:var(--muted);font-size:13px;font-weight:650;margin-bottom:7px}
+input{background:#0c121a;color:var(--fg);border:1px solid #556271;border-radius:10px;min-height:44px;padding:10px 12px;font:inherit;width:100%}
+input:focus{outline:2px solid #9d3935;outline-offset:1px}
+button{cursor:pointer;background:#2b3441;color:var(--fg);border:1px solid #526071;border-radius:10px;padding:11px 15px;font:inherit;font-weight:700;min-height:44px}
+button.primary{background:var(--red);border-color:var(--red);color:#fff}
+button.danger{color:#ffb7b5;border-color:#784246;background:#342023}
+button:disabled{opacity:.45;cursor:not-allowed}
+.btnrow{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.hidden{display:none!important}
+.notice{padding:12px 14px;border-radius:10px;background:#273343;color:#f1f6ff;margin:15px 0;white-space:pre-wrap}
+.notice.error{background:#4e2027;color:#ffdbdd}
+.notice.success{background:#184d35;color:#d9ffe6}
+.hint{font-size:13px}
+.recipient{background:#0d131a;border:1px solid #394452;border-radius:13px;padding:14px;margin-top:12px}
+.recipient-grid{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1fr) auto auto;gap:12px;align-items:end}
+.toggle{display:flex;align-items:center;gap:8px;min-height:44px;white-space:nowrap;font-weight:650}
+.toggle input{width:19px;height:19px;min-height:auto;accent-color:#d9231d}
+.empty{border:1px dashed #556271;border-radius:12px;padding:24px;text-align:center;color:var(--muted)}
+footer{margin-top:20px;color:var(--muted);font-size:13px}
+@media(max-width:700px){main{padding:16px 12px 80px}h1{font-size:23px}.panel{padding:15px}.recipient-grid{grid-template-columns:1fr 1fr}.recipient-grid>:nth-child(3),.recipient-grid>:nth-child(4){align-self:center}}
+@media(max-width:480px){.recipient-grid{grid-template-columns:1fr}.recipient-grid>:nth-child(3),.recipient-grid>:nth-child(4){justify-self:start}}
+</style>
+</head>
+<body>
+<header>
+<a href="../" aria-label="Portal ANFEER"><img src="../ANFEER%20BR%20FUNDO%20TRANSPARENTE.png" alt="ANFEER"></a>
+<nav><a href="../">Voltar ao portal</a></nav>
+</header>
+<main>
+<h1>Notificações WhatsApp</h1>
+<p>Configure quem recebe os alertas de <strong>inspeções reprovadas</strong>. A inclusão ou exclusão de telefones não exige alterar o código nem a configuração de envio da Omni.</p>
+<div id="notice" class="notice hidden" role="status"></div>
+
+<section class="panel" id="authPanel">
+<h2>Acesso administrativo</h2>
+<p>O cadastro é protegido por uma chave de administração própria, independente da senha de acesso ao portal. Ela não é salva no navegador.</p>
+<form id="authForm">
+<label for="adminKey">Chave administrativa</label>
+<div class="btnrow">
+<input id="adminKey" type="password" autocomplete="off" required minlength="24" placeholder="Informe a chave configurada no Cloudflare" style="flex:1;min-width:220px">
+<button class="primary" id="btnAccess" type="submit">Acessar cadastro</button>
+</div>
+</form>
+</section>
+
+<section id="manager" class="hidden">
+<div class="panel">
+<div class="row">
+<div><h2>Destinatários <span id="count"></span></h2><p class="hint" style="margin-bottom:0">Número completo com DDI + DDD + celular. Exemplo: 55 11 99999-9999.</p></div>
+<button id="addBtn" type="button">+ Adicionar destinatário</button>
+</div>
+<div id="recipientList" aria-live="polite"></div>
+<div class="row" style="margin-top:20px">
+<p id="unsaved" class="hint" style="margin:0">Alterações não salvas ainda não afetam os envios.</p>
+<div class="btnrow">
+<button id="reloadBtn" type="button">Descartar alterações</button>
+<button id="saveBtn" type="button" class="primary">Salvar destinatários</button>
+</div>
+</div>
+</div>
+<footer>A chave da Omni permanece protegida no Cloudflare. O cadastro altera somente a lista de celulares autorizados a receber alertas.</footer>
+</section>
+</main>
+<script>
+'use strict';
+const API='https://anfeer-inspecao-api.apicolumbia.workers.dev/';
+let key='',recipients=[],dirty=false;
+const $=id=>document.getElementById(id);
+function notice(message,kind=''){
+ const el=$('notice');
+ el.textContent=message;
+ el.className='notice'+(kind?' '+kind:'');
+}
+function clearNotice(){$('notice').className='notice hidden';$('notice').textContent='';}
+async function call(action,method='GET',data=null){
+ const url=new URL(API);
+ if(method==='GET')url.searchParams.set('action',action);
+ const headers={'X-ANFEER-ADMIN-KEY':key};
+ if(method==='POST')headers['Content-Type']='text/plain;charset=UTF-8';
+ const res=await fetch(url,{
+  method,headers,body:method==='POST'?JSON.stringify({action,...data}):undefined,
+  credentials:'omit',cache:'no-store'
+ });
+ let value;
+ try{value=await res.json()}catch(_){throw Error('Resposta inválida do Worker. Confira se a nova versão foi publicada.');}
+ if(!res.ok||!value.ok)throw Error(value.error||'Erro HTTP '+res.status);
+ return value;
+}
+function markDirty(){
+ dirty=true;
+ $('unsaved').textContent='Existem alterações não salvas.';
+ $('saveBtn').disabled=false;
+}
+function render(){
+ const list=$('recipientList');
+ list.replaceChildren();
+ $('count').textContent='('+recipients.filter(r=>r.ativo).length+' ativos de '+recipients.length+')';
+ $('addBtn').disabled=recipients.length>=15;
+ if(!recipients.length){
+  const empty=document.createElement('div');
+  empty.className='empty';
+  empty.textContent='Nenhum destinatário cadastrado. Clique em Adicionar destinatário.';
+  list.append(empty);
+ }
+ recipients.forEach((recipient,i)=>{
+  const panel=document.createElement('article');
+  panel.className='recipient';
+  panel.innerHTML='<div class="recipient-grid"><div><label>Nome / responsável</label><input class="name" maxlength="80" placeholder="Ex.: Qualidade"></div><div><label>WhatsApp (DDI + DDD + número)</label><input class="phone" type="tel" inputmode="tel" placeholder="5511999999999"></div><label class="toggle"><input class="active" type="checkbox"> Ativo</label><button type="button" class="danger remove">Excluir</button></div>';
+  const name=panel.querySelector('.name'),phone=panel.querySelector('.phone'),active=panel.querySelector('.active');
+  name.value=recipient.nome;
+  phone.value=recipient.numero;
+  active.checked=recipient.ativo;
+  name.addEventListener('input',()=>{recipient.nome=name.value;markDirty();});
+  phone.addEventListener('input',()=>{recipient.numero=phone.value;markDirty();});
+  active.addEventListener('change',()=>{recipient.ativo=active.checked;markDirty();render();});
+  panel.querySelector('.remove').addEventListener('click',()=>{
+   if(!confirm('Excluir '+(recipient.nome||'este destinatário')+' da lista?'))return;
+   recipients.splice(i,1);markDirty();render();
+  });
+  list.append(panel);
+ });
+}
+function validate(){
+ if(recipients.length>15)throw Error('São permitidos no máximo 15 destinatários.');
+ const found=new Set();
+ return recipients.map((r,i)=>{
+  const nome=String(r.nome||'').trim();
+  const numero=String(r.numero||'').replace(/\D/g,'');
+  if(!nome)throw Error('Preencha o nome do destinatário '+(i+1)+'.');
+  if(!/^\d{10,15}$/.test(numero))throw Error('Telefone inválido no destinatário '+(i+1)+'. Informe DDI + DDD + número.');
+  if(found.has(numero))throw Error('O número final '+numero.slice(-4)+' foi cadastrado duas vezes.');
+  found.add(numero);
+  return {nome,numero,ativo:!!r.ativo};
+ });
+}
+async function load(){
+ const value=await call('whatsapp_destinatarios');
+ recipients=value.destinatarios.map(r=>({...r}));
+ dirty=false;
+ $('unsaved').textContent='Alterações não salvas ainda não afetam os envios.';
+ $('saveBtn').disabled=true;
+ render();
+}
+$('authForm').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const btn=$('btnAccess');
+ btn.disabled=true;
+ clearNotice();
+ key=$('adminKey').value;
+ try{
+  await load();
+  $('adminKey').value='';
+  $('authPanel').classList.add('hidden');
+  $('manager').classList.remove('hidden');
+  notice('Cadastro carregado. Os destinatários ativos recebem os próximos alertas.','success');
+ }catch(err){key='';notice(err.message,'error');}
+ finally{btn.disabled=false;}
+});
+$('addBtn').addEventListener('click',()=>{
+ if(recipients.length>=15)return;
+ recipients.push({nome:'',numero:'',ativo:true});
+ markDirty();render();
+ const last=$('recipientList').lastElementChild;
+ last?.querySelector('.name')?.focus();
+});
+$('reloadBtn').addEventListener('click',async()=>{
+ if(dirty&&!confirm('Descartar todas as alterações não salvas?'))return;
+ try{clearNotice();await load();notice('Cadastro recarregado.');}
+ catch(err){notice(err.message,'error');}
+});
+$('saveBtn').addEventListener('click',async()=>{
+ const btn=$('saveBtn');
+ try{
+  const cleaned=validate();
+  btn.disabled=true;
+  clearNotice();
+  const value=await call('salvar_destinatarios','POST',{destinatarios:cleaned});
+  recipients=value.destinatarios.map(r=>({...r}));
+  dirty=false;render();
+  $('unsaved').textContent='Cadastro atualizado.';
+  notice('Destinatários salvos. Os próximos alertas usarão os números ativos.','success');
+ }catch(err){notice(err.message,'error');}
+ finally{btn.disabled=!dirty;}
+});
+window.addEventListener('beforeunload',event=>{
+ if(!dirty)return;
+ event.preventDefault();
+ event.returnValue='';
+});
+</script>
+</body>
+</html>
