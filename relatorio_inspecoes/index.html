@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script src="../auth-guard.js?v=20261110"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ANFEER | Relatórios de Inspeção</title>
@@ -405,7 +406,7 @@ async function startReport(){
  $('app').classList.remove('hidden');
  await search();
 }
-startReport();
+window.anfeerAuthReady.then(ok=>{if(ok)startReport()});
 $('searchBtn').addEventListener('click',()=>search(true));
 $('moreBtn').addEventListener('click',()=>search(false));
 $('clearBtn').addEventListener('click',()=>{
