@@ -158,14 +158,14 @@ async function loadMachines(){
  const rows=await InspecaoAPI.cps('aponta_aberto');
  const filtered=rows.filter(x=>String(x.U_TP||'').trim().toUpperCase()===processo);
  $('machines').innerHTML=filtered.length?'':'<div class="note">Nenhuma máquina com apontamento aberto para '+esc(processo)+'.</div>';
- filtered.forEach((x,i)=>{const b=document.createElement('button');b.className='machine';b.innerHTML='<strong>'+esc(x.MAQUINA||'Máquina '+x.COD_MAQUINA)+'</strong><small>Peça: '+esc(x.COD_PECAS)+'<br>'+esc(x.TITULO)+'<br>Funcionário: '+esc(x.FUNCIONARIO)+'</small>';b.onclick=()=>openMachine(x);$('machines').appendChild(b)})
+ filtered.forEach((x,i)=>{const b=document.createElement('button');b.className='machine';b.innerHTML='<strong>'+esc(x.MAQUINA||'Máquina '+x.COD_MAQUINA)+'</strong><small>Peça: '+esc(x.COD_PECAS)+'<br>'+esc(x.TITULO)+'<br>Empresa: '+esc(x.COD_EMPRESA||x.COD_EMP||'Não informada')+' • OS: '+esc(x.N_OS||x.NUM_OS||x.COD_OS||x.OS||'Não informada')+'<br>Funcionário: '+esc(x.FUNCIONARIO)+'</small>';b.onclick=()=>openMachine(x);$('machines').appendChild(b)})
  }catch(e){$('machines').innerHTML='<div class="note error">'+esc(e.message)+'</div>'}
 }
 async function openMachine(x){
  selected=x;currentResults=new Map();pendingRequestId=null;plano=null;
  showStep(3);
  $('machineTitle').textContent=x.MAQUINA||x.COD_MAQUINA;
- $('machineDetail').textContent='Peça '+x.COD_PECAS+' • '+x.TITULO+' • '+x.FUNCIONARIO;
+ $('machineDetail').textContent='Empresa '+(x.COD_EMPRESA||x.COD_EMP||'?')+' • OS '+(x.N_OS||x.NUM_OS||x.COD_OS||x.OS||'?')+' • Peça '+x.COD_PECAS+' • '+x.TITULO+' • '+x.FUNCIONARIO;
  $('planVersion').textContent='Consultando…';
  $('form').innerHTML='<div class="note">Localizando plano de inspeção…</div>';
  $('history').textContent='Carregando…';
@@ -226,7 +226,7 @@ async function saveInspection(){
  saving=true;$('saveBtn').disabled=true;$('saveBtn').textContent='SALVANDO…';clearNote();
  try{
  if(!pendingRequestId)pendingRequestId=crypto.randomUUID();
- const payload={requisicaoId:pendingRequestId,action:'salvar_inspecao',peca:selected.COD_PECAS,processo,idPlano:plano.ID_PLANO,maquina:selected.MAQUINA,codMaquina:selected.COD_MAQUINA,funcionario:selected.FUNCIONARIO,titulo:selected.TITULO,apontamento:selected.ID_APONTAMENTO||selected.GUID_APONTAMENTO||'',numOs:selected.NUM_OS||selected.COD_OS||selected.N_OS||selected.NRO_OS||selected.NUMERO_OS||selected.OS||selected.TOS_CODIGO||selected.CODIGO||'',resultados:results};
+ const payload={requisicaoId:pendingRequestId,action:'salvar_inspecao',peca:selected.COD_PECAS,processo,idPlano:plano.ID_PLANO,maquina:selected.MAQUINA,codMaquina:selected.COD_MAQUINA,funcionario:selected.FUNCIONARIO,titulo:selected.TITULO,apontamento:selected.ID_APONTAMENTO||selected.GUID_APONTAMENTO||'',numOs:selected.N_OS||selected.NUM_OS||selected.COD_OS||selected.NRO_OS||selected.NUMERO_OS||selected.OS||selected.TOS_CODIGO||'',codEmpresa:selected.COD_EMPRESA||selected.COD_EMP||selected.CODIGO_EMPRESA||'',resultados:results};
  await InspecaoAPI.post(payload);
  let saved=null;
  for(let i=0;i<6;i++){await new Promise(r=>setTimeout(r,1000+i*400));const h=await InspecaoAPI.get('historico',{peca:selected.COD_PECAS,processo});saved=h.inspecoes.find(x=>x.ID_INSPECAO===pendingRequestId);if(saved)break}
