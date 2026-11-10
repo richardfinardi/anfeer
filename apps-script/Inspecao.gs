@@ -119,8 +119,6 @@ function insRead(q){
   const action=q.action||'ping';
   if(action==='ping')return {ok:true};
   if(action==='planos')return {ok:true,planos:insPlanos()};
-  if(action==='relatorio_inspecoes')return insRelatorioList(q);
-  if(action==='relatorio_detalhe')return insRelatorioDetalhe(q);
   if(action==='plano_operador'){
     const peca=insCode(q.peca),processo=insProcess(q.processo);
     const plano=insPlanos().filter(p=>insCode(p.COD_PECAS)===peca&&p.PROCESSO===processo&&String(p.ATIVO).toLowerCase()==='true').sort((a,b)=>Number(b.VERSAO)-Number(a.VERSAO))[0];
@@ -143,7 +141,7 @@ function doGet(e){
   try{
     if(q.action==='bridge'){
       if(!/^[a-zA-Z0-9_-]{10,100}$/.test(String(q.token||'')))throw Error('Token inválido');
-      if(!['ping','planos','plano_operador','historico','relatorio_inspecoes','relatorio_detalhe'].includes(q.read_action))throw Error('Consulta não permitida');
+      if(!['ping','planos','plano_operador','historico'].includes(q.read_action))throw Error('Consulta não permitida');
       return insBridge(insRead({...q,action:q.read_action}),q.token);
     }
     return insJson(insRead(q),q.callback);
@@ -156,6 +154,13 @@ function doPost(e){
   let d={};
   try{
     d=JSON.parse(e.postData.contents);
+    // Relatórios requerem chave de servidor. Nunca liberar via GET público,
+    // JSONP, bridge ou pelas páginas do operador.
+    if(d.action==='relatorio_inspecoes'||d.action==='relatorio_detalhe'){
+      const expected=String(PropertiesService.getScriptProperties().getProperty('ANFEER_RELATORIO_BACKEND_KEY')||'');
+      if(expected.length<24||String(d.backendKey||'')!==expected)throw Error('Acesso ao relatório não autorizado');
+      return insJson(d.action==='relatorio_inspecoes'?insRelatorioList(d):insRelatorioDetalhe(d));
+    }
     const lock=LockService.getScriptLock();lock.waitLock(25000);
     try{
       if(d.action==='salvar_plano')return insJson(insSavePlan(d));
