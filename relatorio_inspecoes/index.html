@@ -54,15 +54,6 @@ td strong{font-size:14px}
 <p class="sub">Pesquise as inspeções realizadas pelo código ou nome da peça e pelo número da OS. Baixe o relatório completo de cada inspeção em PDF.</p>
 <div id="notice" class="notice hidden" role="status"></div>
 
-<section id="loginPanel" class="panel">
-<h2>Acesso aos relatórios</h2>
-<p class="sub">Para proteger as medições e os resultados, utilize a mesma chave administrativa cadastrada para as notificações WhatsApp.</p>
-<form id="loginForm" class="controls">
-<input id="adminKey" aria-label="Chave administrativa" type="password" autocomplete="off" placeholder="Chave administrativa do Cloudflare" required style="flex:1;min-width:220px">
-<button type="submit" class="primary" id="enterBtn">Consultar relatórios</button>
-</form>
-</section>
-
 <div id="app" class="hidden">
 <section class="panel">
 <div class="grid">
@@ -92,7 +83,7 @@ td strong{font-size:14px}
 'use strict';
 const API='https://anfeer-inspecao-api.apicolumbia.workers.dev/';
 const $=id=>document.getElementById(id);
-let secret='',items=[],total=0,offset=0,loading=false,requestSerial=0,searchTimer=null;
+let items=[],total=0,offset=0,loading=false,requestSerial=0,searchTimer=null;
 const pageSize=100;
 function notice(message,kind=''){
  const n=$('notice');n.textContent=message;n.className='notice'+(kind?' '+kind:'');n.classList.remove('hidden');
@@ -109,7 +100,14 @@ async function get(action,params={}){
  Object.entries(params).forEach(([k,v])=>{if(v!==''&&v!==null&&v!==undefined)url.searchParams.set(k,String(v));});
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),30000);
  try{
-  const res=await fetch(url,{headers:{'X-ANFEER-ADMIN-KEY':secret},cache:'no-store',credentials:'omit',signal:controller.signal});
+  const token=localStorage.getItem('anfeer_portal_token');
+  if(!token){window.location.replace('../');throw Error('Entre no portal ANFEER');}
+  const res=await fetch(url,{headers:{'Authorization':'Bearer '+token},cache:'no-store',credentials:'omit',signal:controller.signal});
+  if(res.status===401){
+    localStorage.removeItem('anfeer_portal_token');
+    window.location.replace('../');
+    throw Error('Sessão expirada. Faça login no portal ANFEER.');
+  }
   const j=await res.json();
   if(!res.ok||!j?.ok)throw Error(j?.error||'Erro HTTP '+res.status);
   return j;
@@ -233,14 +231,14 @@ async function generatePdf(id,button){
  }catch(err){notice('Falha ao gerar PDF: '+err.message,'error')}
  finally{button.disabled=false;button.textContent='Gerar PDF';}
 }
-$('loginForm').addEventListener('submit',async event=>{
- event.preventDefault();const button=$('enterBtn');button.disabled=true;secret=$('adminKey').value;
- try{
-  clearNotice();await get('relatorio_inspecoes',{limite:1});
-  $('adminKey').value='';$('loginPanel').classList.add('hidden');$('app').classList.remove('hidden');
-  await search();
- }catch(err){notice(err.message,'error');secret='';}finally{button.disabled=false;}
-});
+// A própria sessão do portal autoriza a consulta; nenhuma chave é solicitada.
+async function startReport(){
+ const token=localStorage.getItem('anfeer_portal_token');
+ if(!token){window.location.replace('../');return;}
+ $('app').classList.remove('hidden');
+ await search();
+}
+startReport();
 $('searchBtn').addEventListener('click',()=>search(true));
 $('moreBtn').addEventListener('click',()=>search(false));
 $('clearBtn').addEventListener('click',()=>{
