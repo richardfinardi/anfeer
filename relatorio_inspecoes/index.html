@@ -167,6 +167,9 @@ function filename(x){
 function makeInspectionPdf(grupo,inspecoes){
  const latest=inspecoes.length?inspecoes[inspecoes.length-1].inspecao:{};
  const x={...latest,...grupo};
+ // A razão social no PDF segue COD_EMPRESA; o código não aparece ao usuário.
+ const codigoEmpresa=String(x.COD_EMPRESA??'').trim();
+ const marca=codigoEmpresa==='2'?'BR BROCHAMENTOS':(['1','3'].includes(codigoEmpresa)?'ANFEER':'RELATÓRIO DE INSPEÇÃO');
  const W=841.89,H=595.28,M=36;
  const dark=[26,31,40],red=[217,35,29],ink=[35,42,53],grey=[96,108,122];
  const pages=[];
@@ -239,7 +242,7 @@ function makeInspectionPdf(grupo,inspecoes){
  function startPage(){
    const p=page();
    fill(p,0,0,W,65,dark);fill(p,0,0,5,65,red);
-   text(p,'ANFEER',M,10,19,true,[255,255,255]);
+   text(p,marca,M,10,marca==='BR BROCHAMENTOS'?16:19,true,[255,255,255]);
    text(p,'RELATÓRIO DE INSPEÇÃO DE QUALIDADE',M,36,10,false,[221,228,236]);
    const rejected=String(x.RESULTADO).toUpperCase()==='REPROVADO';
    fill(p,W-M-121,18,121,29,rejected?[150,36,43]:[33,111,71]);
@@ -340,7 +343,7 @@ function makeInspectionPdf(grupo,inspecoes){
  }
  pages.forEach((pg,i)=>{
    stroke(pg,M,H-32,W-M,H-32,[200,207,214]);
-   text(pg,'ANFEER  |  OS: '+(x.NUM_OS||'?')+'  |  Peça: '+(x.COD_PECAS||'?'),M,H-26,7.5,false,grey);
+   text(pg,marca+'  |  OS: '+(x.NUM_OS||'?')+'  |  Peça: '+(x.COD_PECAS||'?'),M,H-26,7.5,false,grey);
    text(pg,'Página '+(i+1)+' de '+pages.length,W-M-90,H-26,7.5,false,grey);
  });
  return assemblePDF(pages);
