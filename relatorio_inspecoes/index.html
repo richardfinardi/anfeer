@@ -160,8 +160,13 @@ function num(x){
  const n=Number(String(x).replace(',','.'));
  return Number.isFinite(n)?new Intl.NumberFormat('pt-BR',{maximumFractionDigits:8}).format(n):pdfValue(x);
 }
-function filename(x){
- return ['ANFEER','Relatorio_Inspecao','OS_'+(x.NUM_OS||'nao-identificada'),x.COD_PECAS||'peca'].join('_').replace(/[^a-zA-Z0-9_.-]/g,'_')+'.pdf';
+function filename(grupo,inspecoes){
+ // Usar a mesma empresa exibida no cabeçalho do PDF.
+ const latest=inspecoes.length?inspecoes[inspecoes.length-1].inspecao:{};
+ const x={...latest,...grupo};
+ const codigoEmpresa=String(x.COD_EMPRESA??'').trim();
+ const empresa=codigoEmpresa==='2'?'BR_BROCHAMENTOS':(['1','3'].includes(codigoEmpresa)?'ANFEER':'INSPECAO');
+ return [empresa,'Relatorio_Inspecao','OS_'+(x.NUM_OS||'nao-identificada'),x.COD_PECAS||'peca'].join('_').replace(/[^a-zA-Z0-9_.-]/g,'_')+'.pdf';
 }
 
 // Gerador PDF local (PDF 1.4/Helvetica). Não depende de CDN nem de Apps Script para renderizar.
@@ -393,7 +398,7 @@ async function generatePdf(chave,button){
   const {grupo,inspecoes}=await get('relatorio_grupo_detalhe',{chave});
   const blob=makeInspectionPdf(grupo,inspecoes);
   const url=URL.createObjectURL(blob),link=document.createElement('a');
-  link.href=url;link.download=filename(grupo);document.body.appendChild(link);link.click();link.remove();
+  link.href=url;link.download=filename(grupo,inspecoes);document.body.appendChild(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),60000);
   notice('PDF consolidado gerado: '+inspecoes.length+' inspeção(ões) da peça '+pdfValue(grupo.COD_PECAS)+(grupo.NUM_OS?' • OS '+grupo.NUM_OS:''),'success');
  }catch(err){notice('Falha ao gerar PDF: '+err.message,'error');}
