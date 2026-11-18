@@ -52,7 +52,10 @@ async function verificar(env) {
       "INSERT INTO monitor_os (id, percentual, situacao, visto_em) " +
       "VALUES (?, ?, ?, ?) " +
       "ON CONFLICT(id) DO UPDATE SET " +
-      "percentual = excluded.percentual, visto_em = excluded.visto_em"
+      "percentual = excluded.percentual, visto_em = excluded.visto_em, " +
+      "situacao = CASE WHEN monitor_os.situacao = 'BASELINE' " +
+      "AND excluded.percentual < 80 THEN 'OBSERVANDO' " +
+      "ELSE monitor_os.situacao END"
     ).bind(os.id, os.percentual,
       primeiraConsulta && os.percentual >= LIMIAR ? "BASELINE" : "OBSERVANDO",
       agora));
@@ -176,6 +179,15 @@ function consolidar(linhas) {
     const p = r.PERCENTUAL_EXECUCAO;
     const percentual = p === null || p === undefined || p === "" ? NaN : Number(p);
     if (!empresa || !n_os || !Number.isFinite(percentual) || percentual < 0) continue;
+    // Segurança: a SQL antiga contava horas desde 1899 em vez da data real.
+    // Não enviar alertas de registros ainda contaminados por esse defeito.
+    const horasEmAberto = Number(r.HORAS_EM_ABERTO);
+    if (Number.isFinite(horasEmAberto) && horasEmAberto > 10000) {
+      console.error("ANFEER BROCHAS: horas em aberto inconsistentes; OS ignorada", {
+        empresa, os: n_os, horasEmAberto
+      });
+      continue;
+    }
     const id = empresa + "|" + n_os;
     const atual = mapa.get(id);
     if (atual && atual.percentual >= percentual) continue;
