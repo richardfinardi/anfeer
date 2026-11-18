@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <script src="../auth-guard.js?v=20261118"></script>
+  <title>ANFEER | Configuração de sensores</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0b0e13;--panel:#171b23;--line:#343d4a;--fg:#f2f5fa;--muted:#abb7c8;--red:#d9231d;--blue:#60a5fa;--green:#4ade80;--amber:#facc15}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+    header{background:#12151b;border-bottom:1px solid var(--line);padding:13px max(15px,calc((100% - 1240px)/2));display:flex;justify-content:space-between;align-items:center;gap:15px}
+    header img{height:38px;max-width:160px;object-fit:contain}a{color:#d8e4f2;text-decoration:none}
+    main{max-width:1240px;margin:auto;padding:24px 16px 80px}h1{font-size:27px;margin:0}h2{font-size:18px;margin:0 0 13px}p{line-height:1.5}.sub{color:var(--muted);margin:6px 0 19px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.box{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:18px;min-width:0}
+    .wide{grid-column:1/-1}.flex{display:flex;align-items:center;gap:11px;flex-wrap:wrap}.spaced{justify-content:space-between}
+    .fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.fields.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:0 0 6px}input,select{background:#0a1019;color:var(--fg);border:1px solid #526071;border-radius:9px;padding:10px 11px;font:inherit;min-height:42px;width:100%}
+    button{background:#2b3441;border:1px solid #546273;border-radius:9px;color:white;font:inherit;font-weight:700;padding:10px 16px;cursor:pointer;min-height:42px}button.primary{background:var(--red);border-color:var(--red)}button:disabled{opacity:.44;cursor:not-allowed}
+    button:hover:not(:disabled){filter:brightness(1.16)}.tip{font-size:12px;color:var(--muted)}.message{padding:13px 14px;border-radius:10px;background:#263444;margin:0 0 18px;white-space:pre-wrap}.message.error{background:#592329}.message.ok{background:#1c4734}
+    .hidden{display:none!important}.tag{padding:6px 10px;border-radius:999px;background:#2b3441;font-weight:750;font-size:12px}.statusline{display:flex;gap:15px;flex-wrap:wrap;align-items:center}
+    .value{font-weight:800;font-size:27px}.smallval{font-weight:700;font-size:15px}.cal-row{display:grid;grid-template-columns:125px 1fr 1fr 125px 155px;gap:10px;align-items:end;border-top:1px solid #303b49;padding:13px 0}
+    .cal-row:first-of-type{border-top:0}.key{font-weight:800;padding-bottom:11px}.PARADA{color:#f87171}.AVANCO{color:#facc15}.RETORNO{color:#60a5fa}.PRODUCAO{color:#4ade80}
+    .meta{font-size:12px;color:var(--muted);margin:5px 0 0}.chart-wrap{position:relative;width:100%;height:260px;background:#0c1420;border-radius:12px;overflow:hidden;border:1px solid #2b394d}
+    canvas{width:100%;height:100%;display:block}.stat{display:flex;gap:25px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    #cpsList{margin-top:5px}.bar{height:7px;background:#28313d;border-radius:20px;margin-top:7px;overflow:hidden}.bar>div{height:100%;width:0;background:var(--red);transition:width .25s}
+    @media(max-width:850px){.fields,.fields.three{grid-template-columns:repeat(2,minmax(0,1fr))}.cal-row{grid-template-columns:1fr 1fr}.cal-row .key{grid-column:1/-1;padding:0}.cal-row button{grid-column:1/-1}.grid{grid-template-columns:1fr}}
+    @media(max-width:500px){main{padding:18px 11px 70px}header img{height:29px}.box{padding:14px}.fields,.fields.three{grid-template-columns:1fr}.stat{gap:10px}.value{font-size:24px}h1{font-size:22px}}
+  </style>
+</head>
+<body>
+<header><a href="../"><img src="../ANFEER%20BR%20FUNDO%20TRANSPARENTE.png" alt="ANFEER"></a><a href="../">Voltar ao portal</a></header>
+<main>
+  <h1>Configuração de sensores</h1>
+  <p class="sub">Calibre o ESP32 pela web sem modificar o código para cada máquina. Os parâmetros da OS continuam sendo consultados no CPS.</p>
+  <div id="msg" class="message hidden" role="status"></div>
+  <section class="box" style="margin-bottom:16px">
+    <div class="flex spaced"><h2>Máquina e dispositivo</h2><span class="tag" id="connection">Aguardando leituras</span></div>
+    <div class="fields three">
+      <div><label>Sensor cadastrado</label><select id="existing"><option value="">Nova máquina</option></select></div>
+      <div><label>Máquinas com apontamento aberto no CPS</label><select id="cpsList"><option value="">Consultar CPS…</option></select></div>
+      <div><label>Identificador do ESP32</label><input id="device" placeholder="esp32-kone026" maxlength="48"></div>
+    </div>
+    <div class="fields three" style="margin-top:12px">
+      <div><label>Código da empresa (CPS)</label><input id="empresa" type="number" min="1" step="1" placeholder="Ex.: 2"></div>
+      <div><label>Código da máquina (CPS)</label><input id="maquina" type="number" min="1" step="1" placeholder="Ex.: 7"></div>
+      <div><label>Nome da máquina</label><input id="nome" placeholder="Brochadeira KONE 026" maxlength="120"></div>
+    </div>
+    <div class="flex" style="margin-top:14px"><button id="register">Cadastrar / vincular equipamento</button><span class="tip">A máquina pode ser cadastrada mesmo sem OS aberta.</span></div>
+  </section>
+  <div class="grid">
+    <section class="box wide">
+      <div class="flex spaced"><h2>Corrente em tempo real</h2><span class="tip">Atualização automática a cada 2 segundos</span></div>
+      <div class="stat"><div><label>Última corrente</label><strong class="value" id="amp">— A</strong></div><div><label>Estado informado pelo ESP32</label><span class="smallval" id="state">—</span></div><div><label>Última leitura</label><span class="smallval" id="lasttime">—</span></div></div>
+      <div class="chart-wrap"><canvas id="chart" aria-label="Histórico de corrente em ampères"></canvas></div>
+      <p class="tip">O gráfico só mostra dados reais enviados pelo ESP32. Sem telemetria, nenhuma leitura será simulada.</p>
+    </section>
+    <section class="box wide">
+      <div class="flex spaced"><h2>Assistente de calibração</h2><span class="tag" id="calVersion">Configuração ainda não salva</span></div>
+      <p class="sub">Execute o movimento indicado e toque em “Capturar por 12 s”. O sistema calcula uma faixa de corrente para esse movimento, que pode ser ajustada manualmente.</p>
+      <div id="calRows"></div>
+      <div class="bar"><div id="progress"></div></div><p class="tip" id="progressText">Pronto para calibrar.</p>
+      <div class="fields three" style="margin-top:14px">
+        <div><label>Tempo mínimo em cada estado (ms)</label><input type="number" id="hold" min="50" max="30000" value="300"></div>
+        <div style="grid-column:span 2"><label>Sequência esperada dos movimentos</label><input id="sequence" value="PARADA,AVANCO,PRODUCAO,RETORNO,PARADA"></div>
+      </div>
+      <div class="flex" style="margin-top:15px"><button class="primary" id="save">Salvar calibração na nuvem</button><button id="reload">Recarregar configuração</button><span class="tip">Salvar não muda a contagem em execução até o firmware receber e aplicar a nova versão.</span></div>
+    </section>
+  </div>
+</main>
+<script>
+'use strict';
+const API='https://anfeer-brochadeira-api.auvriun-monitor.workers.dev';
+const STAGES=[['PARADA','Máquina parada'],['AVANCO','Movimento de avanço'],['RETORNO','Retorno sem peça'],['PRODUCAO','Movimento com peça']];
+const $=id=>document.getElementById(id);
+let sensors=[], selected=null, currentReadings=[], capturing=false, updating=false, polling=null;
+const captureLabel={};
+function notify(text,kind=''){const n=$('msg');n.textContent=text;n.className='message'+(kind?' '+kind:'');n.classList.remove('hidden');}
+function clearMessage(){$('msg').classList.add('hidden');}
+function formatAmp(x){return Number(x).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:3})+' A'}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function api(path,method='GET',data){
+ const token=localStorage.getItem('anfeer_portal_token');
+ if(!token)throw Error('Sessão do portal ANFEER não encontrada. Faça login.');
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),17000);
+ try{
+  const r=await fetch(API+path,{method,headers:{Authorization:'Bearer '+token,...(data?{'Content-Type':'application/json'}:{})},body:data?JSON.stringify(data):undefined,credentials:'omit',cache:'no-store',signal:ctrl.signal});
+  const j=await r.json().catch(()=>null);
+  if(r.status===401){window.location.replace('../');throw Error('Sessão expirada.');}
+  if(!r.ok||!j?.ok)throw Error(j?.erro||'Falha HTTP '+r.status);
+  return j;
+ }finally{clearTimeout(timer)}
+}
+function key(s){return s.cod_empresa+'|'+s.cod_maquina}
+function getMachine(){const cod_empresa=Number($('empresa').value),cod_maquina=Number($('maquina').value);return Number.isSafeInteger(cod_empresa)&&cod_empresa>0&&Number.isSafeInteger(cod_maquina)&&cod_maquina>0?{cod_empresa,cod_maquina}:null;}
+async function loadSensors(prefer){
+ const j=await api('/v1/sensores');sensors=j.sensores||[];
+ const select=$('existing'),wanted=prefer||select.value;select.replaceChildren(new Option('Nova máquina',''));
+ for(const s of sensors)select.add(new Option(`${s.maquina||'Máquina '+s.cod_maquina} | empresa ${s.cod_empresa} | ESP32 ${s.dispositivo_id}`,key(s)));
+ if(sensors.some(s=>key(s)===wanted)){select.value=wanted;chooseSensor(wanted)}
+ else if(sensors.length&&!selected){select.value=key(sensors[0]);chooseSensor(select.value)}
+}
+async function loadCps(){try{const j=await api('/v1/maquinas');const list=$('cpsList');list.replaceChildren(new Option('Selecione ou informe os códigos manualmente',''));
+  for(const m of j.maquinas||[])list.add(new Option(`${m.maquina||'Máquina '+m.cod_maquina} (${m.cod_empresa}/${m.cod_maquina})`,key(m)));
+ }catch(e){$('cpsList').replaceChildren(new Option('CPS indisponível. Digite os códigos manualmente.',''));}}
+function chooseSensor(id){
+ selected=sensors.find(s=>key(s)===id)||null;
+ if(!selected)return;
+ $('empresa').value=selected.cod_empresa;$('maquina').value=selected.cod_maquina;
+ $('device').value=selected.dispositivo_id;$('nome').value=selected.maquina||'';
+ $('calVersion').textContent=selected.calibracao?`Calibração salva | versão ${selected.versao}`:'Ainda sem calibração';
+ $('hold').value=selected.calibracao?.tempo_minimo_ms??300;
+ $('sequence').value=(selected.calibracao?.sequencia||['PARADA','AVANCO','PRODUCAO','RETORNO','PARADA']).join(',');
+ for(const [k] of STAGES){const values=selected.calibracao?.estados?.[k]||{};$(k+'_min').value=values.min_a??'';$(k+'_max').value=values.max_a??'';captureLabel[k]='';$(k+'_info').textContent='';}
+ currentReadings=[];draw();refresh().catch(()=>{});
+}
+function createRows(){
+ const target=$('calRows');target.replaceChildren();
+ for(const [k,label] of STAGES){
+   const row=document.createElement('div');row.className='cal-row';
+   row.innerHTML=`<div class="key ${k}">${esc(label)}</div><div><label>Corrente mínima (A)</label><input type="number" id="${k}_min" min="0" max="1000" step="0.001" placeholder="Calibrar"></div><div><label>Corrente máxima (A)</label><input type="number" id="${k}_max" min="0" max="1000" step="0.001" placeholder="Calibrar"></div><div><label>Captura</label><div id="${k}_info" class="meta">—</div></div><button class="capture" data-key="${k}">Capturar por 12 s</button>`;
+   target.append(row);
+ }
+ target.addEventListener('click',e=>{const btn=e.target.closest('.capture');if(btn)capture(btn.dataset.key).catch(err=>notify(err.message,'error'));});
+}
+function draw(){
+ const c=$('chart'),box=c.parentElement,scale=window.devicePixelRatio||1;const width=box.clientWidth,height=box.clientHeight;
+ c.width=Math.floor(width*scale);c.height=Math.floor(height*scale);const g=c.getContext('2d');g.scale(scale,scale);
+ g.clearRect(0,0,width,height);g.fillStyle='#0c1420';g.fillRect(0,0,width,height);
+ const pts=currentReadings;const rawMax=Math.max(0,...pts.map(p=>p.corrente_a));const max=Math.max(1,Math.ceil(rawMax*1.15));
+ g.strokeStyle='#334256';g.lineWidth=1;g.fillStyle='#aab8c9';g.font='11px system-ui';
+ for(let i=0;i<=4;i++){const y=14+(height-35)*i/4;g.beginPath();g.moveTo(45,y);g.lineTo(width-10,y);g.stroke();g.fillText(((4-i)*max/4).toFixed(1)+' A',5,y+4)}
+ if(pts.length<2){g.fillText('Aguardando leituras reais do ESP32...',55,height/2);return;}
+ const minId=pts[0].id,maxId=pts[pts.length-1].id;g.strokeStyle='#60a5fa';g.lineWidth=2.2;g.beginPath();
+ pts.forEach((p,i)=>{const x=45+(width-60)*((p.id-minId)/Math.max(1,maxId-minId)),y=14+(height-35)*(1-p.corrente_a/max);if(i===0)g.moveTo(x,y);else g.lineTo(x,y)});g.stroke();
+}
+async function refresh(){
+ if(!selected||updating)return;updating=true;
+ try{
+   const s=selected,qs=`?cod_empresa=${s.cod_empresa}&cod_maquina=${s.cod_maquina}&limite=120`;
+   const j=await api('/v1/leituras'+qs);if(selected!==s)return;
+   currentReadings=j.leituras||[];const last=currentReadings.at(-1);
+   $('amp').textContent=last?formatAmp(last.corrente_a):'— A';$('state').textContent=last?.estado||'Não informado';
+   $('lasttime').textContent=last?new Date(last.recebido_em).toLocaleString('pt-BR'):'—';
+   const fresh=last&&(Date.now()-new Date(last.recebido_em).getTime())<10000;
+   $('connection').textContent=fresh?'Recebendo leituras':'Sem telemetria recente';
+   $('connection').style.color=fresh?'#86efac':'#facc15';draw();
+ }finally{updating=false;}
+}
+function percentile(a,p){const x=[...a].sort((a,b)=>a-b),i=(x.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return x[lo]+(x[hi]-x[lo])*(i-lo)}
+async function capture(stage){
+ if(!selected)throw Error('Cadastre e selecione a máquina antes da captura.');
+ if(capturing)throw Error('Já existe uma captura em andamento.');
+ capturing=true;clearMessage();document.querySelectorAll('.capture').forEach(b=>b.disabled=true);
+ const machine=selected,started=Date.now(),samples=new Map(),startId=currentReadings.at(-1)?.id||0;
+ try{
+   while(Date.now()-started<12000){
+     await refresh();if(selected!==machine)throw Error('A máquina selecionada mudou durante a calibração.');
+     for(const p of currentReadings){if(p.id>startId&&Number.isFinite(Number(p.corrente_a)))samples.set(p.id,Number(p.corrente_a));}
+     const pct=Math.min(100,(Date.now()-started)*100/12000);$('progress').style.width=pct+'%';
+     $('progressText').textContent=`Coletando ${stage}: ${Math.ceil((12000-(Date.now()-started))/1000)} s restantes (${samples.size} amostras).`;
+     await new Promise(ok=>setTimeout(ok,1100));
+   }
+   const arr=[...samples.values()];
+   if(arr.length<5)throw Error('Captura insuficiente: recebemos apenas '+arr.length+' leituras. Configure o ESP32 para enviar 1 leitura por segundo.');
+   const lo=percentile(arr,.10),hi=percentile(arr,.90),margin=Math.max(.04,(hi-lo)*.25);
+   $(stage+'_min').value=Math.max(0,lo-margin).toFixed(3);
+   $(stage+'_max').value=(hi+margin).toFixed(3);
+   $(stage+'_info').textContent=arr.length+' leituras | mediana '+percentile(arr,.5).toFixed(2)+' A';
+   $('progressText').textContent=`Captura de ${stage} concluída. Confira a faixa sugerida.`;
+ }finally{capturing=false;$('progress').style.width='0';document.querySelectorAll('.capture').forEach(b=>b.disabled=false);}
+}
+async function register(){
+ const m=getMachine(),dispositivo_id=$('device').value.trim(),maquina=$('nome').value.trim();
+ if(!m||!/^[A-Za-z0-9_-]{8,48}$/.test(dispositivo_id))throw Error('Informe empresa, máquina e um ID de ESP32 válido com pelo menos 8 caracteres.');
+ const j=await api('/v1/sensores','POST',{...m,dispositivo_id,maquina});
+ await loadSensors(key(j.sensor));notify('Equipamento cadastrado. Agora o ESP32 pode enviar as leituras para calibração.','ok');
+}
+async function save(){
+ if(!selected)throw Error('Cadastre a máquina antes de salvar.');
+ const estados={};
+ for(const [k] of STAGES){const low=$(k+'_min').value.trim(),high=$(k+'_max').value.trim();if(!low||!high)throw Error('Calibre ou informe os limites de todos os estados.');estados[k]={min_a:Number(low),max_a:Number(high)};}
+ const seq=$('sequence').value.toUpperCase().split(',').map(x=>x.trim()).filter(Boolean);
+ const j=await api('/v1/sensores','PUT',{cod_empresa:selected.cod_empresa,cod_maquina:selected.cod_maquina,versao_atual:selected.versao,calibracao:{estados,sequencia:seq,tempo_minimo_ms:Number($('hold').value)}});
+ await loadSensors(key(j.sensor));notify('Calibração salva na nuvem (versão '+j.sensor.versao+'). O ESP32 precisará consultar e aplicar essa versão.','ok');
+}
+async function start(){
+ createRows();await window.anfeerAuthReady;
+ if(!localStorage.getItem('anfeer_portal_token'))return;
+ try{await Promise.all([loadSensors(),loadCps()]);polling=setInterval(()=>refresh().catch(()=>{}),2000);}
+ catch(e){notify('Falha ao abrir configuração: '+e.message,'error');}
+ $('existing').addEventListener('change',e=>{if(e.target.value)chooseSensor(e.target.value);else{selected=null;clearMessage();}});
+ $('cpsList').addEventListener('change',e=>{if(!e.target.value)return;const [emp,mach]=e.target.value.split('|');$('empresa').value=emp;$('maquina').value=mach;const label=e.target.selectedOptions[0]?.textContent||'';$('nome').value=label.split(' (')[0];});
+ $('register').addEventListener('click',()=>register().catch(e=>notify(e.message,'error')));
+ $('save').addEventListener('click',()=>save().catch(e=>notify(e.message,'error')));
+ $('reload').addEventListener('click',()=>loadSensors(selected&&key(selected)).catch(e=>notify(e.message,'error')));
+ window.addEventListener('resize',draw);
+}
+start();
+</script>
+</body></html>
