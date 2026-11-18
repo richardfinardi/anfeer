@@ -13,7 +13,7 @@
     main{max-width:1240px;margin:auto;padding:24px 16px 80px}h1{font-size:27px;margin:0}h2{font-size:18px;margin:0 0 13px}p{line-height:1.5}.sub{color:var(--muted);margin:6px 0 19px}
     .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.box{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:18px;min-width:0}
     .wide{grid-column:1/-1}.flex{display:flex;align-items:center;gap:11px;flex-wrap:wrap}.spaced{justify-content:space-between}
-    .fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.fields.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.fields.three{grid-template-columns:repeat(3,minmax(0,1fr))}.fields.two{grid-template-columns:repeat(2,minmax(0,1fr))}
     label{display:block;font-size:12px;color:var(--muted);font-weight:700;margin:0 0 6px}input,select{background:#0a1019;color:var(--fg);border:1px solid #526071;border-radius:9px;padding:10px 11px;font:inherit;min-height:42px;width:100%}
     button{background:#2b3441;border:1px solid #546273;border-radius:9px;color:white;font:inherit;font-weight:700;padding:10px 16px;cursor:pointer;min-height:42px}button.primary{background:var(--red);border-color:var(--red)}button:disabled{opacity:.44;cursor:not-allowed}
     button:hover:not(:disabled){filter:brightness(1.16)}.tip{font-size:12px;color:var(--muted)}.message{padding:13px 14px;border-radius:10px;background:#263444;margin:0 0 18px;white-space:pre-wrap}.message.error{background:#592329}.message.ok{background:#1c4734}
@@ -23,15 +23,15 @@
     .meta{font-size:12px;color:var(--muted);margin:5px 0 0}.chart-wrap{position:relative;width:100%;height:260px;background:#0c1420;border-radius:12px;overflow:hidden;border:1px solid #2b394d}
     canvas{width:100%;height:100%;display:block}.stat{display:flex;gap:25px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
     #cpsList{margin-top:5px}.bar{height:7px;background:#28313d;border-radius:20px;margin-top:7px;overflow:hidden}.bar>div{height:100%;width:0;background:var(--red);transition:width .25s}
-    @media(max-width:850px){.fields,.fields.three{grid-template-columns:repeat(2,minmax(0,1fr))}.cal-row{grid-template-columns:1fr 1fr}.cal-row .key{grid-column:1/-1;padding:0}.cal-row button{grid-column:1/-1}.grid{grid-template-columns:1fr}}
-    @media(max-width:500px){main{padding:18px 11px 70px}header img{height:29px}.box{padding:14px}.fields,.fields.three{grid-template-columns:1fr}.stat{gap:10px}.value{font-size:24px}h1{font-size:22px}}
+    @media(max-width:850px){.fields,.fields.three,.fields.two{grid-template-columns:repeat(2,minmax(0,1fr))}.cal-row{grid-template-columns:1fr 1fr}.cal-row .key{grid-column:1/-1;padding:0}.cal-row button{grid-column:1/-1}.grid{grid-template-columns:1fr}}
+    @media(max-width:500px){main{padding:18px 11px 70px}header img{height:29px}.box{padding:14px}.fields,.fields.three,.fields.two{grid-template-columns:1fr}.stat{gap:10px}.value{font-size:24px}h1{font-size:22px}}
   </style>
 </head>
 <body>
 <header><a href="../"><img src="../ANFEER%20BR%20FUNDO%20TRANSPARENTE.png" alt="ANFEER"></a><a href="../">Voltar ao portal</a></header>
 <main>
   <h1>Configuração de sensores</h1>
-  <p class="sub">Calibre o ESP32 pela web sem modificar o código para cada máquina. Os parâmetros da OS continuam sendo consultados no CPS.</p>
+  <p class="sub">Uma configuração de sensor por máquina, compartilhada pelas três empresas. A empresa de cada produção será identificada automaticamente pela OS aberta no CPS.</p>
   <div id="msg" class="message hidden" role="status"></div>
   <section class="box" style="margin-bottom:16px">
     <div class="flex spaced"><h2>Máquina e dispositivo</h2><span class="tag" id="connection">Aguardando leituras</span></div>
@@ -40,8 +40,7 @@
       <div><label>Máquinas com apontamento aberto no CPS</label><select id="cpsList"><option value="">Consultar CPS…</option></select></div>
       <div><label>Identificador do ESP32</label><input id="device" placeholder="esp32-kone026" maxlength="48"></div>
     </div>
-    <div class="fields three" style="margin-top:12px">
-      <div><label>Código da empresa (CPS)</label><input id="empresa" type="number" min="1" step="1" placeholder="Ex.: 2"></div>
+    <div class="fields two" style="margin-top:12px">
       <div><label>Código da máquina (CPS)</label><input id="maquina" type="number" min="1" step="1" placeholder="Ex.: 7"></div>
       <div><label>Nome da máquina</label><input id="nome" placeholder="Brochadeira KONE 026" maxlength="120"></div>
     </div>
@@ -90,22 +89,22 @@ async function api(path,method='GET',data){
   return j;
  }finally{clearTimeout(timer)}
 }
-function key(s){return s.cod_empresa+'|'+s.cod_maquina}
-function getMachine(){const cod_empresa=Number($('empresa').value),cod_maquina=Number($('maquina').value);return Number.isSafeInteger(cod_empresa)&&cod_empresa>0&&Number.isSafeInteger(cod_maquina)&&cod_maquina>0?{cod_empresa,cod_maquina}:null;}
+function key(s){return String(s.cod_maquina)}
+function getMachine(){const cod_maquina=Number($('maquina').value);return Number.isSafeInteger(cod_maquina)&&cod_maquina>0?{cod_maquina}:null;}
 async function loadSensors(prefer){
  const j=await api('/v1/sensores');sensors=j.sensores||[];
  const select=$('existing'),wanted=prefer||select.value;select.replaceChildren(new Option('Nova máquina',''));
- for(const s of sensors)select.add(new Option(`${s.maquina||'Máquina '+s.cod_maquina} | empresa ${s.cod_empresa} | ESP32 ${s.dispositivo_id}`,key(s)));
+ for(const s of sensors)select.add(new Option(`${s.maquina||'Máquina '+s.cod_maquina} | máquina ${s.cod_maquina} | ESP32 ${s.dispositivo_id}`,key(s)));
  if(sensors.some(s=>key(s)===wanted)){select.value=wanted;chooseSensor(wanted)}
  else if(sensors.length&&!selected){select.value=key(sensors[0]);chooseSensor(select.value)}
 }
 async function loadCps(){try{const j=await api('/v1/maquinas');const list=$('cpsList');list.replaceChildren(new Option('Selecione ou informe os códigos manualmente',''));
-  for(const m of j.maquinas||[])list.add(new Option(`${m.maquina||'Máquina '+m.cod_maquina} (${m.cod_empresa}/${m.cod_maquina})`,key(m)));
+  for(const m of j.maquinas||[])list.add(new Option(`${m.maquina||'Máquina '+m.cod_maquina} | código ${m.cod_maquina} | ${m.apontamentos_abertos||0} apontamento(s) aberto(s)`,key(m)));
  }catch(e){$('cpsList').replaceChildren(new Option('CPS indisponível. Digite os códigos manualmente.',''));}}
 function chooseSensor(id){
  selected=sensors.find(s=>key(s)===id)||null;
  if(!selected)return;
- $('empresa').value=selected.cod_empresa;$('maquina').value=selected.cod_maquina;
+ $('maquina').value=selected.cod_maquina;
  $('device').value=selected.dispositivo_id;$('nome').value=selected.maquina||'';
  $('calVersion').textContent=selected.calibracao?`Calibração salva | versão ${selected.versao}`:'Ainda sem calibração';
  $('hold').value=selected.calibracao?.tempo_minimo_ms??300;
@@ -136,7 +135,7 @@ function draw(){
 async function refresh(){
  if(!selected||updating)return;updating=true;
  try{
-   const s=selected,qs=`?cod_empresa=${s.cod_empresa}&cod_maquina=${s.cod_maquina}&limite=120`;
+   const s=selected,qs=`?cod_maquina=${s.cod_maquina}&limite=120`;
    const j=await api('/v1/leituras'+qs);if(selected!==s)return;
    currentReadings=j.leituras||[];const last=currentReadings.at(-1);
    $('amp').textContent=last?formatAmp(last.corrente_a):'— A';$('state').textContent=last?.estado||'Não informado';
@@ -171,7 +170,7 @@ async function capture(stage){
 }
 async function register(){
  const m=getMachine(),dispositivo_id=$('device').value.trim(),maquina=$('nome').value.trim();
- if(!m||!/^[A-Za-z0-9_-]{8,48}$/.test(dispositivo_id))throw Error('Informe empresa, máquina e um ID de ESP32 válido com pelo menos 8 caracteres.');
+ if(!m||!/^[A-Za-z0-9_-]{8,48}$/.test(dispositivo_id))throw Error('Informe o código da máquina e um ID de ESP32 válido com pelo menos 8 caracteres.');
  const j=await api('/v1/sensores','POST',{...m,dispositivo_id,maquina});
  await loadSensors(key(j.sensor));notify('Equipamento cadastrado. Agora o ESP32 pode enviar as leituras para calibração.','ok');
 }
@@ -180,7 +179,7 @@ async function save(){
  const estados={};
  for(const [k] of STAGES){const low=$(k+'_min').value.trim(),high=$(k+'_max').value.trim();if(!low||!high)throw Error('Calibre ou informe os limites de todos os estados.');estados[k]={min_a:Number(low),max_a:Number(high)};}
  const seq=$('sequence').value.toUpperCase().split(',').map(x=>x.trim()).filter(Boolean);
- const j=await api('/v1/sensores','PUT',{cod_empresa:selected.cod_empresa,cod_maquina:selected.cod_maquina,versao_atual:selected.versao,calibracao:{estados,sequencia:seq,tempo_minimo_ms:Number($('hold').value)}});
+ const j=await api('/v1/sensores','PUT',{cod_maquina:selected.cod_maquina,versao_atual:selected.versao,calibracao:{estados,sequencia:seq,tempo_minimo_ms:Number($('hold').value)}});
  await loadSensors(key(j.sensor));notify('Calibração salva na nuvem (versão '+j.sensor.versao+'). O ESP32 precisará consultar e aplicar essa versão.','ok');
 }
 async function start(){
@@ -189,7 +188,7 @@ async function start(){
  try{await Promise.all([loadSensors(),loadCps()]);polling=setInterval(()=>refresh().catch(()=>{}),2000);}
  catch(e){notify('Falha ao abrir configuração: '+e.message,'error');}
  $('existing').addEventListener('change',e=>{if(e.target.value)chooseSensor(e.target.value);else{selected=null;clearMessage();}});
- $('cpsList').addEventListener('change',e=>{if(!e.target.value)return;const [emp,mach]=e.target.value.split('|');$('empresa').value=emp;$('maquina').value=mach;const label=e.target.selectedOptions[0]?.textContent||'';$('nome').value=label.split(' (')[0];});
+ $('cpsList').addEventListener('change',e=>{if(!e.target.value)return;$('maquina').value=e.target.value;const label=e.target.selectedOptions[0]?.textContent||'';$('nome').value=label.split(' (')[0];});
  $('register').addEventListener('click',()=>register().catch(e=>notify(e.message,'error')));
  $('save').addEventListener('click',()=>save().catch(e=>notify(e.message,'error')));
  $('reload').addEventListener('click',()=>loadSensors(selected&&key(selected)).catch(e=>notify(e.message,'error')));
