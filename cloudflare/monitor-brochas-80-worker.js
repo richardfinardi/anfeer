@@ -6,7 +6,7 @@
  *   DB                 Cloudflare D1 (estado persistente)
  *   WHATSAPP_APP_KEY   Secret da aplicação anfeer_brochas na Central AUVRIUN
  *
- * Cron recomendado: */5 * * * * (a cada 5 minutos).
+ * Cron recomendado: a cada cinco minutos (configurado no Cloudflare).
  *
  * Primeira leitura: registra a situação atual, SEM disparar alertas antigos.
  * A partir daí: 1 alerta por empresa+OS ao alcançar >= 80%.
