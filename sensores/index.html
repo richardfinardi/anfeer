@@ -94,18 +94,22 @@ function getMachine(){const cod_maquina=Number($('maquina').value);return Number
 async function loadSensors(prefer){
  const j=await api('/v1/sensores');sensors=j.sensores||[];
  const select=$('existing'),wanted=prefer||select.value;select.replaceChildren(new Option('Nova máquina',''));
- for(const s of sensors)select.add(new Option(`${s.maquina||'Máquina '+s.cod_maquina} | máquina ${s.cod_maquina} | ESP32 ${s.dispositivo_id}`,key(s)));
+ for(const s of sensors)select.add(new Option(`${String(s.maquina||'Máquina '+s.cod_maquina).split(' | código ')[0]} | máquina ${s.cod_maquina} | ESP32 ${s.dispositivo_id}`,key(s)));
  if(sensors.some(s=>key(s)===wanted)){select.value=wanted;chooseSensor(wanted)}
  else if(sensors.length&&!selected){select.value=key(sensors[0]);chooseSensor(select.value)}
 }
 async function loadCps(){try{const j=await api('/v1/maquinas');const list=$('cpsList');list.replaceChildren(new Option('Selecione ou informe os códigos manualmente',''));
-  for(const m of j.maquinas||[])list.add(new Option(`${m.maquina||'Máquina '+m.cod_maquina} | código ${m.cod_maquina} | ${m.apontamentos_abertos||0} apontamento(s) aberto(s)`,key(m)));
+  for(const m of j.maquinas||[]){
+    const opt=new Option(`${m.maquina||'Máquina '+m.cod_maquina} | código ${m.cod_maquina} | ${m.apontamentos_abertos||0} apontamento(s) aberto(s)`,key(m));
+    opt.dataset.machine=m.maquina||'Máquina '+m.cod_maquina;
+    list.add(opt);
+  }
  }catch(e){$('cpsList').replaceChildren(new Option('CPS indisponível. Digite os códigos manualmente.',''));}}
 function chooseSensor(id){
  selected=sensors.find(s=>key(s)===id)||null;
  if(!selected)return;
  $('maquina').value=selected.cod_maquina;
- $('device').value=selected.dispositivo_id;$('nome').value=selected.maquina||'';
+ $('device').value=selected.dispositivo_id;$('nome').value=String(selected.maquina||'').split(' | código ')[0];
  $('calVersion').textContent=selected.calibracao?`Calibração salva | versão ${selected.versao}`:'Ainda sem calibração';
  $('hold').value=selected.calibracao?.tempo_minimo_ms??300;
  $('sequence').value=(selected.calibracao?.sequencia||['PARADA','AVANCO','PRODUCAO','RETORNO','PARADA']).join(',');
@@ -188,7 +192,7 @@ async function start(){
  try{await Promise.all([loadSensors(),loadCps()]);polling=setInterval(()=>refresh().catch(()=>{}),2000);}
  catch(e){notify('Falha ao abrir configuração: '+e.message,'error');}
  $('existing').addEventListener('change',e=>{if(e.target.value)chooseSensor(e.target.value);else{selected=null;clearMessage();}});
- $('cpsList').addEventListener('change',e=>{if(!e.target.value)return;$('maquina').value=e.target.value;const label=e.target.selectedOptions[0]?.textContent||'';$('nome').value=label.split(' (')[0];});
+ $('cpsList').addEventListener('change',e=>{if(!e.target.value)return;$('maquina').value=e.target.value;$('nome').value=e.target.selectedOptions[0]?.dataset.machine||'';});
  $('register').addEventListener('click',()=>register().catch(e=>notify(e.message,'error')));
  $('save').addEventListener('click',()=>save().catch(e=>notify(e.message,'error')));
  $('reload').addEventListener('click',()=>loadSensors(selected&&key(selected)).catch(e=>notify(e.message,'error')));
