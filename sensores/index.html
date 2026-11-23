@@ -55,9 +55,26 @@
     </section>
     <section class="box wide">
       <div class="flex spaced"><h2>Assistente de calibração</h2><span class="tag" id="calVersion">Configuração ainda não salva</span></div>
-      <p class="sub">Execute o movimento indicado e toque em “Capturar por 12 s”. O sistema calcula uma faixa de corrente para esse movimento, que pode ser ajustada manualmente.</p>
+      <p class="sub">Calibração pelo ciclo completo, sem tempo fixo. Inicie a coleta, execute três ciclos completos e finalize. Os parâmetros serão sugeridos para revisão.</p>
+      <div class="flex" style="margin-bottom:12px">
+        <button class="primary" id="trainStart">Iniciar aprendizagem</button>
+        <button id="trainStop" disabled>Finalizar após 3 ciclos</button>
+        <span class="tag" id="trainState">Aguardando início</span>
+      </div>
+      <div class="stat">
+        <div><label>Tempo de captura</label><strong class="smallval" id="trainDuration">0 s</strong></div>
+        <div><label>Amostras coletadas</label><strong class="smallval" id="trainCount">0</strong></div>
+        <div><label>Frequência de leitura</label><strong class="smallval" id="trainRate">—</strong></div>
+      </div>
+      <div class="bar"><div id="progress"></div></div>
+      <p class="tip" id="progressText">Pronto. Não é preciso permanecer 12 segundos em cada estado.</p>
+      <div id="learnResult" class="message hidden"></div>
+      <div class="flex" style="margin:14px 0">
+        <button id="applySuggested" disabled>Aplicar faixas sugeridas</button>
+        <span class="tip">Confirme a correspondência entre corrente e movimento antes de salvar.</span>
+      </div>
+      <h2>Faixas de corrente por estado</h2>
       <div id="calRows"></div>
-      <div class="bar"><div id="progress"></div></div><p class="tip" id="progressText">Pronto para calibrar.</p>
       <div class="fields three" style="margin-top:14px">
         <div><label>Tempo mínimo em cada estado (ms)</label><input type="number" id="hold" min="50" max="30000" value="300"></div>
         <div style="grid-column:span 2"><label>Sequência esperada dos movimentos</label><input id="sequence" value="PARADA,AVANCO,PRODUCAO,RETORNO,PARADA"></div>
@@ -119,11 +136,10 @@ function chooseSensor(id){
 function createRows(){
  const target=$('calRows');target.replaceChildren();
  for(const [k,label] of STAGES){
-   const row=document.createElement('div');row.className='cal-row';
-   row.innerHTML=`<div class="key ${k}">${esc(label)}</div><div><label>Corrente mínima (A)</label><input type="number" id="${k}_min" min="0" max="1000" step="0.001" placeholder="Calibrar"></div><div><label>Corrente máxima (A)</label><input type="number" id="${k}_max" min="0" max="1000" step="0.001" placeholder="Calibrar"></div><div><label>Captura</label><div id="${k}_info" class="meta">—</div></div><button class="capture" data-key="${k}">Capturar por 12 s</button>`;
-   target.append(row);
+  const row=document.createElement('div');row.className='cal-row';
+  row.innerHTML=`<div class="key ${k}">${esc(label)}</div><div><label>Corrente mínima (A)</label><input type="number" id="${k}_min" min="0" max="1000" step="0.001" placeholder="Definir"></div><div><label>Corrente máxima (A)</label><input type="number" id="${k}_max" min="0" max="1000" step="0.001" placeholder="Definir"></div><div><label>Análise</label><div id="${k}_info" class="meta">—</div></div><div class="tip">Conferir no equipamento</div>`;
+  target.append(row);
  }
- target.addEventListener('click',e=>{const btn=e.target.closest('.capture');if(btn)capture(btn.dataset.key).catch(err=>notify(err.message,'error'));});
 }
 function draw(){
  const c=$('chart'),box=c.parentElement,scale=window.devicePixelRatio||1;const width=box.clientWidth,height=box.clientHeight;
@@ -150,27 +166,70 @@ async function refresh(){
  }finally{updating=false;}
 }
 function percentile(a,p){const x=[...a].sort((a,b)=>a-b),i=(x.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return x[lo]+(x[hi]-x[lo])*(i-lo)}
-async function capture(stage){
- if(!selected)throw Error('Cadastre e selecione a máquina antes da captura.');
- if(capturing)throw Error('Já existe uma captura em andamento.');
- capturing=true;clearMessage();document.querySelectorAll('.capture').forEach(b=>b.disabled=true);
- const machine=selected,started=Date.now(),samples=new Map(),startId=currentReadings.at(-1)?.id||0;
+let training=null,suggested=null;
+function trainUI(message){$('trainState').textContent=message;$('trainStart').disabled=!!training;$('trainStop').disabled=!training;}
+function trainCollect(){
+ if(!training||selected!==training.sensor)return;
+ for(const s of currentReadings){
+  if(Number(s.id)>training.startId&&Number.isFinite(Number(s.corrente_a))&&!training.points.has(Number(s.id)))
+   training.points.set(Number(s.id),{id:Number(s.id),corrente_a:Number(s.corrente_a),recebido_em:s.recebido_em});
+ }
+ $('trainCount').textContent=training.points.size;
+ $('trainDuration').textContent=Math.round((Date.now()-training.startedAt)/1000)+' s';
+}
+async function trainBegin(){
+ if(!selected)throw Error('Cadastre ou selecione a máquina antes da aprendizagem.');
+ if(training)throw Error('Já há coleta em andamento.');
+ await refresh();suggested=null;$('applySuggested').disabled=true;$('learnResult').classList.add('hidden');
+ training={sensor:selected,startedAt:Date.now(),startId:Number(currentReadings.at(-1)?.id||0),points:new Map()};
+ trainUI('Gravando três ciclos');$('progressText').textContent='Execute três ciclos completos e pressione Finalizar.';
+ training.timer=setInterval(()=>{refresh().then(trainCollect).catch(()=>{});trainCollect()},700);
+}
+function deriveBands(points){
+ const amps=points.map(p=>p.corrente_a).filter(x=>Number.isFinite(x)&&x>=0&&x<1000);
+ if(amps.length<8)throw Error('Poucas amostras. É necessário enviar leituras com maior frequência.');
+ if(percentile(amps,.96)-percentile(amps,.04)<.15)throw Error('A corrente não variou o suficiente para identificar movimentos distintos.');
+ let centers=[.05,.35,.65,.95].map(q=>percentile(amps,q));
+ for(let n=0;n<35;n++){
+  const clusters=[[],[],[],[]];
+  for(const a of amps){let k=0;for(let t=1;t<4;t++)if(Math.abs(a-centers[t])<Math.abs(a-centers[k]))k=t;clusters[k].push(a);}
+  let next=centers.map((v,k)=>clusters[k].length?clusters[k].reduce((a,b)=>a+b,0)/clusters[k].length:v).sort((a,b)=>a-b);
+  if(next.every((x,k)=>Math.abs(x-centers[k])<.0001)){centers=next;break;}centers=next;
+ }
+ if(centers.some((v,i)=>i&&v-centers[i-1]<.08))throw Error('Não foram encontradas quatro faixas separadas; analise os movimentos antes de gravar uma calibração.');
+ const mid=[(centers[0]+centers[1])/2,(centers[1]+centers[2])/2,(centers[2]+centers[3])/2];
+ const ranges=[[Math.max(0,centers[0]-(mid[0]-centers[0])),mid[0]],[mid[0],mid[1]],[mid[1],mid[2]],[mid[2],centers[3]+Math.max(.08,centers[3]-mid[2])]];
+ // Hipótese para a KONE piloto; não vale universalmente para outras máquinas.
+ return {centers,ranges,assign:{PARADA:0,RETORNO:1,PRODUCAO:2,AVANCO:3}};
+}
+function trainFinish(){
+ if(!training)return;
+ clearInterval(training.timer);trainCollect();
+ const points=[...training.points.values()].sort((a,b)=>a.id-b.id);training=null;trainUI('Coleta encerrada');
+ const delays=[];for(let i=1;i<points.length;i++){const d=Date.parse(points[i].recebido_em)-Date.parse(points[i-1].recebido_em);if(Number.isFinite(d)&&d>0)delays.push(d);}
+ const rate=delays.length?1000/percentile(delays,.5):0;
+ $('trainRate').textContent=rate?rate.toFixed(1)+' leituras/s':'—';
+ $('progressText').textContent='Coleta concluída. Avaliando qualidade das leituras.';
+ const box=$('learnResult');box.classList.remove('hidden');
  try{
-   while(Date.now()-started<12000){
-     await refresh();if(selected!==machine)throw Error('A máquina selecionada mudou durante a calibração.');
-     for(const p of currentReadings){if(p.id>startId&&Number.isFinite(Number(p.corrente_a)))samples.set(p.id,Number(p.corrente_a));}
-     const pct=Math.min(100,(Date.now()-started)*100/12000);$('progress').style.width=pct+'%';
-     $('progressText').textContent=`Coletando ${stage}: ${Math.ceil((12000-(Date.now()-started))/1000)} s restantes (${samples.size} amostras).`;
-     await new Promise(ok=>setTimeout(ok,1100));
-   }
-   const arr=[...samples.values()];
-   if(arr.length<5)throw Error('Captura insuficiente: recebemos apenas '+arr.length+' leituras. Configure o ESP32 para enviar 1 leitura por segundo.');
-   const lo=percentile(arr,.10),hi=percentile(arr,.90),margin=Math.max(.04,(hi-lo)*.25);
-   $(stage+'_min').value=Math.max(0,lo-margin).toFixed(3);
-   $(stage+'_max').value=(hi+margin).toFixed(3);
-   $(stage+'_info').textContent=arr.length+' leituras | mediana '+percentile(arr,.5).toFixed(2)+' A';
-   $('progressText').textContent=`Captura de ${stage} concluída. Confira a faixa sugerida.`;
- }finally{capturing=false;$('progress').style.width='0';document.querySelectorAll('.capture').forEach(b=>b.disabled=false);}
+  const candidate=deriveBands(points);
+  const bases='Amostras: '+points.length+'. Correntes identificadas: '+candidate.centers.map(x=>x.toFixed(2)+' A').join(' / ')+'. ';
+  if(rate<8||points.length<80){
+   suggested=null;$('applySuggested').disabled=true;box.className='message error';
+   box.textContent=bases+'Dados insuficientes para calibrar movimentos rápidos: a telemetria atual deve enviar pelo menos 10 amostras/s, preferencialmente 40, em lotes. Nenhuma faixa foi aplicada.';
+  }else{
+   suggested=candidate;$('applySuggested').disabled=false;box.className='message';
+   box.textContent=bases+'Sugestões calculadas. A associação dos estados por intensidade é uma hipótese para a brochadeira piloto, precisa de validação física antes de salvar.';
+  }
+ }catch(err){suggested=null;$('applySuggested').disabled=true;box.className='message error';box.textContent=err.message;}
+}
+function trainApply(){
+ if(!suggested||!selected)throw Error('Não há dados confiáveis para aplicar.');
+ for(const [state,index] of Object.entries(suggested.assign)){
+  const b=suggested.ranges[index];$(state+'_min').value=b[0].toFixed(3);$(state+'_max').value=b[1].toFixed(3);
+  $(state+'_info').textContent='Sugestão '+suggested.centers[index].toFixed(2)+' A';
+ }
+ notify('Faixas sugeridas preenchidas. Confirme os movimentos na máquina antes de salvar.','ok');
 }
 async function register(){
  const m=getMachine(),dispositivo_id=$('device').value.trim(),maquina=$('nome').value.trim();
@@ -193,6 +252,9 @@ async function start(){
  catch(e){notify('Falha ao abrir configuração: '+e.message,'error');}
  $('existing').addEventListener('change',e=>{if(e.target.value)chooseSensor(e.target.value);else{selected=null;clearMessage();}});
  $('cpsList').addEventListener('change',e=>{if(!e.target.value)return;$('maquina').value=e.target.value;$('nome').value=e.target.selectedOptions[0]?.dataset.machine||'';});
+ $('trainStart').addEventListener('click',()=>trainBegin().catch(e=>notify(e.message,'error')));
+ $('trainStop').addEventListener('click',trainFinish);
+ $('applySuggested').addEventListener('click',()=>{try{trainApply()}catch(e){notify(e.message,'error')}});
  $('register').addEventListener('click',()=>register().catch(e=>notify(e.message,'error')));
  $('save').addEventListener('click',()=>save().catch(e=>notify(e.message,'error')));
  $('reload').addEventListener('click',()=>loadSensors(selected&&key(selected)).catch(e=>notify(e.message,'error')));
