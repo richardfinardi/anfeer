@@ -55,19 +55,25 @@
     </section>
     <section class="box wide">
       <div class="flex spaced"><h2>Assistente de calibração</h2><span class="tag" id="calVersion">Configuração ainda não salva</span></div>
-      <p class="sub">Calibração pelo ciclo completo, sem tempo fixo. Inicie a coleta, execute três ciclos completos e finalize. Os parâmetros serão sugeridos para revisão.</p>
+      <p class="sub">Calibração por ciclos reais, sem esperar 12 segundos em cada etapa. Na rede temporária do ESP32 (192.168.4.1), inicie a captura rápida, execute três ciclos completos, finalize e baixe o arquivo JSON. Depois importe aqui.</p>
+      <div class="fields two" style="align-items:end;margin-bottom:15px">
+        <div><label for="captureFile">Arquivo de captura rápida (.json)</label><input id="captureFile" type="file" accept="application/json,.json"></div>
+        <div><button class="primary" id="processCapture" style="width:100%">Analisar os três ciclos</button></div>
+      </div>
+      <details style="border:1px solid var(--line);padding:12px;border-radius:10px;margin:12px 0"><summary class="tip" style="cursor:pointer">Coleta lenta pela nuvem (não recomendada para movimentos rápidos)</summary>
       <div class="flex" style="margin-bottom:12px">
         <button class="primary" id="trainStart">Iniciar aprendizagem</button>
         <button id="trainStop" disabled>Finalizar após 3 ciclos</button>
         <span class="tag" id="trainState">Aguardando início</span>
       </div>
+      </details>
       <div class="stat">
         <div><label>Tempo de captura</label><strong class="smallval" id="trainDuration">0 s</strong></div>
         <div><label>Amostras coletadas</label><strong class="smallval" id="trainCount">0</strong></div>
         <div><label>Frequência de leitura</label><strong class="smallval" id="trainRate">—</strong></div>
       </div>
       <div class="bar"><div id="progress"></div></div>
-      <p class="tip" id="progressText">Pronto. Não é preciso permanecer 12 segundos em cada estado.</p>
+      <p class="tip" id="progressText">Aguardando arquivo da captura rápida feita pelo ESP32.</p>
       <div id="learnResult" class="message hidden"></div>
       <div class="flex" style="margin:14px 0">
         <button id="applySuggested" disabled>Aplicar faixas sugeridas</button>
@@ -223,6 +229,38 @@ function trainFinish(){
   }
  }catch(err){suggested=null;$('applySuggested').disabled=true;box.className='message error';box.textContent=err.message;}
 }
+async function importarCaptura(){
+ if(!selected)throw Error('Selecione uma máquina cadastrada antes de importar.');
+ const file=$('captureFile').files[0];
+ if(!file)throw Error('Selecione o arquivo JSON baixado do ESP32.');
+ if(file.size<100||file.size>250000)throw Error('Arquivo JSON inválido ou muito grande.');
+ let data;
+ try{data=JSON.parse(await file.text())}catch(e){throw Error('Arquivo JSON não pôde ser lido.')}
+ if(data.formato!=='ANFEER_CAPTURA_V1')throw Error('Formato de captura não reconhecido.');
+ if(Number(data.cod_maquina)!==Number(selected.cod_maquina))throw Error('A captura é de outra máquina.');
+ if(String(data.dispositivo_id)!==String(selected.dispositivo_id))throw Error('O identificador do ESP32 não corresponde ao cadastro.');
+ if(!Array.isArray(data.pontos)||data.pontos.length<20||data.pontos.length>1500)throw Error('Arquivo não contém entre 20 e 1500 leituras.');
+ const pontos=data.pontos.map((p,i)=>({t_ms:Number(p.t_ms),corrente_a:Number(p.corrente_a),id:i+1}));
+ if(pontos.some((p,i)=>!Number.isFinite(p.t_ms)||p.t_ms<0||!Number.isFinite(p.corrente_a)||p.corrente_a<0||p.corrente_a>1000||(i&&p.t_ms<=pontos[i-1].t_ms)))throw Error('Amostras inválidas ou com tempos fora de ordem.');
+ const laps=pontos.slice(1).map((p,i)=>p.t_ms-pontos[i].t_ms);
+ const periodo=percentile(laps,.5),frequencia=1000/periodo;
+ $('trainRate').textContent=frequencia.toFixed(1)+' leituras/s';
+ $('trainCount').textContent=pontos.length;
+ $('trainDuration').textContent=((pontos.at(-1).t_ms-pontos[0].t_ms)/1000).toFixed(1)+' s';
+ $('trainState').textContent='Arquivo importado';
+ $('progressText').textContent='Captura importada. Analisando faixas reais de corrente.';
+ const box=$('learnResult');box.classList.remove('hidden');suggested=null;$('applySuggested').disabled=true;
+ if(frequencia<6||pontos.length<30){
+   box.className='message error';
+   box.textContent='Amostragem insuficiente ('+frequencia.toFixed(1)+' leituras/s, '+pontos.length+' pontos). Repita a captura com a V14.';
+   return;
+ }
+ try{
+   const candidate=deriveBands(pontos);
+   suggested=candidate;$('applySuggested').disabled=false;box.className='message';
+   box.textContent='Captura validada: '+pontos.length+' leituras a '+frequencia.toFixed(1)+' Hz. Correntes estimadas: '+candidate.centers.map(x=>x.toFixed(2)+' A').join(' / ')+'. A ordem dos estados é uma hipótese baseada na KONE 026, confirme com os movimentos reais antes de salvar.';
+ }catch(err){box.className='message error';box.textContent='Não foi possível encontrar 4 estados bem separados: '+err.message+' Não aplique faixas sem conferir os movimentos.';}
+}
 function trainApply(){
  if(!suggested||!selected)throw Error('Não há dados confiáveis para aplicar.');
  for(const [state,index] of Object.entries(suggested.assign)){
@@ -252,6 +290,7 @@ async function start(){
  catch(e){notify('Falha ao abrir configuração: '+e.message,'error');}
  $('existing').addEventListener('change',e=>{if(e.target.value)chooseSensor(e.target.value);else{selected=null;clearMessage();}});
  $('cpsList').addEventListener('change',e=>{if(!e.target.value)return;$('maquina').value=e.target.value;$('nome').value=e.target.selectedOptions[0]?.dataset.machine||'';});
+ $('processCapture').addEventListener('click',()=>importarCaptura().catch(e=>notify(e.message,'error')));
  $('trainStart').addEventListener('click',()=>trainBegin().catch(e=>notify(e.message,'error')));
  $('trainStop').addEventListener('click',trainFinish);
  $('applySuggested').addEventListener('click',()=>{try{trainApply()}catch(e){notify(e.message,'error')}});
