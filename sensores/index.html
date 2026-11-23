@@ -55,25 +55,20 @@
     </section>
     <section class="box wide">
       <div class="flex spaced"><h2>Assistente de calibração</h2><span class="tag" id="calVersion">Configuração ainda não salva</span></div>
-      <p class="sub">Calibração por ciclos reais, sem esperar 12 segundos em cada etapa. Na rede temporária do ESP32 (192.168.4.1), inicie a captura rápida, execute três ciclos completos, finalize e baixe o arquivo JSON. Depois importe aqui.</p>
-      <div class="fields two" style="align-items:end;margin-bottom:15px">
-        <div><label for="captureFile">Arquivo de captura rápida (.json)</label><input id="captureFile" type="file" accept="application/json,.json"></div>
-        <div><button class="primary" id="processCapture" style="width:100%">Analisar os três ciclos</button></div>
+      <p class="sub">Captura rápida diretamente pelo portal. Deixe a máquina parada por 2 segundos após iniciar, execute três ciclos e finalize. O ESP32 coleta a corrente localmente e envia os dados ao Cloudflare automaticamente.</p>
+      <div class="flex" style="margin-bottom:14px">
+        <button class="primary" id="captureStart">Iniciar captura</button>
+        <button id="captureStop" disabled>Finalizar captura</button>
+        <span class="tag" id="captureState" aria-live="polite">Aguardando dispositivo</span>
       </div>
-      <details style="border:1px solid var(--line);padding:12px;border-radius:10px;margin:12px 0"><summary class="tip" style="cursor:pointer">Coleta lenta pela nuvem (não recomendada para movimentos rápidos)</summary>
-      <div class="flex" style="margin-bottom:12px">
-        <button class="primary" id="trainStart">Iniciar aprendizagem</button>
-        <button id="trainStop" disabled>Finalizar após 3 ciclos</button>
-        <span class="tag" id="trainState">Aguardando início</span>
-      </div>
-      </details>
+      <p class="tip" id="captureDetail">Não é necessário acessar 192.168.4.1 nem baixar arquivos. Mantenha o ESP32 ligado e conectado ao Wi-Fi.</p>
       <div class="stat">
         <div><label>Tempo de captura</label><strong class="smallval" id="trainDuration">0 s</strong></div>
         <div><label>Amostras coletadas</label><strong class="smallval" id="trainCount">0</strong></div>
         <div><label>Frequência de leitura</label><strong class="smallval" id="trainRate">—</strong></div>
       </div>
       <div class="bar"><div id="progress"></div></div>
-      <p class="tip" id="progressText">Aguardando arquivo da captura rápida feita pelo ESP32.</p>
+      <p class="tip" id="progressText">Aguardando iniciar a captura pelo portal.</p>
       <div id="learnResult" class="message hidden"></div>
       <div class="flex" style="margin:14px 0">
         <button id="applySuggested" disabled>Aplicar faixas sugeridas</button>
@@ -92,9 +87,11 @@
 <script>
 'use strict';
 const API='https://anfeer-brochadeira-api.auvriun-monitor.workers.dev';
+const CAPTURE_API='https://anfeer-brochadeira-captura.auvriun-monitor.workers.dev';
 const STAGES=[['PARADA','Máquina parada'],['AVANCO','Movimento de avanço'],['RETORNO','Retorno sem peça'],['PRODUCAO','Movimento com peça']];
 const $=id=>document.getElementById(id);
 let sensors=[], selected=null, currentReadings=[], capturing=false, updating=false, polling=null;
+let busyCapture=false, lastCaptureProcessed='',capturePolling=null;
 const captureLabel={};
 function notify(text,kind=''){const n=$('msg');n.textContent=text;n.className='message'+(kind?' '+kind:'');n.classList.remove('hidden');}
 function clearMessage(){$('msg').classList.add('hidden');}
@@ -110,6 +107,19 @@ async function api(path,method='GET',data){
   if(r.status===401){window.location.replace('../');throw Error('Sessão expirada.');}
   if(!r.ok||!j?.ok)throw Error(j?.erro||'Falha HTTP '+r.status);
   return j;
+ }finally{clearTimeout(timer)}
+}
+
+async function capturaApi(path,method='GET',data){
+ const token=localStorage.getItem('anfeer_portal_token');
+ if(!token)throw Error('Sessão do portal ANFEER não encontrada.');
+ const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),17000);
+ try{
+   const r=await fetch(CAPTURE_API+path,{method,headers:{Authorization:'Bearer '+token,...(data?{'Content-Type':'application/json'}:{})},body:data?JSON.stringify(data):undefined,cache:'no-store',credentials:'omit',signal:ctrl.signal});
+   const j=await r.json().catch(()=>null);
+   if(r.status===401){window.location.replace('../');throw Error('Sessão expirada.');}
+   if(!r.ok||!j?.ok)throw Error(j?.erro||'Captura indisponível: HTTP '+r.status);
+   return j;
  }finally{clearTimeout(timer)}
 }
 function key(s){return String(s.cod_maquina)}
@@ -137,7 +147,7 @@ function chooseSensor(id){
  $('hold').value=selected.calibracao?.tempo_minimo_ms??300;
  $('sequence').value=(selected.calibracao?.sequencia||['PARADA','AVANCO','PRODUCAO','RETORNO','PARADA']).join(',');
  for(const [k] of STAGES){const values=selected.calibracao?.estados?.[k]||{};$(k+'_min').value=values.min_a??'';$(k+'_max').value=values.max_a??'';captureLabel[k]='';$(k+'_info').textContent='';}
- currentReadings=[];draw();refresh().catch(()=>{});
+ currentReadings=[];lastCaptureProcessed='';$('captureState').textContent='Consultando dispositivo';$('captureStop').disabled=true;draw();refresh().catch(()=>{});atualizarCaptura().catch(()=>{});
 }
 function createRows(){
  const target=$('calRows');target.replaceChildren();
@@ -229,13 +239,8 @@ function trainFinish(){
   }
  }catch(err){suggested=null;$('applySuggested').disabled=true;box.className='message error';box.textContent=err.message;}
 }
-async function importarCaptura(){
- if(!selected)throw Error('Selecione uma máquina cadastrada antes de importar.');
- const file=$('captureFile').files[0];
- if(!file)throw Error('Selecione o arquivo JSON baixado do ESP32.');
- if(file.size<100||file.size>250000)throw Error('Arquivo JSON inválido ou muito grande.');
- let data;
- try{data=JSON.parse(await file.text())}catch(e){throw Error('Arquivo JSON não pôde ser lido.')}
+async function analisarCaptura(data){
+ if(!selected)throw Error('Selecione uma máquina cadastrada antes de analisar.');
  if(data.formato!=='ANFEER_CAPTURA_V1')throw Error('Formato de captura não reconhecido.');
  if(Number(data.cod_maquina)!==Number(selected.cod_maquina))throw Error('A captura é de outra máquina.');
  if(String(data.dispositivo_id)!==String(selected.dispositivo_id))throw Error('O identificador do ESP32 não corresponde ao cadastro.');
@@ -247,8 +252,8 @@ async function importarCaptura(){
  $('trainRate').textContent=frequencia.toFixed(1)+' leituras/s';
  $('trainCount').textContent=pontos.length;
  $('trainDuration').textContent=((pontos.at(-1).t_ms-pontos[0].t_ms)/1000).toFixed(1)+' s';
- $('trainState').textContent='Arquivo importado';
- $('progressText').textContent='Captura importada. Analisando faixas reais de corrente.';
+ $('captureState').textContent='Captura recebida do ESP32';
+ $('progressText').textContent='Captura recebida pela nuvem. Analisando as correntes reais.';
  const box=$('learnResult');box.classList.remove('hidden');suggested=null;$('applySuggested').disabled=true;
  if(frequencia<6||pontos.length<30){
    box.className='message error';
@@ -260,6 +265,59 @@ async function importarCaptura(){
    suggested=candidate;$('applySuggested').disabled=false;box.className='message';
    box.textContent='Captura validada: '+pontos.length+' leituras a '+frequencia.toFixed(1)+' Hz. Correntes estimadas: '+candidate.centers.map(x=>x.toFixed(2)+' A').join(' / ')+'. A ordem dos estados é uma hipótese baseada na KONE 026, confirme com os movimentos reais antes de salvar.';
  }catch(err){box.className='message error';box.textContent='Não foi possível encontrar 4 estados bem separados: '+err.message+' Não aplique faixas sem conferir os movimentos.';}
+}
+
+async function comandoCaptura(acao){
+ if(!selected)throw Error('Selecione uma máquina cadastrada.');
+ if(busyCapture)throw Error('Aguarde a operação anterior.');
+ busyCapture=true;
+ const machine=selected;
+ $('captureStart').disabled=true;$('captureStop').disabled=true;
+ try{
+   const j=await capturaApi('/v1/captura','POST',{cod_maquina:machine.cod_maquina,acao});
+   if(selected!==machine)return;
+   if(acao==='INICIAR'){
+     suggested=null;$('applySuggested').disabled=true;$('learnResult').classList.add('hidden');
+     lastCaptureProcessed='';
+     $('trainCount').textContent='0';$('trainDuration').textContent='0 s';$('trainRate').textContent='—';
+     $('progressText').textContent='Deixe parada por 2 segundos, execute 3 ciclos completos e finalize.';
+   }else{
+     $('progressText').textContent='Captura finalizada pelo portal. Aguardando envio do ESP32 (pode levar alguns segundos).';
+   }
+   $('captureState').textContent=j.captura?.estado||'Aguardando';
+   $('captureDetail').textContent='ESP32 '+(j.captura?.dispositivo_id||machine.dispositivo_id)+'. Comunicação por HTTPS; sem arquivo JSON.';
+ }finally{
+   busyCapture=false;$('captureStart').disabled=false;
+   await atualizarCaptura().catch(()=>{});
+ }
+}
+async function atualizarCaptura(){
+ if(!selected||busyCapture)return;
+ busyCapture=true;
+ const maquinaSelecionada=selected;
+ try{
+   const j=await capturaApi('/v1/captura?cod_maquina='+maquinaSelecionada.cod_maquina);
+   if(selected!==maquinaSelecionada)return;
+   const c=j.captura;
+   const status=c?.estado||'OCIOSA';
+   const rotulos={OCIOSA:'Pronto para capturar',AGUARDANDO:'Aguardando ESP32',CAPTURANDO:'Capturando ciclos',FINALIZANDO:'Finalizando no ESP32',ENVIANDO:'Recebendo amostras',CONCLUIDA:'Captura concluída',ERRO:'Falha na captura'};
+   $('captureState').textContent=rotulos[status]||status;
+   $('captureStop').disabled=!['AGUARDANDO','CAPTURANDO'].includes(status);
+   $('captureDetail').textContent=status==='ERRO'?(c.erro||'Falha no ESP32.'):status==='AGUARDANDO'?'Comando enviado. O ESP32 deve começar em poucos segundos.':status==='CAPTURANDO'?'Deixe parada por 2 segundos, execute 3 ciclos e clique em Finalizar.':status==='FINALIZANDO'?'Aguardando o dispositivo parar a captura.':status==='ENVIANDO'?'O ESP32 está enviando as amostras pela nuvem. Aguarde.':status==='CONCLUIDA'?'Dados recebidos. As faixas serão sugeridas abaixo.':'A captura será controlada diretamente neste portal.';
+   if(Number.isInteger(c?.total_amostras)&&c.total_amostras>0)$('trainCount').textContent=c.total_amostras;
+   if(status==='CONCLUIDA'&&c.captura_id&&lastCaptureProcessed!==c.captura_id){
+      const recebido=await capturaApi('/v1/captura?cod_maquina='+maquinaSelecionada.cod_maquina+'&dados=1');
+      if(selected!==maquinaSelecionada)return;
+      if(!recebido.dados)throw Error('Captura concluída, mas dados ainda não disponíveis.');
+      await analisarCaptura(recebido.dados);
+      lastCaptureProcessed=c.captura_id;
+   }
+ }catch(err){
+   if(selected===maquinaSelecionada){
+      $('captureState').textContent='Sem conexão com o serviço de captura';
+      $('captureDetail').textContent=err.message;
+   }
+ }finally{busyCapture=false}
 }
 function trainApply(){
  if(!suggested||!selected)throw Error('Não há dados confiáveis para aplicar.');
@@ -286,13 +344,12 @@ async function save(){
 async function start(){
  createRows();await window.anfeerAuthReady;
  if(!localStorage.getItem('anfeer_portal_token'))return;
- try{await Promise.all([loadSensors(),loadCps()]);polling=setInterval(()=>refresh().catch(()=>{}),2000);}
+ try{await Promise.all([loadSensors(),loadCps()]);polling=setInterval(()=>refresh().catch(()=>{}),2000);capturePolling=setInterval(()=>atualizarCaptura().catch(()=>{}),2200);}
  catch(e){notify('Falha ao abrir configuração: '+e.message,'error');}
  $('existing').addEventListener('change',e=>{if(e.target.value)chooseSensor(e.target.value);else{selected=null;clearMessage();}});
  $('cpsList').addEventListener('change',e=>{if(!e.target.value)return;$('maquina').value=e.target.value;$('nome').value=e.target.selectedOptions[0]?.dataset.machine||'';});
- $('processCapture').addEventListener('click',()=>importarCaptura().catch(e=>notify(e.message,'error')));
- $('trainStart').addEventListener('click',()=>trainBegin().catch(e=>notify(e.message,'error')));
- $('trainStop').addEventListener('click',trainFinish);
+ $('captureStart').addEventListener('click',()=>comandoCaptura('INICIAR').catch(e=>notify(e.message,'error')));
+ $('captureStop').addEventListener('click',()=>comandoCaptura('PARAR').catch(e=>notify(e.message,'error')));
  $('applySuggested').addEventListener('click',()=>{try{trainApply()}catch(e){notify(e.message,'error')}});
  $('register').addEventListener('click',()=>register().catch(e=>notify(e.message,'error')));
  $('save').addEventListener('click',()=>save().catch(e=>notify(e.message,'error')));
