@@ -156,8 +156,8 @@ static const uint32_t RECUPERACAO_MS = 5000;
 static const uint32_t WIFI_TIMEOUT_MS = 12000;
 static const uint32_t SAMPLE_PERIOD_MS = 300;
 static const uint16_t SAMPLE_COUNT = 170;
-static const uint16_t CAPTURA_ADC_AMOSTRAS = 64;
-static const uint32_t CAPTURA_PERIODO_MS = 90;
+static const uint16_t CAPTURA_ADC_AMOSTRAS = 48;
+static const uint32_t CAPTURA_PERIODO_MS = 65;
 static const size_t CAPTURA_MAX_PONTOS = 1500;
 static const float AMP_PER_VRMS = 30.0f; // SCT-013-030 30A/1V (nominal)
 
@@ -226,7 +226,7 @@ button{border:0;background:#d9231d;color:white;padding:13px 20px;font:inherit;fo
 </div>
 <div class="box" id="capturabox">
 <h2>Captura rapida de tres ciclos</h2>
-<p>1. Deixe a maquina parada por cerca de 2 segundos. 2. Toque em Iniciar e execute 3 ciclos completos. 3. Finalize e baixe o JSON. 4. Importe no portal ANFEER para analisar e salvar a calibracao.</p>
+<p>1. Toque em Iniciar e deixe a maquina parada por 2 segundos. 2. Execute 3 ciclos completos. 3. Finalize e baixe o JSON. 4. Importe no portal ANFEER para analisar e salvar a calibracao.</p>
 <p><b id="capstatus">Captura desligada</b></p>
 <button type="button" id="capstart">Iniciar captura</button>
 <button type="button" id="capstop" style="background:#435269">Finalizar captura</button>
@@ -447,7 +447,7 @@ void iniciarWifi() {
   }
 }
 
-void fazerMedicao(uint16_t quantidadeAmostras = SAMPLE_COUNT) {
+void fazerMedicao(uint16_t quantidadeAmostras) {
   if (!adsOk) return;
   // 170 amostras @ 860 SPS percorrem varios periodos de uma rede de 50/60 Hz.
   // Welford remove a componente continua de ~1.65 V, deixando apenas o AC RMS.
