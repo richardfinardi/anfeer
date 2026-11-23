@@ -67,7 +67,6 @@
         <div><label>Amostras coletadas</label><strong class="smallval" id="trainCount">0</strong></div>
         <div><label>Frequência de leitura</label><strong class="smallval" id="trainRate">—</strong></div>
       </div>
-      <div class="bar"><div id="progress"></div></div>
       <p class="tip" id="progressText">Aguardando iniciar a captura pelo portal.</p>
       <div id="learnResult" class="message hidden"></div>
       <div class="flex" style="margin:14px 0">
@@ -182,25 +181,7 @@ async function refresh(){
  }finally{updating=false;}
 }
 function percentile(a,p){const x=[...a].sort((a,b)=>a-b),i=(x.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return x[lo]+(x[hi]-x[lo])*(i-lo)}
-let training=null,suggested=null;
-function trainUI(message){$('trainState').textContent=message;$('trainStart').disabled=!!training;$('trainStop').disabled=!training;}
-function trainCollect(){
- if(!training||selected!==training.sensor)return;
- for(const s of currentReadings){
-  if(Number(s.id)>training.startId&&Number.isFinite(Number(s.corrente_a))&&!training.points.has(Number(s.id)))
-   training.points.set(Number(s.id),{id:Number(s.id),corrente_a:Number(s.corrente_a),recebido_em:s.recebido_em});
- }
- $('trainCount').textContent=training.points.size;
- $('trainDuration').textContent=Math.round((Date.now()-training.startedAt)/1000)+' s';
-}
-async function trainBegin(){
- if(!selected)throw Error('Cadastre ou selecione a máquina antes da aprendizagem.');
- if(training)throw Error('Já há coleta em andamento.');
- await refresh();suggested=null;$('applySuggested').disabled=true;$('learnResult').classList.add('hidden');
- training={sensor:selected,startedAt:Date.now(),startId:Number(currentReadings.at(-1)?.id||0),points:new Map()};
- trainUI('Gravando três ciclos');$('progressText').textContent='Execute três ciclos completos e pressione Finalizar.';
- training.timer=setInterval(()=>{refresh().then(trainCollect).catch(()=>{});trainCollect()},700);
-}
+let suggested=null;
 function deriveBands(points){
  const amps=points.map(p=>p.corrente_a).filter(x=>Number.isFinite(x)&&x>=0&&x<1000);
  if(amps.length<8)throw Error('Poucas amostras. É necessário enviar leituras com maior frequência.');
@@ -217,27 +198,6 @@ function deriveBands(points){
  const ranges=[[Math.max(0,centers[0]-(mid[0]-centers[0])),mid[0]],[mid[0],mid[1]],[mid[1],mid[2]],[mid[2],centers[3]+Math.max(.08,centers[3]-mid[2])]];
  // Hipótese para a KONE piloto; não vale universalmente para outras máquinas.
  return {centers,ranges,assign:{PARADA:0,RETORNO:1,PRODUCAO:2,AVANCO:3}};
-}
-function trainFinish(){
- if(!training)return;
- clearInterval(training.timer);trainCollect();
- const points=[...training.points.values()].sort((a,b)=>a.id-b.id);training=null;trainUI('Coleta encerrada');
- const delays=[];for(let i=1;i<points.length;i++){const d=Date.parse(points[i].recebido_em)-Date.parse(points[i-1].recebido_em);if(Number.isFinite(d)&&d>0)delays.push(d);}
- const rate=delays.length?1000/percentile(delays,.5):0;
- $('trainRate').textContent=rate?rate.toFixed(1)+' leituras/s':'—';
- $('progressText').textContent='Coleta concluída. Avaliando qualidade das leituras.';
- const box=$('learnResult');box.classList.remove('hidden');
- try{
-  const candidate=deriveBands(points);
-  const bases='Amostras: '+points.length+'. Correntes identificadas: '+candidate.centers.map(x=>x.toFixed(2)+' A').join(' / ')+'. ';
-  if(rate<8||points.length<80){
-   suggested=null;$('applySuggested').disabled=true;box.className='message error';
-   box.textContent=bases+'Dados insuficientes para calibrar movimentos rápidos: a telemetria atual deve enviar pelo menos 10 amostras/s, preferencialmente 40, em lotes. Nenhuma faixa foi aplicada.';
-  }else{
-   suggested=candidate;$('applySuggested').disabled=false;box.className='message';
-   box.textContent=bases+'Sugestões calculadas. A associação dos estados por intensidade é uma hipótese para a brochadeira piloto, precisa de validação física antes de salvar.';
-  }
- }catch(err){suggested=null;$('applySuggested').disabled=true;box.className='message error';box.textContent=err.message;}
 }
 async function analisarCaptura(data){
  if(!selected)throw Error('Selecione uma máquina cadastrada antes de analisar.');
@@ -304,7 +264,9 @@ async function atualizarCaptura(){
    $('captureState').textContent=rotulos[status]||status;
    $('captureStop').disabled=!['AGUARDANDO','CAPTURANDO'].includes(status);
    $('captureDetail').textContent=status==='ERRO'?(c.erro||'Falha no ESP32.'):status==='AGUARDANDO'?'Comando enviado. O ESP32 deve começar em poucos segundos.':status==='CAPTURANDO'?'Deixe parada por 2 segundos, execute 3 ciclos e clique em Finalizar.':status==='FINALIZANDO'?'Aguardando o dispositivo parar a captura.':status==='ENVIANDO'?'O ESP32 está enviando as amostras pela nuvem. Aguarde.':status==='CONCLUIDA'?'Dados recebidos. As faixas serão sugeridas abaixo.':'A captura será controlada diretamente neste portal.';
-   if(Number.isInteger(c?.total_amostras)&&c.total_amostras>0)$('trainCount').textContent=c.total_amostras;
+   if(status==='CAPTURANDO')$('trainCount').textContent='Coletando no ESP32';
+   else if(status==='FINALIZANDO')$('trainCount').textContent='Finalizando';
+   else if(Number.isInteger(c?.total_amostras)&&c.total_amostras>0)$('trainCount').textContent=c.total_amostras;
    if(status==='CONCLUIDA'&&c.captura_id&&lastCaptureProcessed!==c.captura_id){
       const recebido=await capturaApi('/v1/captura?cod_maquina='+maquinaSelecionada.cod_maquina+'&dados=1');
       if(selected!==maquinaSelecionada)return;
