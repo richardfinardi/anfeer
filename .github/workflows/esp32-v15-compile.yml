@@ -1,0 +1,29 @@
+name: Compilar ANFEER ESP32 V15
+on:
+  push:
+    paths:
+      - 'firmware/ANFEER_ESP32_WIFI_V15_CAPTURA_NUVEM/**'
+      - '.github/workflows/esp32-v15-compile.yml'
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Instalar Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+      - name: Instalar core ESP32
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+      - name: Instalar bibliotecas
+        run: |
+          arduino-cli lib install --install-deps "Adafruit ADS1X15"
+          arduino-cli lib install --install-deps "ArduinoJson"
+      - name: Compilar ESP32 Dev Module
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 firmware/ANFEER_ESP32_WIFI_V15_CAPTURA_NUVEM
