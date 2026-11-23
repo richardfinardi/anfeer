@@ -22,8 +22,8 @@ jobs:
           arduino-cli core install esp32:esp32
       - name: Instalar bibliotecas
         run: |
-          arduino-cli lib install --install-deps "Adafruit ADS1X15"
-          arduino-cli lib install --install-deps "ArduinoJson"
+          arduino-cli lib install "Adafruit ADS1X15"
+          arduino-cli lib install "ArduinoJson"
       - name: Compilar ESP32 Dev Module
         run: |
           arduino-cli compile --fqbn esp32:esp32:esp32 firmware/ANFEER_ESP32_WIFI_V15_CAPTURA_NUVEM
